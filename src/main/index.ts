@@ -2,6 +2,8 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import _ from 'lodash';
+import { parse } from "csv-parse/sync";
 
 function createWindow(): void {
   // Create the browser window.
@@ -54,6 +56,16 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // Add the parse-csv event listener
+  //  when ipcMain receives the 'parse-csv' event with file content, use parse function from csv-parse/sync to parse the csv content into a json object and send the json object back to the renderer process
+  ipcMain.on('parse-csv', (event, fileContent) => {
+    const json =  parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true
+    })
+    event.reply('parsed-csv', json)
+  })
+
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -72,3 +84,4 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+

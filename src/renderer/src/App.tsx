@@ -1,27 +1,21 @@
-import Versions from './components/Versions'
-import UploadFile from './components/Upload'
-import electronLogo from './assets/electron.svg'
-import { useState } from 'react'
 import Upload from './components/Upload'
 import Chord from './components/Chord'
 import Network from './components/Network'
 import Plot from './components/Plot'
-
-type AppState = 'upload' | 'chord' | 'network' | 'plot'
+import { useAppStore } from './store/AppStore'
 
 function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
 
-  // use the useState hook to check the overall state of the app called appState. Depending on whether the state is
+  // use the useStore hook to check the overall state of the app called appState. Depending on whether the state is
   // upload, chord, network, or plot, show the corresponding component.
-  const [appState, setAppState] = useState<AppState>('upload')
+  const mainState = useAppStore((state) => state.mainState)
 
   return (
     <>
-      {appState === 'upload' && <Upload />}
-      {appState === 'chord' && <Chord />}
-      {appState === 'network' && <Network />}
-      {appState === 'plot' && <Plot />}
+      {mainState === 'upload' && <Upload />}
+      {mainState === 'chord' && <Chord />}
+      {mainState === 'network' && <Network />}
+      {mainState === 'plot' && <Plot />}
     </>
   )
 }

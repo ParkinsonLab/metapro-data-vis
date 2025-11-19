@@ -23,7 +23,10 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "csv-parse": "^6.1.0",
     "electron-updater": "^6.3.9",
+    "plotly.js": "^3.3.0",
+    "react-plotly.js": "^2.6.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
