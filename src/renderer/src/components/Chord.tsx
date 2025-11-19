@@ -41,12 +41,12 @@ const to_chord_data = (data: any) => {
         if (!acc[species][annotation]) {
             acc[species][annotation] = 0;
         }
-        acc[species][annotation] += value;
+        acc[species][annotation] += Number(value);
     }
 
     const count_map = data.reduce(
         (count_map: any, row: any) => {
-            const ec_key = row['EC#'].split('.').slice(0, 2).join(".")
+            const ec_key = row['EC#'].split('.')[0]
             Object.keys(row).forEach(key => {
                 if (!key_cols.includes(key) && row[key] > 0) {
                     add_to_count_map(count_map, key, ec_key, row[key]);
@@ -63,7 +63,7 @@ const to_chord_data = (data: any) => {
     )
     // contains the species for each species-annotation combination
     const species = Object.keys(count_map).flatMap(
-        (k: string) => Object.keys(count_map[k]).map(() => k)
+        (k: string) => Object.keys(count_map[k]).map(() => map_to_category(k))
     )
     // contains flattened counts
     const counts = Object.keys(count_map).flatMap(
@@ -95,12 +95,13 @@ function Chord(): React.JSX.Element {
     const data = useAppStore((state) => state.data)
 
     const trace = to_chord_data(data)
+    console.log(trace)
 
     return (
         <div>
             <Plot
                 data={[trace]}
-                layout={{width: 600}}
+                layout={{width: 600, displayModeBar: true}}
             />
             <button onClick={backToFileUpload}>Back to File Upload</button>
         </div>
