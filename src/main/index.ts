@@ -58,12 +58,25 @@ app.whenReady().then(() => {
 
   // Add the parse-csv event listener
   //  when ipcMain receives the 'parse-csv' event with file content, use parse function from csv-parse/sync to parse the csv content into a json object and send the json object back to the renderer process
-  ipcMain.on('parse-csv', (event, fileContent) => {
+  ipcMain.on('parse-data', (event, fileContent) => {
     const json =  parse(fileContent, {
         columns: true,
         skip_empty_lines: true
     })
-    event.reply('parsed-csv', json)
+    event.reply('parsed-data', json)
+  })
+
+  // similar listener for a second ec file
+  // the two are separated to accomodate for possible differences
+  // but so far are the same
+  ipcMain.on('parse-ec', (event, fileContent) => {
+    const json =  parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        to_line: 223,
+        
+    })
+    event.reply('parsed-ec', json)
   })
 
   app.on('activate', function () {

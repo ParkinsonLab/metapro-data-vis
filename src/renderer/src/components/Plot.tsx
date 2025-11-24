@@ -1,5 +1,5 @@
 function Plot(): React.JSX.Element {
-    return null;
+    return <div></div>;
 }
 
 export default Plot;
