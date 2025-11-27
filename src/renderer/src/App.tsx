@@ -11,6 +11,7 @@ const NavBar = () => {
     const state_map = {
         'nav-upload': 'upload',
         'nav-chord': 'chord',
+        'nav-network': 'network',
     }
 
     const mainState = useAppStore((state) => state.mainState)
@@ -22,12 +23,15 @@ const NavBar = () => {
     return (
         <>
             <p id='title'>Metapro Viz</p>
-            <div className="nav-container">
+            <div id="nav-container">
                 <div id='nav-upload' onClick={handleNavClick} className={mainState === state_map["nav-upload"] ? "bold" : ""}>
                     Upload
                 </div>
                 <div id='nav-chord' onClick={handleNavClick} className={mainState === state_map["nav-chord"] ? "bold" : ""}>
                     Chord
+                </div>
+                <div id='nav-network' onClick={handleNavClick} className={mainState === state_map["nav-network"] ? "bold" : ""}>
+                    Network
                 </div>
             </div>
         </>
@@ -43,12 +47,12 @@ const App = (): React.JSX.Element => {
     return (
         <>
             <NavBar />
-            <>
+            <div id="main-container">
                 {mainState === 'upload' && <Upload />}
                 {mainState === 'chord' && <Chord />}
                 {mainState === 'network' && <Network />}
                 {mainState === 'plot' && <Plot />}
-            </>
+            </div>
         </>
     )
 }

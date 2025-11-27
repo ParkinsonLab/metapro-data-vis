@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/AppStore'
+import parse_data from './parse';
 
 
 const Upload = (): React.JSX.Element => {
@@ -17,7 +18,7 @@ const Upload = (): React.JSX.Element => {
     // React hook to set mainState to 'chord' when both data and ec are non-null
     useEffect(() => {
         if (data && ec && !data_file_load && !ec_file_load && isLoading) {
-            useAppStore.setState({ mainState: 'chord', isLoading: false })
+            parse_data(data, ec)
         }
     }, [data_file_load, ec_file_load])
 
