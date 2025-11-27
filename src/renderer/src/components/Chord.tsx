@@ -1,27 +1,19 @@
 
 // Chord-like diagram from plotly.js that plots classification on the left hand side and
 // annotations on the right hand side
-
+import _ from 'lodash'
 import { useAppStore } from "@renderer/store/AppStore";
 import * as d3 from "d3";
 import { useState, useEffect, useRef } from "react";
-import _ from 'lodash'
-// import Plot from 'react-plotly.js';
+import { map_lum } from './util'
 
-// maps a species name to luminosity (0-100)
-// from the internet
-const map_lum = (string) => {
-    let hash = 0;
-    for (const char of string) {
-        hash = (hash << 5) - hash + char.charCodeAt(0);
-        hash |= 0; // Constrain to 32bit integer
-    }
-    return Math.abs(Math.trunc(hash % 100)) 
-};
+// cols from ec_rpkm which don't countain counts
 const key_cols = [
     "EC#", "GeneID", "Length", "Reads", "RPKM"
 ]
-const cats = {
+
+// standardized names for taxonomy at the domain level
+const tax_domains = {
     "bacteria": "Bacteria",
     "firmicutes": "Firmicutes",
     "actino": "Actinobacteria",
@@ -29,8 +21,16 @@ const cats = {
     "virus": "Viruses",
     "archaea": "Archaea",
 }
-const species_mapper = (name: string) => {
-    if (Object.values(cats).includes(name)) {
+
+// How species map to domains. Will need to fill this out more
+const domain_map = {
+    "Methanosphaera stadtmanae": tax_domains.firmicutes,
+    "Methanobrevibacter smithii": tax_domains.archaea,
+}
+
+// maps taxonomic names to domains
+const domain_mapper = (name: string) => {
+    if (Object.values(tax_domains).includes(name)) {
         return name;
     }
     if (name in domain_map) {
@@ -38,27 +38,22 @@ const species_mapper = (name: string) => {
     }
     // add additional name parsing here
     // the default is bacteria because it's the most common
-    return cats.bacteria;
-}
-const get_cat_hue = (cat) => {
-    return 360 / (Object.keys(cats).length + 1) * Object.values(cats).indexOf(cat)
-}
-const domain_map = {
-    "Methanosphaera stadtmanae": cats.firmicutes,
-    "Methanobrevibacter smithii": cats.archaea,
-}
-const sort_with_mapper = (a, b, mapper) => {
-    const v =(
-        Object.values(cats).indexOf(mapper(a)) - 
-        Object.values(cats).indexOf(mapper(b))
-    )
-    // TODO: if equal, sort regularly
-    if (v !== 0) return v
-    if (a < b) return -1
-    if (a > b) return 1
-    return 0
+    return tax_domains.bacteria;
 }
 
+// helper function that performs two-level sorting, category first
+const sort_by_category = (a, b, get_cat_idx: Function) => {
+    // get_cat_idx(a) returns numerical index of the category a belongs to
+    // sort by category first, then alphabetically if equal
+    const m_a = get_cat_idx(a)
+    const m_b = get_cat_idx(b)
+    const v_a = m_a === m_b ? a : m_a;
+    const v_b = m_a === m_b ? b : m_b;
+    // TODO: if equal, sort regularly
+    if (v_a < v_b) return -1
+    if (v_a > v_b) return 1
+    return 0
+}
 
 // makes a count matrix from precalculated parameters and name mappers
 // refactored out because we need to call it at least twice to make the inner and outer arcs
@@ -66,7 +61,7 @@ const make_count_matrix = (data, matrix_index, species_mapper, annotation_mapper
     const add_to_count_map = (acc: any, species: string, annotation: string, value: number) => {
         const species_index = matrix_index.indexOf(species_mapper(species))
         const annotation_index = matrix_index.indexOf(annotation_mapper(annotation))
-        if (species_index >= 0 && annotation_index >= 0){
+        if (species_index >= 0 && annotation_index >= 0) {
             acc[species_index][annotation_index] += Number(value)
             acc[annotation_index][species_index] += Number(value);
         }
@@ -99,20 +94,19 @@ const make_count_matrix = (data, matrix_index, species_mapper, annotation_mapper
 }
 
 const to_chord_data = (data: Array<Object>, ec_data: Array<Object>) => {
-// functions that preprocesses the data for the chord diagram
-
+    // functions that preprocesses the data for the chord diagram
     const ec_map = ec_data.reduce(
         (acc, row) => {
             Object.keys(row).forEach(
-                (value) => { 
-                    if(value && row[value]) acc[row[value].split(":")[1]] = value
+                (value) => {
+                    if (value && row[value]) acc[row[value].split(":")[1]] = value
                 }
             )
             return acc
         }, {}
     )
     const annotation_mapper = (name: string) => {
-        if (name in ec_map){
+        if (name in ec_map) {
             return ec_map[name]
         }
         return null
@@ -120,22 +114,24 @@ const to_chord_data = (data: Array<Object>, ec_data: Array<Object>) => {
 
     // create count matrix for the outer ring
     // the difference is that this is aggregated
-    const annotation_cats = [ ...new Set(Object.values(ec_map))]
-    const species_cats = [ ...new Set(Object.values(cats))]
+    const annotation_cats = [...new Set(Object.values(ec_map))]
+    const tax_cats = [...new Set(Object.values(tax_domains))] // taxonomic categories
+    const get_cat_hue = (e) => Math.trunc(360 / (tax_cats.length + 1) * tax_cats.indexOf(e))
+    const get_ann_cat_hue = (e) => Math.trunc(360 / (annotation_cats.length + 1) * annotation_cats.indexOf(e))
+
     const outer_matrix_index = ['gap_1'].concat(
         annotation_cats, // super pathways
-        ['gap_2'], 
-        species_cats, // domains
+        ['gap_2'],
+        tax_cats, // domains
         ['gap_3']
     )
     const outer_count_matrix = make_count_matrix(
-        data, outer_matrix_index, species_mapper, annotation_mapper
+        data, outer_matrix_index, domain_mapper, annotation_mapper
     )
-    const outer_species_cm = species_cats.reduce((acc, e) => {
+    const outer_species_cm = tax_cats.reduce((acc, e) => {
         acc[e] = `hsl(${get_cat_hue(e)} 75 50)`
         return acc
     }, {})
-    const get_ann_cat_hue = (e) => Math.trunc(360 / (annotation_cats.length + 1) * annotation_cats.indexOf(e))
     const outer_annotations_cm = annotation_cats.reduce((acc, e) => {
         acc[e] = `hsl(${get_ann_cat_hue(e)} 75 50)`
         return acc
@@ -143,17 +139,17 @@ const to_chord_data = (data: Array<Object>, ec_data: Array<Object>) => {
 
     // create count matrix for the inner ring
     // sort species by category
-    const all_species = [ ...new Set(Object.keys(data[0]))].filter(
-        e => !(key_cols.includes(e) || Object.values(cats).includes(e))
+    const all_species = [...new Set(Object.keys(data[0]))].filter(
+        e => !(key_cols.includes(e) || Object.values(tax_domains).includes(e))
     ).slice().sort(
-        (a, b) => sort_with_mapper(a, b, species_mapper)
+        (a, b) => sort_by_category(a, b, name => tax_cats.indexOf(domain_mapper(name)))
     )
-    const all_annotations = [ ...new Set(Object.keys(ec_map))].sort(
-        (a, b) => sort_with_mapper(a, b, species_mapper)
+    const all_annotations = [...new Set(Object.keys(ec_map))].sort(
+        (a, b) => sort_by_category(a, b, name => annotation_cats.indexOf(annotation_mapper(name)))
     )
     const inner_matrix_index = ['gap_1'].concat(
         all_annotations, // all the ec numbers that are in the map (so excluding 0.0.0.0)
-        ['gap_2'], 
+        ['gap_2'],
         all_species, // all species
         ['gap_3']
     )
@@ -164,7 +160,7 @@ const to_chord_data = (data: Array<Object>, ec_data: Array<Object>) => {
 
     // inner color map
     const inner_species_cm = all_species.reduce((acc, e) => {
-        acc[e] = `hsl(${get_cat_hue(species_mapper(e))} 75 ${map_lum(e)})`
+        acc[e] = `hsl(${get_cat_hue(domain_mapper(e))} 75 ${map_lum(e)})`
         return acc
     }, {})
     const inner_annotation_cm = all_annotations.reduce((acc, e) => {
@@ -184,9 +180,9 @@ const to_chord_data = (data: Array<Object>, ec_data: Array<Object>) => {
     }
 }
 
-const ChordSVG = ({input}) => {
+const ChordSVG = ({ input }) => {
     // Function to create the SVG element for the chord diagram
-    
+
     if (input == null || _.isEmpty(input)) {
         return <div></div>
     }
@@ -196,11 +192,11 @@ const ChordSVG = ({input}) => {
     const height = 640;
     const outerRadius = Math.min(width, height) * 0.5 - 30;
     const innerRadius = outerRadius - 20;
-    const {inner_count_matrix, inner_matrix_index, outer_count_matrix, outer_matrix_index, colors} = input;
-    
+    const { inner_count_matrix, inner_matrix_index, outer_count_matrix, outer_matrix_index, colors } = input;
+
     const gaps = ['gap_1', 'gap_2', 'gap_3']
-    
-    useEffect( () => {
+
+    useEffect(() => {
         // const sum = d3.sum(data.flat());
 
         // const chord = d3.chord()
@@ -210,7 +206,7 @@ const ChordSVG = ({input}) => {
         const inner_arc = d3.arc()
             .innerRadius(innerRadius)
             .outerRadius(outerRadius);
-        
+
         const outer_arc = d3.arc()
             .innerRadius(outerRadius + 20)
             .outerRadius(outerRadius + 40);
@@ -240,8 +236,8 @@ const ChordSVG = ({input}) => {
             .attr("d", outer_arc)
             .attr("stroke", "white")
             .append("title")
-            .text(d => `${d.value} ${outer_matrix_index[d.index]}`);
-        
+            .text(d => `${outer_matrix_index[d.index]} [${Math.trunc(d.value)}]`);
+
         // inner arc
         svg.append("g")
             .selectAll()
@@ -253,7 +249,7 @@ const ChordSVG = ({input}) => {
             .attr("fill", d => colors[inner_matrix_index[d.index]])
             .attr("d", inner_arc)
             .append("title")
-            .text(d => `${d.value} ${inner_matrix_index[d.index]}`);
+            .text(d => `${inner_matrix_index[d.index]} [${Math.trunc(d.value)}]`);
 
         svg.append("g")
             .attr("fill-opacity", 0.7)
@@ -265,10 +261,10 @@ const ChordSVG = ({input}) => {
             // .attr("stroke", "white")
             .append("title")
             .text(
-                d => `${d.source.value} ${inner_matrix_index[d.target.index]} → ${inner_matrix_index[d.source.index]}`
+                d => `${inner_matrix_index[d.target.index]} → ${inner_matrix_index[d.source.index]} [${Math.trunc(d.source.value)}]`
             );
     }, [input])
-        
+
     return <svg width={width} height={height} id="chord" ref={ref} />
 }
 
@@ -285,12 +281,12 @@ const Chord = (): React.JSX.Element => {
             set_parsed_data(tmp)
         }
     }, [data, ec])
-    
+
     return (
         <div>
             <ChordSVG input={parsed_data} />
         </div>
-        
+
     )
 
 }
