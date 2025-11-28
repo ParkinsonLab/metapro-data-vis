@@ -10,9 +10,15 @@ body{
         fill: white;
         font-size: 10px;
     }
+    .network-group-label {
+        stroke: white;
+        fill: white;
+        font-size: 14px;
+    }
     #network-title {
         text-align: center;
         margin-bottom: 20px;
+        font-size: 16px;
     }
     #nav-container {
         display: flex;
@@ -29,7 +35,7 @@ body{
     #main-container {
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         flex-grow: 1;
         margin: 5% 0%;
     }

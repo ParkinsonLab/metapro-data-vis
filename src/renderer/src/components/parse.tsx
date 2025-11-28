@@ -157,6 +157,18 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
         data, inner_matrix_index, self_mapper, self_mapper
     )
 
+    // trim inner matrix
+    const idx_to_keep = inner_count_matrix.reduce((acc, e, i) => {
+        if(d3.sum(e) > 0) acc.push(i)
+        return acc
+    }, [])
+    const trimmed_inner_count_matrix = idx_to_keep.map(
+        e => idx_to_keep.map(e2 => inner_count_matrix[e][e2])
+    )
+    const trimmed_inner_matrix_idx = idx_to_keep.map(
+        e => inner_matrix_index[e]
+    )
+
     // inner color map
     const inner_species_cm = all_species.reduce((acc, e) => {
         acc[e] = `hsl(${get_cat_hue(taxonomy_mapper(e))} 75 ${map_lum(e)})`
@@ -176,7 +188,9 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
 
     useAppStore.setState({
         parsed_data: {
-            inner_count_matrix, inner_matrix_index, outer_count_matrix, outer_matrix_index, colors,
+            inner_count_matrix: trimmed_inner_count_matrix, 
+            inner_matrix_index: trimmed_inner_matrix_idx, 
+            outer_count_matrix, outer_matrix_index, colors,
             taxonomy_mapper, annotation_mapper
         },
         mainState: 'chord', isLoading: false

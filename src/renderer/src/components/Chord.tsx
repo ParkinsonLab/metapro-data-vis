@@ -24,12 +24,6 @@ const ChordSVG = () => {
     const gaps = ['gap_1', 'gap_2', 'gap_3']
 
     useEffect(() => {
-        // const sum = d3.sum(data.flat());
-
-        // const chord = d3.chord()
-        //     .padAngle(0)
-        //     .sortSubgroups(d3.descending);
-
         const inner_arc = d3.arc()
             .innerRadius(base_radius)
             .outerRadius(base_radius + rad_step)
@@ -42,8 +36,8 @@ const ChordSVG = () => {
             .radius(base_radius);
 
         const svg = d3.select(ref.current)
-            .append("svg")
-            .attr("width", width)
+        svg.selectAll("*").remove()
+        svg.attr("width", width)
             .attr("height", height)
             .attr("viewBox", [-width / 2, -height / 2, width, height])
             .attr("style", "max-width: 100%; height: auto; font: 10px sans-serif white;");
@@ -57,8 +51,7 @@ const ChordSVG = () => {
         }])
 
         // outer arc
-        const outer_nodes = svg.append("g")
-            .selectAll()
+        const outer_nodes = svg.append("g").selectAll()
             .data(outer_chords.groups.filter(d => !gaps.map(
                 e => outer_matrix_index.indexOf(e)
             ).includes(d.index)))
@@ -87,8 +80,7 @@ const ChordSVG = () => {
             .text(d => d.value.length > 10 ? d.value.substring(0, 7) + '...' : d.value)
 
         // inner arc
-        svg.append("g")
-            .selectAll()
+        svg.append("g").selectAll()
             .data(inner_chords.groups.filter(d => !gaps.map(
                 e => inner_matrix_index.indexOf(e)
             ).includes(d.index)))
@@ -99,10 +91,9 @@ const ChordSVG = () => {
             .append("title")
             .text(d => `${inner_matrix_index[d.index]} [${Math.trunc(d.value)}]`);
 
-        svg.append("g")
-            .attr("fill-opacity", 0.7)
-            .selectAll()
+        svg.append("g").selectAll()
             .data(inner_chords.filter(d => d.source.index !== d.target.index))
+            .attr("fill-opacity", 0.7)
             .join("path")
             .attr("d", ribbon)
             .attr("fill", d => colors[inner_matrix_index[d.target.index]])
@@ -111,7 +102,7 @@ const ChordSVG = () => {
             .text(
                 d => `${inner_matrix_index[d.target.index]} → ${inner_matrix_index[d.source.index]} [${Math.trunc(d.source.value)}]`
             );
-    }, [parsed_data])
+    }, [])
 
     return <svg width={width} height={height} id="chord" ref={ref} />
 }
