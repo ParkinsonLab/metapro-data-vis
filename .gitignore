@@ -7,3 +7,7 @@ out
 build
 .vscode
 .editorconfig
+
+# python scripts
+resources/scripts/venv
+resources/pathways

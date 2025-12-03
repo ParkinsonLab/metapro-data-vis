@@ -45,11 +45,12 @@ body{
         text-align: center;
     }
     #root {
-        height: 100vh;
-        width: 100vw;
-        margin: 5%;
+        height: 90vh;
+        width: 90vw;
+        margin: 5vh 5vw;
         display: flex;
         flex-direction: column;
+        flex-grow: 1;
         align-items: center;
         justify-content: flex-start;
         overflow-y: scroll;

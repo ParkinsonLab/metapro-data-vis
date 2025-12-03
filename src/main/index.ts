@@ -4,7 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import _ from 'lodash';
 import { parse } from "csv-parse/sync";
-
+import place_nodes from './place_nodes';
 import fs from 'fs';
 import path from 'path';
 
@@ -94,6 +94,11 @@ app.whenReady().then(() => {
     ipcMain.on('parse-test', (event) => {
         event.reply('parsed-data', test_data)
         event.reply('parsed-ec', test_ec)
+    })
+
+    // place nodes
+    ipcMain.on('place-nodes', (event, pathway: string, nodes: string[]) => {
+        event.reply('placed-nodes', place_nodes(pathway, nodes))
     })
 
     app.on('activate', function () {
