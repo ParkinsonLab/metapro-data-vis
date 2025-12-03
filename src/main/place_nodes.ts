@@ -173,15 +173,15 @@ const place_nodes = (pathway: string, nodes: string[]) => {
     const all_edges = (parse(csvData, {
         columns: true,
         skip_empty_lines: true,
-    }) as Edge[]).filter((e: Edge) => (nodes.includes(e.source) && nodes.includes(e.target)))
+    }) as Edge[]).filter((e: Edge) => (nodes.includes(e.source) || nodes.includes(e.target)))
 
     const edge_dict = all_edges.reduce((acc, e) => {
-        if (e.source in acc) {
+        if (e.source in acc && e.target) {
             acc[e.source].push(e.target)
         } else {
             acc[e.source] = [e.target]
         }
-        if (e.target in acc) {
+        if (e.target && e.target in acc) {
             acc[e.target].push(e.source)
         } else {
             acc[e.target] = [e.source]
@@ -191,7 +191,6 @@ const place_nodes = (pathway: string, nodes: string[]) => {
 
     const pathway_dict = all_edges.reduce((acc, e) => {
         acc[e.source] = e.pathway_number
-        acc[e.target] = e.pathway_number
         return acc
     }, {})
 
@@ -207,7 +206,7 @@ const place_nodes = (pathway: string, nodes: string[]) => {
                 coords[k],
             ]))
         ),
-        edges: all_edges,
+        edges: all_edges.filter(e => nodes.includes(e.source) && nodes.includes(e.target)),
     }
 }
 

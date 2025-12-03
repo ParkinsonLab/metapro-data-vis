@@ -1,7 +1,7 @@
 import Upload from './components/Upload'
 import Chord from './components/Chord'
 import Network from './components/Network'
-import Plot from './components/Plot'
+import Graph from './components/Graph'
 import { useAppStore } from './store/AppStore'
 import { useEffect, useState } from 'react'
 import './App.css'
@@ -12,6 +12,7 @@ const NavBar = () => {
         'nav-upload': 'upload',
         'nav-chord': 'chord',
         'nav-network': 'network',
+        'nav-graph': 'graph',
     }
 
     const mainState = useAppStore((state) => state.mainState)
@@ -33,6 +34,9 @@ const NavBar = () => {
                 <div id='nav-network' onClick={handleNavClick} className={mainState === state_map["nav-network"] ? "bold" : ""}>
                     Network
                 </div>
+                <div id='nav-graph' onClick={handleNavClick} className={mainState === state_map["nav-graph"] ? "bold" : ""}>
+                    Graph
+                </div>
             </div>
         </>
     )
@@ -51,7 +55,7 @@ const App = (): React.JSX.Element => {
                 {mainState === 'upload' && <Upload />}
                 {mainState === 'chord' && <Chord />}
                 {mainState === 'network' && <Network />}
-                {mainState === 'plot' && <Plot />}
+                {mainState === 'graph' && <Graph />}
             </div>
         </>
     )

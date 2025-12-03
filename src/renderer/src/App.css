@@ -15,6 +15,9 @@ body{
         fill: white;
         font-size: 14px;
     }
+    #graph-container{
+        filter: intert(75%) hue-rotate(180deg);
+    }
     #network-title {
         text-align: center;
         margin-bottom: 20px;

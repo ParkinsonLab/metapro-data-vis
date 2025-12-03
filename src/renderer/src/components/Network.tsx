@@ -16,7 +16,7 @@ interface link_raw {
     source: string; target: string;
 }
 
-const y_top_margin_coef = 2
+const y_top_margin_coef = 3
 
 // // we use a different annotation mapper than chord
 // const ec_group_mapper = (name: string): string => name.substring(0, 3)
@@ -43,7 +43,7 @@ const get_nodes = (grouped_nodes: Record<string, node_raw[]>, width: number, hei
     const max_y = Math.max(...(n_vals.map(e => e.y)))
 
     const x_step = width / (max_x + 2) // number of groups
-    const y_step = height / (max_y + 2)
+    const y_step = height / (max_y + 4)
     
     const gk = Object.keys(grouped_nodes)
     const t = gk.reduce((acc, k) => {
@@ -105,8 +105,8 @@ const Network = (): React.JSX.Element => {
     // we're displaying one super-pathway
     // TODO: change to a state passed from chord
     const selected_ann_cat = outer_matrix_index[outer_matrix_index.indexOf('gap_1') + 1]
-    const width = 800
-    const height = 600
+    const width = 860
+    const height = 480
     const max_title = 7
 
     // this gets all the annotation under the selected category
@@ -206,6 +206,8 @@ const Network = (): React.JSX.Element => {
                 .attr("text-anchor", "end")
                 .attr("class", "network-group-label")
                 .text(d => d.title.length < max_title ? d.title : d.title.substring(0, max_title) + '...')
+                .append('title')
+                .text(d => d.title)
         })
 
         window.electron.ipcRenderer.send('place-nodes', selected_ann_cat, node_names);

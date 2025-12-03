@@ -8,7 +8,8 @@ interface AppState {
   parsed_data: any | null
   isLoading: boolean
   selectedFile: File | null
-  mainState: 'upload' | 'chord' | 'network' | 'plot'
+  selected_annotations: string[]
+  mainState: 'upload' | 'chord' | 'network' | 'graph'
   // Add more state properties as needed
 }
 
@@ -18,6 +19,7 @@ export const useAppStore = create<AppState>((set) => ({
   parsed_data: null,
   isLoading: false,
   selectedFile: null,
+  selected_annotations: ['1.1.1.100', '1.1.1.290', '1.1.98.6'],
   mainState: 'upload',
   setData: (data) => set({ data }),
   setEC: (ec) => set({ ec }),
