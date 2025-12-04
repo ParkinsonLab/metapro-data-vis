@@ -9,19 +9,27 @@ import { useState, useEffect, useRef } from "react";
 const ChordSVG = () => {
     // Function to create the SVG element for the chord diagram
     const parsed_data = useAppStore(state => state.parsed_data)
-
+    const selected_ann_cat = useAppStore(state => state.selected_ann_cat)
     if (parsed_data == null || _.isEmpty(parsed_data)) {
         return <div></div>
     }
     const ref = useRef<SVGSVGElement>(null);
 
-    const width = 800
-    const height = 640
+    const width = 900
+    const height = 600
     const base_radius = Math.min(width, height) * 0.5 - 50 // the inner radius of the inner ring
     const rad_step = 20
     const { inner_count_matrix, inner_matrix_index, outer_count_matrix, outer_matrix_index, colors } = parsed_data
 
     const gaps = ['gap_1', 'gap_2', 'gap_3']
+    const outer_gap_idc = gaps.map(e => outer_matrix_index.indexOf(e))
+
+    const handle_arc_click = (event, d) => {
+        if (0 < d.index < outer_gap_idc[1]) {
+            console.log('set selected_ann_cat to' + (d.index - 1))
+            useAppStore.setState({ selected_ann_cat: d.index - 1 }) // adjusted to -1 because 0th element is gap_0
+        }
+    }
 
     useEffect(() => {
         const inner_arc = d3.arc()
@@ -59,7 +67,8 @@ const ChordSVG = () => {
         outer_nodes.append("path") // draw arc
             .attr("fill", d => colors[outer_matrix_index[d.index]])
             .attr("d", outer_arc)
-            .attr("stroke", "white")
+            .attr("stroke", d => d.index - 1 === selected_ann_cat ? 'blue' : 'white') // adjusted to -1 because first element is gap_1
+            .on('click', handle_arc_click)
         outer_nodes.append("title")  // mouseover text
             .text(d => `${outer_matrix_index[d.index]} [${Math.trunc(d.value)}]`);
         
@@ -102,7 +111,7 @@ const ChordSVG = () => {
             .text(
                 d => `${inner_matrix_index[d.target.index]} → ${inner_matrix_index[d.source.index]} [${Math.trunc(d.source.value)}]`
             );
-    }, [])
+    }, [parsed_data, selected_ann_cat])
 
     return <svg width={width} height={height} id="chord" ref={ref} />
 }

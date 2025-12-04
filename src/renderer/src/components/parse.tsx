@@ -193,7 +193,7 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
             outer_count_matrix, outer_matrix_index, colors,
             taxonomy_mapper, annotation_mapper
         },
-        mainState: 'network', isLoading: false
+        mainState: 'graph', isLoading: false
     })
 }
 

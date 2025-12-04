@@ -11,8 +11,8 @@ import path from 'path';
 function createWindow(): void {
     // Create the browser window.
     const mainWindow = new BrowserWindow({
-        width: 900,
-        height: 670,
+        width: 1000,
+        height: 850,
         show: false,
         autoHideMenuBar: true,
         ...(process.platform === 'linux' ? { icon } : {}),
@@ -98,7 +98,13 @@ app.whenReady().then(() => {
 
     // place nodes
     ipcMain.on('place-nodes', (event, pathway: string, nodes: string[]) => {
-        event.reply('placed-nodes', place_nodes(pathway, nodes))
+        try {
+            event.reply('placed-nodes', place_nodes(pathway, nodes))
+        } catch (e) {
+            console.log(e)
+            event.reply('placed-nodes', null) // if node placement crashes, just don't do anything
+        }
+        
     })
 
     app.on('activate', function () {

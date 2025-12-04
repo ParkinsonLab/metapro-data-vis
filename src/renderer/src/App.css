@@ -17,9 +17,11 @@ body{
     }
     #graph-container{
         filter: intert(75%) hue-rotate(180deg);
+        flex-grow: 1;
     }
     #network-title {
         text-align: center;
+        height: 30px;
         margin-bottom: 20px;
         font-size: 16px;
     }
@@ -32,7 +34,8 @@ body{
     #nav-container > * {
         font-size: 14px;
         color: white;
-        margin: 20px;
+        height: 30px;
+        margin: 10px;
         cursor: pointer;
     }
     #main-container {
@@ -40,22 +43,24 @@ body{
         flex-direction: column;
         justify-content: flex-start;
         flex-grow: 1;
-        margin: 5% 0%;
+        margin: 2% 0%;
     }
     #title {
         font-size: 24px;
         font-weight: bold;
         text-align: center;
+        height: 30px;
+        margin: 10px;
     }
     #root {
-        height: 90vh;
+        height: 89vh;
         width: 90vw;
-        margin: 5vh 5vw;
+        margin: 50px;
         display: flex;
         flex-direction: column;
         flex-grow: 1;
         align-items: center;
         justify-content: flex-start;
-        overflow-y: scroll;
+        overflow-y: hidden;
     }
 }
