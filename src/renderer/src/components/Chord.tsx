@@ -25,9 +25,10 @@ const ChordSVG = () => {
     const outer_gap_idc = gaps.map(e => outer_matrix_index.indexOf(e))
 
     const handle_arc_click = (event, d) => {
-        if (0 < d.index < outer_gap_idc[1]) {
-            console.log('set selected_ann_cat to' + (d.index - 1))
-            useAppStore.setState({ selected_ann_cat: d.index - 1 }) // adjusted to -1 because 0th element is gap_0
+        const new_idx = d.index - 1
+        if (new_idx < outer_gap_idc[1] - 1 && new_idx !== selected_ann_cat) {
+            console.log('set selected_ann_cat to ' + new_idx)
+            useAppStore.setState({ selected_ann_cat: new_idx, selected_annotations: [] }) // adjusted to -1 because 0th element is gap_0
         }
     }
 

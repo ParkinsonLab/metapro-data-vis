@@ -146,10 +146,13 @@ function Graph(): React.JSX.Element {
 
     return (
         <div id="graph-container">
-            <Plot
-                data={plot_data}
-                layout={plot_layout} 
-            />
+            {   !(_.isEmpty(plot_data) || _.isEmpty(plot_layout)) ?
+                <Plot
+                    data={plot_data}
+                    layout={plot_layout} 
+                /> :
+                <div />
+            }
         </div>
     )
 }

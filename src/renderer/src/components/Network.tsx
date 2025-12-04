@@ -156,10 +156,14 @@ const Network = (): React.JSX.Element => {
             const grad_data = d_row.reduce((acc, e, i) => {
                 const e2 = e / v_sum * 100
                 if (e2 >= v_min) {
-                    acc.push({
+                    const start_val = acc.length === 0 ? 0 : acc[acc.length-1].value
+                    return _.concat(acc, [{
                         id: taxonomy_index[i],
-                        value: e2 + (acc.length === 0 ? 0 : acc[acc.length-1].value)  // not if empty
-                    }) // this makes e2 a running sum
+                        value: start_val  // not if empty
+                    }, {
+                        id: taxonomy_index[i],
+                        value: start_val + e2 - (v_min / 100)
+                    }]) // this makes e2 a running sum
                 }
                 return acc
             }, [])
