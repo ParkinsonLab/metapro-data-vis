@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import _ from 'lodash';
 import { parse } from "csv-parse/sync";
 import place_nodes from './place_nodes';
+import get_parents_at_level from './get_taxonomy';
 import fs from 'fs';
 import path from 'path';
 
@@ -42,8 +43,8 @@ function createWindow(): void {
 
 // preload test data
 const test_data = parse(
-    fs.readFileSync(path.join(__dirname, '../../resources/example_data/ec_rpkm.csv'), 'utf8'),
-    { columns: true, skip_empty_lines: true }
+    fs.readFileSync(path.join(__dirname, '../../resources/example_data/new_ec_rpkm.tsv'), 'utf8'),
+    { columns: true, skip_empty_lines: true, delimiter: "\t" }
 )
 const test_ec = parse(
     fs.readFileSync(path.join(__dirname, '../../resources/example_data/ec_coverage.csv'), 'utf8'),
@@ -104,7 +105,11 @@ app.whenReady().then(() => {
             console.log(e)
             event.reply('placed-nodes', null) // if node placement crashes, just don't do anything
         }
-        
+    })
+
+    // get taxonomic categories
+    ipcMain.on('get-tax-cats', (event, names: string[], level: string) => {
+        event.reply('got-tax-cats', get_parents_at_level(names, level))
     })
 
     app.on('activate', function () {

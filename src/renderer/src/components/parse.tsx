@@ -9,34 +9,23 @@ const key_cols = [
     "EC#", "GeneID", "Length", "Reads", "RPKM"
 ]
 
-// standardized names for taxonomy at the domain level
-const tax_domains = {
-    "bacteria": "Bacteria",
-    "firmicutes": "Firmicutes",
-    "actino": "Actinobacteria",
-    "proteo": "Proteobacteria",
-    "virus": "Viruses",
-    "archaea": "Archaea",
-}
+// // standardized names for taxonomy at the domain level
+// const tax_domains = {
+//     "bacteria": "Bacteria",
+//     "firmicutes": "Firmicutes",
+//     "actino": "Actinobacteria",
+//     "proteo": "Proteobacteria",
+//     "virus": "Viruses",
+//     "archaea": "Archaea",
+// }
 
-// How species map to domains. Will need to fill this out more
-const domain_map = {
-    "Methanosphaera stadtmanae": tax_domains.firmicutes,
-    "Methanobrevibacter smithii": tax_domains.archaea,
-}
+// // How species map to domains. Will need to fill this out more
+// const domain_map = {
+//     "Methanosphaera stadtmanae": tax_domains.firmicutes,
+//     "Methanobrevibacter smithii": tax_domains.archaea,
+// }
 
-// maps taxonomic names to domains
-const taxonomy_mapper = (name: string) => {
-    if (Object.values(tax_domains).includes(name)) {
-        return name;
-    }
-    if (name in domain_map) {
-        return domain_map[name];
-    }
-    // add additional name parsing here
-    // the default is bacteria because it's the most common
-    return tax_domains.bacteria;
-}
+
 
 // helper function that performs two-level sorting, category first
 const sort_by_category = (a, b, get_cat_idx: Function) => {
@@ -90,9 +79,22 @@ const make_count_matrix = (data, matrix_index, species_mapper, annotation_mapper
     return count_matrix
 }
 
-// main data parsing function for the front end
-// we should run this once to save time between tab switches
-const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
+const parse_data_callback = (data: Array<Object>, ec_data: Array<Object>, tax_mapping: Record<string, string>) => {
+    
+    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
+    const tax_unknown = 'Unknown'
+    tax_cats.push(tax_unknown)
+    
+    // maps taxonomic names to domains
+    const taxonomy_mapper = (name: string) => {
+        // we just got all the taxa, so everything that isn't in tax_mapping
+        // doesn't have one and should be removed
+        // but just in case, there is the unknown category
+        const res = tax_mapping[name];
+        if (res) return res
+        return tax_unknown;
+    }
+
     // functions that preprocesses the data for the chord diagram
     const ec_map = ec_data.reduce(
         (acc, row) => {
@@ -114,7 +116,8 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
     // create count matrix for the outer ring
     // the difference is that this is aggregated
     const annotation_cats = [...new Set(Object.values(ec_map))]
-    const tax_cats = [...new Set(Object.values(tax_domains))] // taxonomic categories
+
+    // assign colors
     const get_cat_hue = (e) => Math.trunc(360 / (tax_cats.length + 1) * tax_cats.indexOf(e))
     const get_ann_cat_hue = (e) => Math.trunc(360 / (annotation_cats.length + 1) * annotation_cats.indexOf(e))
 
@@ -138,18 +141,16 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
 
     // create count matrix for the inner ring
     // sort species by category
-    const all_species = [...new Set(Object.keys(data[0]))].filter(
-        e => !(key_cols.includes(e) || Object.values(tax_domains).includes(e))
-    ).slice().sort(
+    const all_taxa = _.uniq(Object.keys(tax_mapping)).sort(
         (a, b) => sort_by_category(a, b, name => tax_cats.indexOf(taxonomy_mapper(name)))
     )
-    const all_annotations = [...new Set(Object.keys(ec_map))].sort(
+    const all_annotations = _.uniq(Object.keys(ec_map)).sort(
         (a, b) => sort_by_category(a, b, name => annotation_cats.indexOf(annotation_mapper(name)))
     )
     const inner_matrix_index = ['gap_1'].concat(
         all_annotations, // all the ec numbers that are in the map (so excluding 0.0.0.0)
         ['gap_2'],
-        all_species, // all species
+        all_taxa, // all species
         ['gap_3']
     )
     const self_mapper = (a) => a
@@ -170,7 +171,7 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
     )
 
     // inner color map
-    const inner_species_cm = all_species.reduce((acc, e) => {
+    const inner_species_cm = all_taxa.reduce((acc, e) => {
         acc[e] = `hsl(${get_cat_hue(taxonomy_mapper(e))} 75 ${map_lum(e)})`
         return acc
     }, {})
@@ -195,6 +196,20 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>) => {
         },
         mainState: 'chord', isLoading: false
     })
+}
+
+
+// main data parsing function for the front end
+// we should run this once to save time between tab switches
+const parse_data = (data: Array<Object>, ec_data: Array<Object>, tax_level: string) => {
+    
+    // first we need to get the taxonomic grouping, then do the actual parsing
+    const tax_terms = Object.keys(data[0]).filter(e => !key_cols.includes(e))
+    window.electron.ipcRenderer.on('got-tax-cats', (_event, tax_mapping) => {
+        parse_data_callback(data, ec_data, tax_mapping)
+    })
+    window.electron.ipcRenderer.send('get-tax-cats', tax_terms, tax_level)
+    
 }
 
 export default parse_data;

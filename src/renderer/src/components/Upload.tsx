@@ -18,7 +18,7 @@ const Upload = (): React.JSX.Element => {
     // React hook to set mainState to 'chord' when both data and ec are non-null
     useEffect(() => {
         if (data && ec && !data_file_load && !ec_file_load && isLoading) {
-            parse_data(data, ec)
+            parse_data(data, ec, 'phylum')
         }
     }, [data_file_load, ec_file_load])
 

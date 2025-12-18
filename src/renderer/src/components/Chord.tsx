@@ -32,10 +32,10 @@ const ChordSVG = () => {
         }
     }
 
-    useEffect(() => {
+    const draw_chord = () => {
         const inner_arc = d3.arc()
-            .innerRadius(base_radius)
-            .outerRadius(base_radius + rad_step)
+        .innerRadius(base_radius)
+        .outerRadius(base_radius + rad_step)
 
         const outer_arc = d3.arc()
             .innerRadius(base_radius + rad_step * 2)
@@ -112,6 +112,10 @@ const ChordSVG = () => {
             .text(
                 d => `${inner_matrix_index[d.target.index]} → ${inner_matrix_index[d.source.index]} [${Math.trunc(d.source.value)}]`
             );
+    }
+
+    useEffect(() => {
+        draw_chord()
     }, [parsed_data, selected_ann_cat])
 
     return <svg width={width} height={height} id="chord" ref={ref} />

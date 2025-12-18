@@ -9,5 +9,9 @@ build
 .editorconfig
 
 # python scripts
-resources/scripts/venv
-resources/pathways
+resources/*
+!resources/scripts
+
+resources/scripts/*
+!resources/scripts/*.py
+!resources/scripts/*.ipynb
