@@ -5,34 +5,35 @@ import _ from 'lodash'
 import { useAppStore } from "@renderer/store/AppStore";
 import * as d3 from "d3";
 import { useState, useEffect, useRef } from "react";
+import parse_data from './parse';
+
 
 const ChordSVG = () => {
     // Function to create the SVG element for the chord diagram
     const parsed_data = useAppStore(state => state.parsed_data)
     const selected_ann_cat = useAppStore(state => state.selected_ann_cat)
-    if (parsed_data == null || _.isEmpty(parsed_data)) {
-        return <div></div>
-    }
+
     const ref = useRef<SVGSVGElement>(null);
 
     const width = 900
     const height = 600
     const base_radius = Math.min(width, height) * 0.5 - 50 // the inner radius of the inner ring
     const rad_step = 20
-    const { inner_count_matrix, inner_matrix_index, outer_count_matrix, outer_matrix_index, colors } = parsed_data
-
-    const gaps = ['gap_1', 'gap_2', 'gap_3']
-    const outer_gap_idc = gaps.map(e => outer_matrix_index.indexOf(e))
-
-    const handle_arc_click = (event, d) => {
-        const new_idx = d.index - 1
-        if (new_idx < outer_gap_idc[1] - 1 && new_idx !== selected_ann_cat) {
-            console.log('set selected_ann_cat to ' + new_idx)
-            useAppStore.setState({ selected_ann_cat: new_idx, selected_annotations: [] }) // adjusted to -1 because 0th element is gap_0
-        }
-    }
 
     const draw_chord = () => {
+        const { inner_count_matrix, inner_matrix_index, outer_count_matrix, outer_matrix_index, colors } = parsed_data
+
+        const gaps = ['gap_1', 'gap_2', 'gap_3']
+        const outer_gap_idc = gaps.map(e => outer_matrix_index.indexOf(e))
+    
+        const handle_arc_click = (event, d) => {
+            const new_idx = d.index - 1
+            if (new_idx < outer_gap_idc[1] - 1 && new_idx !== selected_ann_cat) {
+                console.log('set selected_ann_cat to ' + new_idx)
+                useAppStore.setState({ selected_ann_cat: new_idx, selected_annotations: [] }) // adjusted to -1 because 0th element is gap_0
+            }
+        }
+
         const inner_arc = d3.arc()
         .innerRadius(base_radius)
         .outerRadius(base_radius + rad_step)
@@ -57,9 +58,11 @@ const ChordSVG = () => {
         const get_group_label = (d) => ([{
             value: outer_matrix_index[d.index],
             angle: d.startAngle + (d.endAngle - d.startAngle) / 2,
+            size: d.value,
         }])
 
         // outer arc
+        const label_threshold = d3.sum(outer_count_matrix.flat()) / 800
         const outer_nodes = svg.append("g").selectAll()
             .data(outer_chords.groups.filter(d => !gaps.map(
                 e => outer_matrix_index.indexOf(e)
@@ -80,7 +83,7 @@ const ChordSVG = () => {
             .join("g")
             .attr("transform", d => `rotate(${d.angle * 180 / Math.PI - 90}) translate(${base_radius + rad_step * 3},0)`)
         text_labels
-            .filter(d => !gap_regex.test(d.value))
+            .filter(d => !(gap_regex.test(d.value) || d.size < label_threshold))
             .append("text")
             .attr("x", 8)
             .attr("dy", "3px")
@@ -115,16 +118,55 @@ const ChordSVG = () => {
     }
 
     useEffect(() => {
-        draw_chord()
+        if (parsed_data !== null && !_.isEmpty(parsed_data)) {
+            draw_chord()
+        }
     }, [parsed_data, selected_ann_cat])
 
     return <svg width={width} height={height} id="chord" ref={ref} />
+}
+
+const TaxonomySelector = () => {
+    const ranks = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus']
+    const selected_rank = useAppStore(state => state.tax_rank)
+    const data = useAppStore(state => state.data)
+    const ec = useAppStore(state => state.ec)
+
+    const handle_rank_update = (event) => {
+        useAppStore.setState({ tax_rank: event.currentTarget.id })
+    }
+    const c_elements = ranks.map(e => (
+        <span
+            className={
+                `${e === selected_rank ? 'bold' : ''}`
+            } onClick={handle_rank_update} key={e} id={e}
+        >{e}</span>
+    ))
+
+    useEffect(() => {
+        if(data && ec && selected_rank) {
+            parse_data(data, ec, selected_rank)
+        }
+    }, [data, ec, selected_rank])
+
+    return (
+        <div id="chord-top-bar">
+            <div className='sub-selector-container'>
+                {c_elements}
+            </div>
+            <div className='sub-selector-container'>
+                <span className='bold'>superpathway</span>
+            </div>
+        </div>
+
+    )
 }
 
 const Chord = (): React.JSX.Element => {
 
     return (
         <div>
+            <TaxonomySelector />
             <ChordSVG />
         </div>
 

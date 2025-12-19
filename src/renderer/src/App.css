@@ -15,8 +15,142 @@ body{
         fill: white;
         font-size: 14px;
     }
+    .sub-selector-container{
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        width: 50%;
+    }
+    .overview-parent {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0px 20px;
+    }
+    .overview-label {
+        text-align: center;
+    }
+    #overview-container {
+        position: relative;
+        height: 375px;
+        width: 1000px;
+        margin: 50px 0px;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+    }
+    #overview-container::before {
+        content: "";
+        position: absolute;
+        top: 3%;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('./assets/bacteria_export.svg');
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        filter: invert(100%);
+        z-index: -10;
+    }
+
+    #overview-counts-parent {
+        align-self: center;
+        order: 0;
+    }
+    #overview-counts {
+        position: relative;
+        background: rgb(27, 27, 31);
+    }
+    #overview-counts::before {
+        content: "";
+        position: absolute;
+        top: 22.5%;
+        left: 25%;
+        width: 50%;
+        height: 50%;
+        background-image: url('./assets/genome_export.svg');
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        filter: invert(100%);
+        z-index: 2;
+    }
+
+    #overview-ann-parent {
+        align-self: center;
+        order: 2;
+    }
+    #overview-ann {
+        position: relative;
+        background: rgb(27, 27, 31);
+    }
+    #overview-ann::before {
+        content: "";
+        position: absolute;
+        top: 12.5%;
+        left: 16%;
+        width: 70%;
+        height: 70%;
+        background-image: url('./assets/metabolic_export.svg');
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        filter: invert(100%);
+        z-index: 2;
+    }
+
+    #overview-dummy-parent {
+        align-self: flex-end;
+        order: 1;
+    }
+    #overview-dummy {
+        position: relative;
+        background:rgb(27, 27, 31);
+
+    }
+    #overview-dummy::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('./assets/signal_export.svg');
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        filter: invert(100%);
+        pointer-events: none;
+        z-index: 2;
+    }
+    
+    #loading-layer {
+        height: 100%;
+        width: 100%;
+        position:absolute;
+        z-index: 99;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    #chord-top-spacer{
+        flex-grow: 1;
+    }
+    #chord-top-bar{
+        display:flex;
+        flex-direction: row;
+    }
+    
+    .sub-selector-container span{
+        padding: 0px 5px;
+        border-left: dotted white 1px;
+    }
+    .sub-selector-container span:first-child{
+        border-left: 0;
+    }
     #graph-container{
-        filter: intert(75%) hue-rotate(180deg);
+        filter: invert(75%) hue-rotate(180deg);
         flex-grow: 1;
     }
     #network-title {

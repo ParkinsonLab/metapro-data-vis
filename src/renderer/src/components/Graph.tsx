@@ -86,7 +86,6 @@ function Graph(): React.JSX.Element {
             
         }))
         const t_data_2 = _.concat(t_data, t_bg)
-        console.log(t_data_2)
         set_plot_data(t_data_2);
 
         const t_layout = {
@@ -140,7 +139,6 @@ function Graph(): React.JSX.Element {
                 font: { color: 'white' },
             },
         }
-        console.log(t_layout)
         set_plot_layout(t_layout)
     }, [parsed_data])
 

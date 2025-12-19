@@ -10,4 +10,6 @@ const map_lum = (string) => {
     return Math.abs(Math.trunc(hash % 80)) + 20
 }
 
-export { map_lum };
+const get_color = (i, n, e = '') => `hsl(${Math.trunc(360 / (n + 1) * i)} 75 ${e ? map_lum(e) : 50})`
+
+export { map_lum, get_color };

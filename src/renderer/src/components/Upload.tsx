@@ -13,12 +13,14 @@ const Upload = (): React.JSX.Element => {
     // global state with actual data object
     const data = useAppStore((state) => (state.data))
     const ec = useAppStore((state) => (state.ec))
+    const tax_rank = useAppStore(state => state.tax_rank)
     const isLoading = useAppStore((state) => (state.isLoading))
 
     // React hook to set mainState to 'chord' when both data and ec are non-null
     useEffect(() => {
         if (data && ec && !data_file_load && !ec_file_load && isLoading) {
-            parse_data(data, ec, 'phylum')
+            parse_data(data, ec, tax_rank)
+            useAppStore.setState({mainState: 'overview'})
         }
     }, [data_file_load, ec_file_load])
 
@@ -47,7 +49,7 @@ const Upload = (): React.JSX.Element => {
                 }
             };
             // Listen for the parsed CSV response
-            window.electron.ipcRenderer.on('parsed-data', (_event, data) => {
+            window.electron.ipcRenderer.once('parsed-data', (_event, data) => {
                 useAppStore.setState({ data: data });
                 set_data_file_load(false)
             });
@@ -62,7 +64,7 @@ const Upload = (): React.JSX.Element => {
                 }
             };
             ecReader.readAsText(ec_file);
-            window.electron.ipcRenderer.on('parsed-ec', (_event, ec) => {
+            window.electron.ipcRenderer.once('parsed-ec', (_event, ec) => {
                 useAppStore.setState({ ec: ec });
                 set_ec_file_load(false)
             });
@@ -75,11 +77,11 @@ const Upload = (): React.JSX.Element => {
         set_ec_file_load(true)
         set_data_file_load(true)
         // Listen for the parsed CSV response
-        window.electron.ipcRenderer.on('parsed-data', (_event, data) => {
+        window.electron.ipcRenderer.once('parsed-data', (_event, data) => {
             useAppStore.setState({ data: data });
             set_ec_file_load(false)
         });
-        window.electron.ipcRenderer.on('parsed-ec', (_event, ec) => {
+        window.electron.ipcRenderer.once('parsed-ec', (_event, ec) => {
             useAppStore.setState({ ec: ec });
             set_data_file_load(false)
         });

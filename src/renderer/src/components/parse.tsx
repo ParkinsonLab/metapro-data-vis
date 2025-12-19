@@ -1,4 +1,4 @@
-import { map_lum } from './util'
+import { get_color } from './util'
 import _ from 'lodash'
 import { useAppStore } from "@renderer/store/AppStore";
 import * as d3 from "d3";
@@ -79,11 +79,9 @@ const make_count_matrix = (data, matrix_index, species_mapper, annotation_mapper
     return count_matrix
 }
 
+
+
 const parse_data_callback = (data: Array<Object>, ec_data: Array<Object>, tax_mapping: Record<string, string>) => {
-    
-    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
-    const tax_unknown = 'Unknown'
-    tax_cats.push(tax_unknown)
     
     // maps taxonomic names to domains
     const taxonomy_mapper = (name: string) => {
@@ -92,9 +90,14 @@ const parse_data_callback = (data: Array<Object>, ec_data: Array<Object>, tax_ma
         // but just in case, there is the unknown category
         const res = tax_mapping[name];
         if (res) return res
-        return tax_unknown;
+        // console.log(`${name} is unknown!`)
+        return null
     }
-
+    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
+    const all_taxa = _.uniq(Object.keys(tax_mapping)).sort(
+        (a, b) => sort_by_category(a, b, name => tax_cats.indexOf(taxonomy_mapper(name)))
+    )
+    
     // functions that preprocesses the data for the chord diagram
     const ec_map = ec_data.reduce(
         (acc, row) => {
@@ -112,14 +115,12 @@ const parse_data_callback = (data: Array<Object>, ec_data: Array<Object>, tax_ma
         }
         return null
     }
-
     // create count matrix for the outer ring
     // the difference is that this is aggregated
-    const annotation_cats = [...new Set(Object.values(ec_map))]
-
-    // assign colors
-    const get_cat_hue = (e) => Math.trunc(360 / (tax_cats.length + 1) * tax_cats.indexOf(e))
-    const get_ann_cat_hue = (e) => Math.trunc(360 / (annotation_cats.length + 1) * annotation_cats.indexOf(e))
+    const annotation_cats = [...new Set(Object.values(ec_map))]   
+    const all_annotations = _.uniq(Object.keys(ec_map)).sort(
+        (a, b) => sort_by_category(a, b, name => annotation_cats.indexOf(annotation_mapper(name)))
+    )
 
     const outer_matrix_index = ['gap_1'].concat(
         annotation_cats, // super pathways
@@ -130,23 +131,9 @@ const parse_data_callback = (data: Array<Object>, ec_data: Array<Object>, tax_ma
     const outer_count_matrix = make_count_matrix(
         data, outer_matrix_index, taxonomy_mapper, annotation_mapper
     )
-    const outer_species_cm = tax_cats.reduce((acc, e) => {
-        acc[e] = `hsl(${get_cat_hue(e)} 75 50)`
-        return acc
-    }, {})
-    const outer_annotations_cm = annotation_cats.reduce((acc, e) => {
-        acc[e] = `hsl(${get_ann_cat_hue(e)} 75 50)`
-        return acc
-    }, {})
 
     // create count matrix for the inner ring
     // sort species by category
-    const all_taxa = _.uniq(Object.keys(tax_mapping)).sort(
-        (a, b) => sort_by_category(a, b, name => tax_cats.indexOf(taxonomy_mapper(name)))
-    )
-    const all_annotations = _.uniq(Object.keys(ec_map)).sort(
-        (a, b) => sort_by_category(a, b, name => annotation_cats.indexOf(annotation_mapper(name)))
-    )
     const inner_matrix_index = ['gap_1'].concat(
         all_annotations, // all the ec numbers that are in the map (so excluding 0.0.0.0)
         ['gap_2'],
@@ -170,43 +157,58 @@ const parse_data_callback = (data: Array<Object>, ec_data: Array<Object>, tax_ma
         e => inner_matrix_index[e]
     )
 
-    // inner color map
-    const inner_species_cm = all_taxa.reduce((acc, e) => {
-        acc[e] = `hsl(${get_cat_hue(taxonomy_mapper(e))} 75 ${map_lum(e)})`
-        return acc
-    }, {})
-    const inner_annotation_cm = all_annotations.reduce((acc, e) => {
-        acc[e] = `hsl(${get_ann_cat_hue(annotation_mapper(e))} 75 ${map_lum(e)})`
-        return acc
-    }, {})
+    const colors = Object.fromEntries([
+        ...all_annotations.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
+        ...all_taxa.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
+        ...annotation_cats.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
+        ...tax_cats.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
+    ])
 
-    const colors = {
-        ...inner_annotation_cm,
-        ...inner_species_cm,
-        ...outer_annotations_cm,
-        ...outer_species_cm,
+    return {
+        inner_count_matrix: trimmed_inner_count_matrix, 
+        inner_matrix_index: trimmed_inner_matrix_idx, 
+        outer_count_matrix, outer_matrix_index, colors,
+        taxonomy_mapper, annotation_mapper
     }
-
-    useAppStore.setState({
-        parsed_data: {
-            inner_count_matrix: trimmed_inner_count_matrix, 
-            inner_matrix_index: trimmed_inner_matrix_idx, 
-            outer_count_matrix, outer_matrix_index, colors,
-            taxonomy_mapper, annotation_mapper
-        },
-        mainState: 'chord', isLoading: false
-    })
 }
 
+const make_1d_count_matrix = (data: Array<Object>, tax_mapping: Object) => {
+    // a simplified count matrix that just tallies the total RPKM mapped to each taxonomic category
+    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
+    const all_taxa = _.uniq(Object.keys(tax_mapping))
+    const counts = Object.fromEntries(
+        tax_cats.map(e => [e, 0])
+    )
+    data.forEach(e => {
+        all_taxa.forEach(t => {
+            const cat = tax_mapping[t]
+            if (cat) counts[cat] += Number(e[t])
+        })
+    })
+    return tax_cats.map(e => counts[e])
+}
+
+const parse_counts_callback = (data: Array<Object>, tax_mapping: Record<string, string>) => {
+
+    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
+    return {
+        counts_idx: tax_cats, counts: make_1d_count_matrix(data, tax_mapping)
+    }
+}
 
 // main data parsing function for the front end
 // we should run this once to save time between tab switches
 const parse_data = (data: Array<Object>, ec_data: Array<Object>, tax_level: string) => {
     
     // first we need to get the taxonomic grouping, then do the actual parsing
+    useAppStore.setState({isLoading: true})
     const tax_terms = Object.keys(data[0]).filter(e => !key_cols.includes(e))
-    window.electron.ipcRenderer.on('got-tax-cats', (_event, tax_mapping) => {
-        parse_data_callback(data, ec_data, tax_mapping)
+    window.electron.ipcRenderer.once('got-tax-cats', (_event, tax_mapping) => {
+        const parsed_data = parse_data_callback(data, ec_data, tax_mapping)
+        const counts_data = parse_counts_callback(data, tax_mapping)
+        useAppStore.setState({
+            parsed_data: parsed_data, parsed_counts_data: counts_data, isLoading: false,
+        })
     })
     window.electron.ipcRenderer.send('get-tax-cats', tax_terms, tax_level)
     

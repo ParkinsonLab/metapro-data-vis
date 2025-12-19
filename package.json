@@ -28,6 +28,7 @@
     "electron-updater": "^6.3.9",
     "lodash": "^4.17.21",
     "plotly.js": "^3.3.0",
+    "react-loader-spinner": "^8.0.0",
     "react-plotly.js": "^2.6.0",
     "zustand": "^5.0.8"
   },

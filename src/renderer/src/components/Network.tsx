@@ -120,9 +120,6 @@ const Network = (): React.JSX.Element => {
     ).filter(d => annotation_mapper(d) === selected_ann_cat)
 
     const handle_node_click = (event, d) => {
-        console.log('clicked')
-        console.log(event)
-        console.log(d)
         if (selected_annotations.includes(d.id)) {
             useAppStore.setState({selected_annotations: _.without(selected_annotations, d.id)})
         } else {
@@ -226,14 +223,13 @@ const Network = (): React.JSX.Element => {
     }
 
     const handle_data_load = (_event, data) => {
-        console.log('handle_data_load')
         set_placed_nodes(data)
     }
 
     useEffect(() => {
         if (selected_ann_cat && node_names) {
             console.log('place-nodes request')
-            window.electron.ipcRenderer.on('placed-nodes', handle_data_load);
+            window.electron.ipcRenderer.once('placed-nodes', handle_data_load);
             window.electron.ipcRenderer.send('place-nodes', selected_ann_cat, node_names);
         }
     }, [selected_ann_cat_idx])
