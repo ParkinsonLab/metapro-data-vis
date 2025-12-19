@@ -60,21 +60,21 @@ body{
     }
     #overview-counts {
         position: relative;
-        background: rgb(27, 27, 31);
+        cursor: pointer;
     }
     #overview-counts::before {
         content: "";
         position: absolute;
-        top: 22.5%;
-        left: 25%;
-        width: 50%;
-        height: 50%;
-        background-image: url('./assets/genome_export.svg');
-        background-size: cover;
+        top: 10%;
+        left: 10%;
+        width: 80%;
+        height: 80%;
+        background: url('./assets/genome_export.svg'), rgb(228, 228, 224);
+        background-size: 80px;
         background-repeat: no-repeat;
         background-position: center;
         filter: invert(100%);
-        z-index: 2;
+        z-index: -1;
     }
 
     #overview-ann-parent {
@@ -83,21 +83,21 @@ body{
     }
     #overview-ann {
         position: relative;
-        background: rgb(27, 27, 31);
+        cursor: pointer;
     }
     #overview-ann::before {
         content: "";
         position: absolute;
-        top: 12.5%;
-        left: 16%;
-        width: 70%;
-        height: 70%;
-        background-image: url('./assets/metabolic_export.svg');
+        top: 8%;
+        left: 11.5%;
+        width: 80%;
+        height: 80%;
+        background: url('./assets/metabolic_export.svg'), rgb(228, 228, 224);
         background-size: cover;
         background-repeat: no-repeat;
         background-position: center;
         filter: invert(100%);
-        z-index: 2;
+        z-index: -1;
     }
 
     #overview-dummy-parent {
@@ -106,23 +106,21 @@ body{
     }
     #overview-dummy {
         position: relative;
-        background:rgb(27, 27, 31);
-
+        cursor: pointer;
     }
     #overview-dummy::before {
         content: "";
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image: url('./assets/signal_export.svg');
-        background-size: cover;
+        top: 10%;
+        left: 10%;
+        width: 80%;
+        height: 80%;
+        background: url('./assets/signal_export.svg'), rgb(228, 228, 224);
+        background-size: 150px;
         background-repeat: no-repeat;
         background-position: center;
         filter: invert(100%);
-        pointer-events: none;
-        z-index: 2;
+        z-index: -1;
     }
     
     #loading-layer {
