@@ -5,7 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import _ from 'lodash';
 import { parse } from "csv-parse/sync";
 import place_nodes from './place_nodes';
-import get_parents_at_level from './get_taxonomy';
+import { get_parents_at_level, get_superpathway_info } from './db_functions';
 import fs from 'fs';
 import path from 'path';
 
@@ -45,11 +45,8 @@ function createWindow(): void {
 const test_data = parse(
     fs.readFileSync(path.join(__dirname, '../../resources/example_data/new_ec_rpkm.tsv'), 'utf8'),
     { columns: true, skip_empty_lines: true, delimiter: "\t" }
-)
-const test_ec = parse(
-    fs.readFileSync(path.join(__dirname, '../../resources/example_data/ec_coverage.csv'), 'utf8'),
-    { columns: true, skip_empty_lines: true }
-).slice(0, -3)
+) as Array<Record<string, string>>
+const ec_data = get_superpathway_info().filter(e => _.uniq(test_data.map((r: Record<string, string>) => r['EC#'])).includes(e.ec))
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -80,21 +77,10 @@ app.whenReady().then(() => {
         event.reply('parsed-data', json)
     })
 
-    // similar listener for a second ec file
-    // the two are separated to accomodate for possible differences
-    // but so far are the same
-    ipcMain.on('parse-ec', (event, fileContent) => {
-        const json = parse(fileContent, {
-            columns: true,
-            skip_empty_lines: true,
-        })
-        event.reply('parsed-ec', json.slice(0, -3))
-    })
-
     // add another one for test data
     ipcMain.on('parse-test', (event) => {
         event.reply('parsed-data', test_data)
-        event.reply('parsed-ec', test_ec)
+        event.reply('parsed-ec', ec_data)
     })
 
     // place nodes

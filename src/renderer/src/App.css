@@ -21,6 +21,15 @@ body{
         justify-content: center;
         width: 50%;
     }
+        
+    .sub-selector-container span{
+        padding: 0px 5px;
+        border-left: dotted white 1px;
+        cursor: pointer;
+    }
+    .sub-selector-container span:first-child{
+        border-left: 0;
+    }
     .overview-parent {
         display: flex;
         flex-direction: column;
@@ -139,14 +148,7 @@ body{
         display:flex;
         flex-direction: row;
     }
-    
-    .sub-selector-container span{
-        padding: 0px 5px;
-        border-left: dotted white 1px;
-    }
-    .sub-selector-container span:first-child{
-        border-left: 0;
-    }
+
     #graph-container{
         filter: invert(75%) hue-rotate(180deg);
         flex-grow: 1;
