@@ -17,7 +17,8 @@ type PlotTrace = {
 };
 
 function Graph(): React.JSX.Element {
-    
+    // do not mount without first checking if parsed_data is available
+
     const parsed_data = useAppStore(state => state.parsed_data)
     const selected_annotations = useAppStore(state => state.selected_annotations)
     const [plot_data, set_plot_data] = useState<PlotTrace[]>([])
@@ -35,12 +36,9 @@ function Graph(): React.JSX.Element {
     }
 
     useEffect(() => {
-
-        if (!parsed_data) return
-
         const {
             inner_count_matrix, inner_matrix_index, outer_count_matrix, outer_matrix_index,
-            colors, taxonomy_mapper, annotation_mapper
+            colors, tax_map, ann_map
         } = parsed_data
 
         const selected_idx = selected_annotations.map(e => inner_matrix_index.indexOf(e))
@@ -64,7 +62,7 @@ function Graph(): React.JSX.Element {
             outer_matrix_index.indexOf('gap_2') + 1,
             outer_matrix_index.indexOf('gap_3')
         )
-        const tax_cat_counts = tax_idc.map(e => taxonomy_mapper(inner_matrix_index[e])).reduce((acc, e) => {
+        const tax_cat_counts = tax_idc.map(e => tax_map[inner_matrix_index[e]]).reduce((acc, e) => {
             acc[e] += 1
             return acc
         }, Object.fromEntries(tax_cats.map(e => ([e, 0]))))

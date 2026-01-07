@@ -177,7 +177,7 @@ const RankSelector = () => {
 const Chord = (): React.JSX.Element => {
 
     return (
-        <div>
+        <div id="chord-container">
             <RankSelector />
             <ChordSVG />
         </div>

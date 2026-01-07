@@ -103,9 +103,9 @@ const Overview = () => {
     console.log("counts data: ", counts_data, counts_idx, counts)
     return (
         <div id="overview-container">
-            {counts_idx && <OverviewSection id="counts" index={counts_idx} counts={counts} />}
-            {ann_counts_idx && <OverviewSection id="ann" index={ann_counts_idx} counts={ann_counts} />}
-            {<OverviewSection index={dummy_idx} id="dummy" counts={dummy_counts} />}
+            {counts_idx && ann_counts_idx && <OverviewSection id="counts" index={counts_idx} counts={counts} />}
+            {counts_idx && ann_counts_idx && <OverviewSection id="ann" index={ann_counts_idx} counts={ann_counts} />}
+            {counts_idx && ann_counts_idx && <OverviewSection index={dummy_idx} id="dummy" counts={dummy_counts} />}
         </div>
     )
 }

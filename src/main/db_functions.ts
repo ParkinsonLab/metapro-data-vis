@@ -10,14 +10,17 @@ type TaxResultRow = {
     p_id: number | null
 }
 type PathwayNodeRow = {
-    name: string
+    id: string
+    label: string
     x: number
     y: number
     type: string
 }
 type PathwayEdgeRow = {
     source: string
+    source_name: string
     target: string
+    target_name: string
 }
 type PathwayRow = {
     ec: string
@@ -62,14 +65,16 @@ const get_parents_at_level = (names: string[], rank: string) => {
 const get_pathway_info = (pathway_id) => {
     const node_q = `
         SELECT
-            name, x, y, type
+            id, name AS label, x, y, type
         FROM pathway_nodes
         WHERE pathway == ${pathway_id}
     `
     const edge_q = `
         SELECT
-            n_source.name AS source,
-            n_target.name AS target
+            n_source.id AS source,
+            n_source.name AS source_label,
+            n_target.id AS target,
+            n_target.name AS target_label
         FROM pathway_edges edge
         LEFT JOIN pathway_nodes n_source ON n_source.id == edge.source
         LEFT JOIN pathway_nodes n_target ON n_target.id == edge.target

@@ -43,10 +43,10 @@ const sort_by_category = (a, b, get_cat_idx: Function) => {
 
 // makes a count matrix from precalculated parameters and name mappers
 // refactored out because we need to call it at least twice to make the inner and outer arcs
-const make_count_matrix = (data, matrix_index, tax_mapping = null, ann_mapping = null) => {
+const make_count_matrix = (data, matrix_index, tax_map = null, ann_map = null) => {
     const add_to_count_map = (acc: any, species: string, annotation: string, value: number) => {
-        const species_index = matrix_index.indexOf(tax_mapping ? tax_mapping[species] : species)
-        const annotation_index = matrix_index.indexOf(ann_mapping ? ann_mapping[annotation]: annotation)
+        const species_index = matrix_index.indexOf(tax_map ? tax_map[species] : species)
+        const annotation_index = matrix_index.indexOf(ann_map ? ann_map[annotation]: annotation)
         if (species_index >= 0 && annotation_index >= 0) {
             acc[species_index][annotation_index] += Number(value)
             acc[annotation_index][species_index] += Number(value);
@@ -80,13 +80,13 @@ const make_count_matrix = (data, matrix_index, tax_mapping = null, ann_mapping =
 }
 
 
-const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, string>, tax_mapping: Record<string, string>) => {
+const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, string>, tax_map: Record<string, string>) => {
     
     // maps taxonomic names to domains
 
-    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
-    const all_taxa = _.uniq(Object.keys(tax_mapping)).sort(
-        (a, b) => sort_by_category(a, b, name => tax_cats.indexOf(tax_mapping[name]))
+    const tax_cats = _.uniq(_.sortBy(Object.values(tax_map)))
+    const all_taxa = _.uniq(Object.keys(tax_map)).sort(
+        (a, b) => sort_by_category(a, b, name => tax_cats.indexOf(tax_map[name]))
     )
 
     // create count matrix for the outer ring
@@ -103,7 +103,7 @@ const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, str
         ['gap_3']
     )
     const outer_count_matrix = make_count_matrix(
-        data, outer_matrix_index, tax_mapping, ec_mapping
+        data, outer_matrix_index, tax_map, ec_mapping
     )
 
     // create count matrix for the inner ring
@@ -142,31 +142,31 @@ const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, str
         inner_count_matrix: trimmed_inner_count_matrix, 
         inner_matrix_index: trimmed_inner_matrix_idx, 
         outer_count_matrix, outer_matrix_index, colors,
-        tax_mapping, ann_mapping: ec_mapping,
+        tax_map, ann_map: ec_mapping,
     }
 }
 
-const make_1d_count_matrix = (data: Array<Object>, tax_mapping: Object) => {
+const make_1d_count_matrix = (data: Array<Object>, tax_map: Object) => {
     // a simplified count matrix that just tallies the total RPKM mapped to each taxonomic category
-    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
-    const all_taxa = _.uniq(Object.keys(tax_mapping))
+    const tax_cats = _.uniq(_.sortBy(Object.values(tax_map)))
+    const all_taxa = _.uniq(Object.keys(tax_map))
     const counts = Object.fromEntries(
         tax_cats.map(e => [e, 0])
     )
     data.forEach(e => {
         all_taxa.forEach(t => {
-            const cat = tax_mapping[t]
+            const cat = tax_map[t]
             if (cat) counts[cat] += Number(e[t])
         })
     })
     return tax_cats.map(e => counts[e])
 }
 
-const parse_counts_callback = (data: Array<Object>, tax_mapping: Record<string, string>) => {
+const parse_counts_callback = (data: Array<Object>, tax_map: Record<string, string>) => {
 
-    const tax_cats = _.uniq(_.sortBy(Object.values(tax_mapping)))
+    const tax_cats = _.uniq(_.sortBy(Object.values(tax_map)))
     return {
-        counts_idx: tax_cats, counts: make_1d_count_matrix(data, tax_mapping)
+        counts_idx: tax_cats, counts: make_1d_count_matrix(data, tax_map)
     }
 }
 
@@ -180,9 +180,9 @@ const parse_data = (data: Array<Object>, ec_data: Array<Object>, tax_level: stri
     const ec_mapping = Object.fromEntries(
         ec_data.map(e => [e['ec'], ann_level === 'pathway' ? e['pathway_name'] : e['superpathway']])
     )
-    window.electron.ipcRenderer.once('got-tax-cats', (_event, tax_mapping) => {
-        const parsed_data = parse_data_callback(data, ec_mapping, tax_mapping)
-        const counts_data = parse_counts_callback(data, tax_mapping)
+    window.electron.ipcRenderer.once('got-tax-cats', (_event, tax_map) => {
+        const parsed_data = parse_data_callback(data, ec_mapping, tax_map)
+        const counts_data = parse_counts_callback(data, tax_map)
         useAppStore.setState({
             parsed_data: parsed_data, parsed_counts_data: counts_data, isLoading: false,
         })

@@ -18,10 +18,8 @@ body{
     .sub-selector-container{
         display: flex;
         flex-direction: row;
-        justify-content: center;
-        width: 50%;
+        justify-content: space-around;
     }
-        
     .sub-selector-container span{
         padding: 0px 5px;
         border-left: dotted white 1px;
@@ -48,6 +46,33 @@ body{
         text-align: center;
         height: 20px;
         overflow: hidden;
+    }
+    #pathway-container {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+    #pathway-container > #top-row {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        width: 100%;
+    }
+    #pathway-back-button {
+        position: absolute;
+        left: 0;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    #pathway-title {
+        font-weight: bold;
+        font-size: 18px;
+        text-transform: capitalize;
+        flex: 0 1 auto;
+        margin: 0 auto;
+        text-align: center;
     }
     #pathway-preview-container {
         display: flex;
@@ -145,7 +170,6 @@ body{
         filter: invert(100%);
         z-index: -1;
     }
-    
     #loading-layer {
         height: 100%;
         width: 100%;
@@ -161,10 +185,16 @@ body{
     #chord-top-bar{
         display:flex;
         flex-direction: row;
+        justify-content: space-evenly;
+        width: 100%
     }
-
+    #chord-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
     #graph-container{
-        filter: invert(75%) hue-rotate(180deg);
+        /* filter: invert(75%) hue-rotate(180deg); */
         flex-grow: 1;
     }
     #network-title {
@@ -190,7 +220,10 @@ body{
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
+        align-items: center;
         flex-grow: 1;
+        width: 100%;
+        height: 100%;
         margin: 2% 0%;
     }
     #title {
