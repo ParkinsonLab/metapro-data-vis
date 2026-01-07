@@ -3,14 +3,15 @@ import { create } from 'zustand'
 // Define your store state interface
 interface AppState {
   // Example state properties - customize based on your needs
-  data: Array<object> | null
-  ec: Array<object> | null
-  parsed_data: any | null
-  parsed_counts_data: any | null
+  data: Array<object>
+  ec: Array<object>
+  parsed_data: any
+  parsed_counts_data: any
+  network_data: any
   isLoading: boolean
   selectedFile: File | null
   selected_ann_cat: number
-  selected_pathway : number
+  selected_pathway : string
   selected_annotations: string[]
   mainState: 'upload' | 'chord' | 'network' | 'graph' | 'overview'
   tax_rank: 'kingdom' | 'phylum' | 'family' | 'class' | 'order' | 'genus'
@@ -19,14 +20,15 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  data: null,
-  ec: null,
-  parsed_data: null,
-  parsed_counts_data: null,
+  data: [],
+  ec: [],
+  parsed_data: [],
+  parsed_counts_data: [],
+  network_data: {},
   isLoading: false,
   selectedFile: null,
   selected_ann_cat: 0,
-  selected_pathway: 0,
+  selected_pathway: '',
   selected_annotations: [],
   mainState: 'upload',
   tax_rank: 'phylum',

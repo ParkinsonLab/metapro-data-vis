@@ -39,6 +39,20 @@ body{
     .overview-label {
         text-align: center;
     }
+    .pathway-preview-item {
+        display:flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .pathway-preview-item > span {
+        text-align: center;
+        height: 20px;
+        overflow: hidden;
+    }
+    #pathway-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+    }
     #overview-container {
         position: relative;
         height: 375px;

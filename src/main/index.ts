@@ -4,8 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import _ from 'lodash';
 import { parse } from "csv-parse/sync";
-import place_nodes from './place_nodes';
-import { get_parents_at_level, get_superpathway_info } from './db_functions';
+import { get_parents_at_level, get_superpathway_info, get_pathway_info } from './db_functions';
 import fs from 'fs';
 import path from 'path';
 
@@ -84,19 +83,16 @@ app.whenReady().then(() => {
     })
 
     // place nodes
-    ipcMain.on('place-nodes', (event, pathway: string, nodes: string[]) => {
-        try {
-            event.reply('placed-nodes', place_nodes(pathway, nodes))
-        } catch (e) {
-            console.log(e)
-            event.reply('placed-nodes', null) // if node placement crashes, just don't do anything
-        }
+    ipcMain.on('request-node-info', (event, pathway: number) => {
+        console.log('backend request node info')
+        event.reply('return-node-info', get_pathway_info(pathway))
     })
 
     // get taxonomic categories
     ipcMain.on('get-tax-cats', (event, names: string[], level: string) => {
         event.reply('got-tax-cats', get_parents_at_level(names, level))
     })
+
 
     app.on('activate', function () {
         // On macOS it's common to re-create a window in the app when the

@@ -96,4 +96,4 @@ const get_superpathway_info = () => {
     return res
 }
 
-export { get_parents_at_level, get_superpathway_info };
+export { get_parents_at_level, get_superpathway_info, get_pathway_info };
