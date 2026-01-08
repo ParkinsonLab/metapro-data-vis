@@ -11,6 +11,8 @@ build
 # python scripts
 resources/*
 !resources/scripts
+!resources/demo_gif.gif
+!resources/icon.png
 
 resources/scripts/*
 !resources/scripts/*.py
