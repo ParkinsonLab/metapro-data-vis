@@ -1,4 +1,4 @@
-import { get_color } from './util'
+import { get_color, get_sub_color } from './util'
 import _ from 'lodash'
 import { useAppStore } from "@renderer/store/AppStore";
 import * as d3 from "d3";
@@ -80,7 +80,7 @@ const make_count_matrix = (data, matrix_index, tax_map = null, ann_map = null) =
 }
 
 
-const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, string>, tax_map: Record<string, string>) => {
+const parse_data_callback = (data: Array<Object>, ec_map: Record<string, string>, tax_map: Record<string, string>) => {
     
     // maps taxonomic names to domains
 
@@ -91,9 +91,9 @@ const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, str
 
     // create count matrix for the outer ring
     // the difference is that this is aggregated
-    const annotation_cats = [...new Set(Object.values(ec_mapping))]   
-    const all_annotations = _.uniq(Object.keys(ec_mapping)).sort(
-        (a, b) => sort_by_category(a, b, name => annotation_cats.indexOf(ec_mapping[name]))
+    const annotation_cats = [...new Set(Object.values(ec_map))]   
+    const all_annotations = _.uniq(Object.keys(ec_map)).sort(
+        (a, b) => sort_by_category(a, b, name => annotation_cats.indexOf(ec_map[name]))
     )
 
     const outer_matrix_index = ['gap_1'].concat(
@@ -103,7 +103,7 @@ const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, str
         ['gap_3']
     )
     const outer_count_matrix = make_count_matrix(
-        data, outer_matrix_index, tax_map, ec_mapping
+        data, outer_matrix_index, tax_map, ec_map
     )
 
     // create count matrix for the inner ring
@@ -131,18 +131,24 @@ const parse_data_callback = (data: Array<Object>, ec_mapping: Record<string, str
         e => inner_matrix_index[e]
     )
 
-    const colors = Object.fromEntries([
-        ...all_annotations.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
-        ...all_taxa.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
-        ...annotation_cats.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
-        ...tax_cats.map((e, i, arr) => [e, get_color(i, arr.length, e)]),
+    const cat_colors = Object.fromEntries([
+        ...annotation_cats.map((e, i, arr) => [e, get_color(i, arr.length)]),
+        ...tax_cats.map((e, i, arr) => [e, get_color(i, arr.length)]),
     ])
+    const sub_colors = Object.fromEntries([
+        ...all_annotations.map((e, i, arr) => [e, get_sub_color(cat_colors[ec_map[e]], e)]),
+        ...all_taxa.map((e, i, arr) => [e, get_sub_color(cat_colors[tax_map[e]], e)]),
+    ])
+    const colors = {
+        ...cat_colors,
+        ...sub_colors,
+    }
 
     return {
         inner_count_matrix: trimmed_inner_count_matrix, 
         inner_matrix_index: trimmed_inner_matrix_idx, 
         outer_count_matrix, outer_matrix_index, colors,
-        tax_map, ann_map: ec_mapping,
+        tax_map, ann_map: ec_map,
     }
 }
 
