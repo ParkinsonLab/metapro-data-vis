@@ -12,7 +12,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
-    "dev": "electron-vite dev",
+    "dev": "electron-vite dev --watch",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -23,7 +23,13 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "csv-parse": "^6.1.0",
+    "d3": "^7.9.0",
     "electron-updater": "^6.3.9",
+    "lodash": "^4.17.21",
+    "plotly.js": "^3.3.0",
+    "react-loader-spinner": "^8.0.0",
+    "react-plotly.js": "^2.6.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

@@ -4,7 +4,14 @@ out
 .DS_Store
 .eslintcache
 *.log*
-resources
 build
 .vscode
 .editorconfig
+
+# python scripts
+resources/*
+!resources/scripts
+
+resources/scripts/*
+!resources/scripts/*.py
+!resources/scripts/*.ipynb
