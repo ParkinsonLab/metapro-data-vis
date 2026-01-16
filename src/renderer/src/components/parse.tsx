@@ -154,7 +154,8 @@ const make_1d_count_matrix = (data: Array<object>, tax_map: object) => {
   data.forEach((e) => {
     all_taxa.forEach((t) => {
       const cat = tax_map[t]
-      if (cat) counts[cat].push(Number(e[t]))
+      const val = Number(e[t])
+      if (cat && val > 0) counts[cat].push(val)
     })
   })
   return {
@@ -190,36 +191,43 @@ const parse_data = (
 }
 
 const group_tax_tree_at_level = (tax_tree, level) => {
-  const groups = tax_tree.map((e) => e[level])
-  return groups.map((e) => ({
-    name: e,
-    subset: tax_tree.filter((e2) => e2[level] === e)
+  // we can assume that theses share a common ancestor at the previous level
+  const keys = tax_tree.map((e) => (e[level] ? e[level] : `Unclassified ${e.id}`))
+  const groups = tax_tree.reduce(
+    (acc, e, i) => {
+      acc[keys[i]].push(e)
+      return acc
+    },
+    Object.fromEntries(_.uniq(keys).map((e) => [e, []]))
+  )
+
+  return Object.entries(groups).map(([k, v]) => ({
+    subset_name: k,
+    subset: v
   })) // gets all elements of tax_tree that belongs to each group
 }
 
-const parse_tax_tree_recursive = (data, tax_tree, levels, name) => {
-  if (levels.length === 1) {
+const parse_tax_tree_recursive = (data, tax_tree, levels, name, total) => {
+  const species_level = levels.length === 0 
+  const no_children = tax_tree.length === 1 && !tax_tree[0][levels[1]]
+  if (species_level || no_children) {
     // only one element should make it to the last level
-    console.assert(tax_tree.length === 1)
-    console.assert(name === tax_tree[0])
+    const id = tax_tree[0].id
+    const label = species_level ? id : `U_${id}`
     return {
-      name, // generally should be species
-      value: data[name]
+      name: label, // generally should be species
+      value: data[id],
+      percentage: data[id] / total
     }
   } else {
     const tax_tree_subsets = group_tax_tree_at_level(tax_tree, levels[0])
-    const children = tax_tree_subsets.map(({ name, subset }) => {
-      const raw = parse_tax_tree_recursive(data, subset, levels.slice(1), name)
-      return raw.name === name
-        ? {
-            ...raw,
-            name: `Unclassified ${name}`
-          }
-        : raw // we need to fix the name if it's the same as the parent. That means it's unclassified
+    const children = tax_tree_subsets.map(({ subset_name, subset }) => {
+      return parse_tax_tree_recursive(data, subset, levels.slice(1), subset_name, total)
     })
     return {
       name,
-      children
+      children,
+      percentage: d3.sum(children.map((e) => e.percentage))
     }
   }
 }
@@ -227,10 +235,11 @@ const parse_tax_tree_recursive = (data, tax_tree, levels, name) => {
 const parse_tax_tree = (data, tax_tree, levels) => {
   // this makes use the 1D matrix function but do not aggregate to taxonomic categories
   // by using self_map instead of a real tax_map so each entry is its own category
-  const self_map = Object.fromEntries(Object.keys(tax_tree).map((e) => [e, e]))
+  const self_map = Object.fromEntries(tax_tree.map((e) => [e.id, e.id]))
   const { counts_idx, counts } = make_1d_count_matrix(data, self_map)
   const parsed_data = Object.fromEntries(counts_idx.map((e, i) => [e, counts[i]]))
-  return parse_tax_tree_recursive(parsed_data, tax_tree, levels, 'root')
+  const total = d3.sum(Object.values(parsed_data))
+  return parse_tax_tree_recursive(parsed_data, tax_tree, levels, 'root', total)
 }
 
 // this is the function to call when data is first uploaded

@@ -3,6 +3,7 @@ import Chord from './components/Chord'
 import Network from './components/Network'
 import Graph from './components/Graph'
 import Overview from './components/Overview'
+import Krona from './components/Krona'
 import { useAppStore } from './store/AppStore'
 import { useEffect, useState } from 'react'
 import { Oval } from 'react-loader-spinner'
@@ -109,6 +110,7 @@ const App = (): React.JSX.Element => {
         {mainState === 'chord' && <Chord />}
         {mainState === 'network' && <Network />}
         {mainState === 'graph' && <Graph />}
+        {mainState === 'krona' && <Krona />}
       </div>
     </>
   )

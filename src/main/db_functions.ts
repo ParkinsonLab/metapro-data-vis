@@ -66,7 +66,10 @@ const get_parents_at_level = (names: string[], rank: string) => {
 
 const get_parents_multilevel = (names: string[], levels: string[]) => {
   const raw_res = levels.map((e) => get_parents_at_level(names, e))
-  const res = Object.fromEntries(names.map((e) => [e, Object.fromEntries(levels.map((e2, i) => ([e2, raw_res[i][e] ])))]))
+  const res = names.map((e) => ({
+    id: e,
+    ...Object.fromEntries(levels.map((e2, i) => [e2, raw_res[i][e]]))
+  }))
   return res
 }
 

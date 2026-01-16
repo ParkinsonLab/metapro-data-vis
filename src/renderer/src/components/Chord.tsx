@@ -4,7 +4,7 @@ import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
-import parse_data from './parse'
+import { parse_data } from './parse'
 
 const ChordSVG = () => {
   // Function to create the SVG element for the chord diagram

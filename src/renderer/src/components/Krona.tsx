@@ -7,16 +7,18 @@ import { useState, useEffect, useRef } from 'react'
 
 const Krona = () => {
   const ref = useRef(null)
-  const data = useAppStore(state => state.krona_data)
+  const data = useAppStore((state) => state.krona_data)
+  const { colors } = useAppStore((state) => state.parsed_data)
+  const width = 600
+  const height = width
+  const radius = width / 6
+  const label_max = 15
 
   useEffect(() => {
-    const width = 300
-    const height = width
-    const radius = width / 6
-    const svg = d3
-      .select(ref.current)
-      .attr('viewBox', [-width / 2, -height / 2, width, width])
-      .style('font', '4px sans-serif')
+    console.log('drawing krona', data)
+
+    const svg = d3.select(ref.current).attr('viewBox', [-width / 2, -height / 2, width, width])
+    svg.style('font', '8px sans-serif')
 
     const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
 
@@ -42,7 +44,7 @@ const Krona = () => {
     }
 
     const labelVisible = (d) => {
-      return d.y1 <= 3 && d.y0 >= 1 && (d.y1 - d.y0) * (d.x1 - d.x0) > 0.03
+      return d.y1 <= 3 && d.y0 >= 1 && (d.y1 - d.y0) * (d.x1 - d.x0) > 0.05
     }
 
     const labelTransform = (d) => {
@@ -62,7 +64,10 @@ const Krona = () => {
       .attr('dy', '0.35em')
       .attr('fill-opacity', (d) => +labelVisible(d.current))
       .attr('transform', (d) => labelTransform(d.current))
-      .text((d) => d.data.name)
+      .text((d) =>
+        d.data.name.length <= label_max ? d.data.name : d.data.name.slice(0, label_max) + '...'
+      )
+      .attr('fill', 'white')
 
     const path = svg
       .append('g')
@@ -76,14 +81,13 @@ const Krona = () => {
       .attr('fill-opacity', (d) => (arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0))
       .attr('pointer-events', (d) => (arcVisible(d.current) ? 'auto' : 'none'))
       .attr('d', (d) => arc(d.current))
-      .append(
-        'title',
-        (d) => `
-          <strong>Taxon: ${d.data.name}</strong><br>
-          Number of Reads: ${d.value}<br>
-          Percentage: ${(d.data.percentage * 100).toFixed(2)}%
+    path.append('title').text(
+      (d) => `
+        Taxon: ${d.data.name}
+        Mean RPKM: ${d.value.toFixed(2)}
+        Percentage: ${(d.data.percentage * 100).toFixed(2)}%
       `
-      )
+    )
 
     const parent = svg
       .append('circle')
@@ -93,6 +97,7 @@ const Krona = () => {
       .attr('pointer-events', 'all')
 
     const clicked = (event, p) => {
+      console.log('clicked', p)
       parent.datum(p.parent || root)
 
       root.each(
@@ -127,19 +132,18 @@ const Krona = () => {
         .transition(t)
         .attr('fill-opacity', (d) => +labelVisible(d.target))
         .attrTween('transform', (d) => () => labelTransform(d.current))
-
-      path
-        .filter((d) => d.children)
-        .style('cursor', 'pointer')
-        .on('click', clicked)
-
-      parent.on('click', clicked)
     }
-  }, [])
+    path
+      .filter((d) => d.children)
+      .style('cursor', 'pointer')
+      .on('click', clicked)
+
+    parent.on('click', clicked)
+  }, [data])
 
   return (
     <div>
-      <svg id="krona" ref={ref.current} />
+      <svg id="krona" width={width} height={height} ref={ref} />
     </div>
   )
 }
