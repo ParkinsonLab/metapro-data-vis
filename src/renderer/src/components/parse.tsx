@@ -131,8 +131,8 @@ const parse_data_callback = (
     ...all_taxa.map((e, i, arr) => [e, get_sub_color(cat_colors[tax_map[e]], e)])
   ])
   const colors = {
-    ...cat_colors,
-    ...sub_colors
+    ...sub_colors,
+    ...cat_colors
   }
 
   return {
@@ -215,7 +215,8 @@ const parse_tax_tree_recursive = (data, tax_tree, levels, name, total) => {
     const id = tax_tree[0].id
     const label = species_level ? id : `U_${id}`
     return {
-      name: label, // generally should be species
+      id: id,
+      label: label, // generally should be species
       value: data[id],
       percentage: data[id] / total
     }
@@ -225,7 +226,8 @@ const parse_tax_tree_recursive = (data, tax_tree, levels, name, total) => {
       return parse_tax_tree_recursive(data, subset, levels.slice(1), subset_name, total)
     })
     return {
-      name,
+      id: name,
+      label: name,
       children,
       percentage: d3.sum(children.map((e) => e.percentage))
     }
@@ -244,9 +246,9 @@ const parse_tax_tree = (data, tax_tree, levels) => {
 
 // this is the function to call when data is first uploaded
 // it is broader than parse_data
-const get_krona_data = (data: Array<object>) => {
+const get_krona_data = (data: Array<object>, tax_rank) => {
   const tax_terms = Object.keys(data[0]).filter((e) => !key_cols.includes(e))
-  const levels = ['phylum', 'genus', 'species']
+  const levels = _.uniq([tax_rank, 'genus', 'species'])
   window.electron.ipcRenderer.once('got-tax-tree', (_event, tax_tree) => {
     const krona_data = parse_tax_tree(data, tax_tree, levels)
     useAppStore.setState({ krona_data })

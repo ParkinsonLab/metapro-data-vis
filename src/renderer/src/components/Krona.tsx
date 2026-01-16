@@ -15,12 +15,13 @@ const Krona = () => {
   const label_max = 15
 
   useEffect(() => {
-    console.log('drawing krona', data)
+    console.log('drawing krona', data, colors)
 
     const svg = d3.select(ref.current).attr('viewBox', [-width / 2, -height / 2, width, width])
     svg.style('font', '8px sans-serif')
+    svg.selectAll('*').remove()
 
-    const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
+    // const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
 
     const hierarchy = d3
       .hierarchy(data)
@@ -52,7 +53,23 @@ const Krona = () => {
       const y = ((d.y0 + d.y1) / 2) * radius
       return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`
     }
+    const path = svg
+      .append('g')
+      .selectAll('path')
+      .data(root.descendants().slice(1))
+      .join('path')
+      .attr('fill', (d) => (colors[d.data.id] ? colors[d.data.id] : colors[d.parent.data.id]))
+      .attr('fill-opacity', (d) => (arcVisible(d.current) ? (d.children ? 0.9 : 0.7) : 0))
+      .attr('pointer-events', (d) => (arcVisible(d.current) ? 'auto' : 'none'))
+      .attr('d', (d) => arc(d.current))
 
+    path.append('title').text(
+      (d) => `
+        Taxon: ${d.data.id}
+        Mean RPKM: ${d.value.toFixed(2)}
+        Percentage: ${(d.data.percentage * 100).toFixed(2)}%
+      `
+    )
     const label = svg
       .append('g')
       .attr('pointer-events', 'none')
@@ -65,29 +82,9 @@ const Krona = () => {
       .attr('fill-opacity', (d) => +labelVisible(d.current))
       .attr('transform', (d) => labelTransform(d.current))
       .text((d) =>
-        d.data.name.length <= label_max ? d.data.name : d.data.name.slice(0, label_max) + '...'
+        d.data.label.length <= label_max ? d.data.label : d.data.label.slice(0, label_max) + '...'
       )
       .attr('fill', 'white')
-
-    const path = svg
-      .append('g')
-      .selectAll('path')
-      .data(root.descendants().slice(1))
-      .join('path')
-      .attr('fill', (d) => {
-        while (d.depth > 1) d = d.parent
-        return color(d.data.name)
-      })
-      .attr('fill-opacity', (d) => (arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0))
-      .attr('pointer-events', (d) => (arcVisible(d.current) ? 'auto' : 'none'))
-      .attr('d', (d) => arc(d.current))
-    path.append('title').text(
-      (d) => `
-        Taxon: ${d.data.name}
-        Mean RPKM: ${d.value.toFixed(2)}
-        Percentage: ${(d.data.percentage * 100).toFixed(2)}%
-      `
-    )
 
     const parent = svg
       .append('circle')
@@ -121,7 +118,7 @@ const Krona = () => {
         .filter(function (d) {
           return +this.getAttribute('fill-opacity') || arcVisible(d.target)
         })
-        .attr('fill-opacity', (d) => (arcVisible(d.target) ? (d.children ? 0.6 : 0.4) : 0))
+        .attr('fill-opacity', (d) => (arcVisible(d.target) ? (d.children ? 0.9 : 0.7) : 0))
         .attr('pointer-events', (d) => (arcVisible(d.target) ? 'auto' : 'none'))
         .attrTween('d', (d) => () => arc(d.current))
 
@@ -139,7 +136,7 @@ const Krona = () => {
       .on('click', clicked)
 
     parent.on('click', clicked)
-  }, [data])
+  }, [])
 
   return (
     <div>

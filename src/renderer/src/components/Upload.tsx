@@ -19,7 +19,7 @@ const Upload = (): React.JSX.Element => {
   useEffect(() => {
     if (data && ec && !data_file_load && !ec_file_load && isLoading) {
       parse_data(data, ec, tax_rank, ann_rank)
-      get_krona_data(data)
+      get_krona_data(data, tax_rank)
       useAppStore.setState({ mainState: 'overview' })
     }
   }, [data_file_load, ec_file_load])
