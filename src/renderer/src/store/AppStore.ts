@@ -12,8 +12,9 @@ interface AppState {
   isLoading: boolean
   selectedFile: File | null
   selected_ann_cat: number
-  selected_pathway : string
+  selected_pathway: string
   selected_annotations: string[]
+  selected_taxon: number
   mainState: 'upload' | 'chord' | 'network' | 'graph' | 'overview' | 'krona'
   tax_rank: 'kingdom' | 'phylum' | 'family' | 'class' | 'order' | 'genus'
   ann_rank: 'pathway' | 'superpathway'
@@ -32,6 +33,7 @@ export const useAppStore = create<AppState>((set) => ({
   selected_ann_cat: 0,
   selected_pathway: '',
   selected_annotations: [],
+  selected_taxon: 0,
   mainState: 'upload',
   tax_rank: 'phylum',
   ann_rank: 'superpathway',

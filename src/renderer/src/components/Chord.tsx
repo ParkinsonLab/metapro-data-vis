@@ -5,11 +5,13 @@ import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
 import { parse_data } from './parse'
+import { stat } from 'fs'
 
 const ChordSVG = () => {
   // Function to create the SVG element for the chord diagram
   const parsed_data = useAppStore((state) => state.parsed_data)
   const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
 
   const ref = useRef<SVGSVGElement>(null)
 
@@ -33,6 +35,9 @@ const ChordSVG = () => {
     const handle_arc_click = (event, d) => {
       const new_idx = d.index - 1
       if (new_idx < outer_gap_idc[1] - 1 && new_idx !== selected_ann_cat) {
+        console.log('set selected_ann_cat to ' + new_idx)
+        useAppStore.setState({ selected_ann_cat: new_idx, selected_annotations: [] }) // adjusted to -1 because 0th element is gap_0
+      } else if (new_idx < outer_gap_idc[2] - 1 && new_idx !== selected_taxon) {
         console.log('set selected_ann_cat to ' + new_idx)
         useAppStore.setState({ selected_ann_cat: new_idx, selected_annotations: [] }) // adjusted to -1 because 0th element is gap_0
       }
