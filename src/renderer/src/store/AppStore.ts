@@ -8,12 +8,14 @@ interface AppState {
   parsed_data: any
   parsed_counts_data: any
   network_data: any
+  krona_data: any
   isLoading: boolean
   selectedFile: File | null
   selected_ann_cat: number
-  selected_pathway : string
+  selected_pathway: string
   selected_annotations: string[]
-  mainState: 'upload' | 'chord' | 'network' | 'graph' | 'overview'
+  selected_taxon: number
+  mainState: 'upload' | 'chord' | 'network' | 'graph' | 'overview' | 'krona'
   tax_rank: 'kingdom' | 'phylum' | 'family' | 'class' | 'order' | 'genus'
   ann_rank: 'pathway' | 'superpathway'
   // Add more state properties as needed
@@ -25,11 +27,13 @@ export const useAppStore = create<AppState>((set) => ({
   parsed_data: [],
   parsed_counts_data: [],
   network_data: {},
+  krona_data: {},
   isLoading: false,
   selectedFile: null,
   selected_ann_cat: 0,
   selected_pathway: '',
   selected_annotations: [],
+  selected_taxon: 0,
   mainState: 'upload',
   tax_rank: 'phylum',
   ann_rank: 'superpathway',
