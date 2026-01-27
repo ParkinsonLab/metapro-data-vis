@@ -255,4 +255,14 @@ const get_krona_data = (data: Array<object>, tax_rank) => {
   })
   window.electron.ipcRenderer.send('get-tax-tree', tax_terms, levels)
 }
-export { parse_data, get_krona_data }
+export {
+  parse_data,
+  get_krona_data,
+  sort_by_category,
+  make_count_matrix,
+  parse_data_callback,
+  make_1d_count_matrix,
+  group_tax_tree_at_level,
+  parse_tax_tree_recursive,
+  parse_tax_tree
+}
