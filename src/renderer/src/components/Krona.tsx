@@ -58,7 +58,10 @@ const Krona = () => {
       .selectAll('path')
       .data(root.descendants().slice(1))
       .join('path')
-      .attr('fill', (d) => (colors[d.data.id] ? colors[d.data.id] : colors[d.parent.data.id]))
+      .attr(
+        'fill',
+        (d) => (colors[d.data.id] ? colors[d.data.id] : colors[d.parent.data.id]) || 'hsl(0 0 50)'
+      )
       .attr('fill-opacity', (d) => (arcVisible(d.current) ? (d.children ? 0.9 : 0.7) : 0))
       .attr('pointer-events', (d) => (arcVisible(d.current) ? 'auto' : 'none'))
       .attr('d', (d) => arc(d.current))

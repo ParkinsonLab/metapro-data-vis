@@ -104,23 +104,23 @@ function Graph(): React.JSX.Element {
     const t_layout = {
       title: {
         text: 'RPKM for selected ECs',
-        font: { color: 'white' },
+        font: { color: 'black' },
         y: 0.95, // Move title closer to plot (default is 1.0)
         yanchor: 'top'
       },
       scene: {
         xaxis: {
-          title: { text: 'ECs', font: { color: 'white' } },
-          gridcolor: 'white',
+          title: { text: 'ECs', font: { color: 'black' } },
+          gridcolor: 'black',
           range: [-1, subset_data.length],
           tickvals: [...subset_data.keys()],
           ticktext: selected_annotations,
           ticklabelposition: 'outside bottom',
-          color: 'white',
-          tickfont: { color: 'white' }
+          color: 'black',
+          tickfont: { color: 'black' }
         },
         yaxis: {
-          title: { text: 'Toxonomy', font: { color: 'white' } },
+          title: { text: 'Toxonomy', font: { color: 'black' } },
           tickmode: 'array',
           tickvals: tax_cats
             .map((e, i) => tax_cat_csum[i] + tax_cat_counts[e] / 2 - 1)
@@ -128,18 +128,18 @@ function Graph(): React.JSX.Element {
           ticktext: tax_cats
             .filter((e) => tax_cat_counts[e] > 0)
             .map((k) => k.substring(0, 7) + '...'),
-          color: 'white',
-          tickfont: { color: 'white' }
+          color: 'black',
+          tickfont: { color: 'black' }
         },
         zaxis: {
-          title: { text: 'RPKM', font: { color: 'white' } },
+          title: { text: 'RPKM', font: { color: 'black' } },
           range: [0, Math.max(...subset_data.flat()) + 5],
-          color: 'white',
-          tickfont: { color: 'white' }
+          color: 'black',
+          tickfont: { color: 'black' }
         }
       },
-      paper_bgcolor: 'rgb(27, 27, 31)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
+      paper_bgcolor: 'rgb(245, 245, 245)',
+      plot_bgcolor: 'rgb(245, 245, 245)',
       autosize: false,
       margin: { l: 0, r: 10, b: 10, t: 10, pad: 0 },
       width: 900,
@@ -149,7 +149,7 @@ function Graph(): React.JSX.Element {
         y: 0.5,
         xanchor: 'right',
         yanchor: 'bottom',
-        font: { color: 'white' }
+        font: { color: 'black' }
       }
     }
     set_plot_layout(t_layout)

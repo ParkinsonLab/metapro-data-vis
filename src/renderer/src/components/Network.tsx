@@ -266,7 +266,7 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
           const symbolPath = pie_g
             .insert('path', null)
             .attr('d', get_symbol(d.type, node_size))
-            .attr('fill', selected_annotations.includes(d.label) ? 'blue' : 'white')
+            .attr('fill', selected_annotations.includes(d.label) ? 'orange' : 'black')
             .on('click', (event) => handle_node_click(event, d))
             .append('title')
             .text(d.label)
@@ -287,7 +287,7 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
             .attr('text-anchor', 'middle')
             .attr('alignment-baseline', 'hanging')
             .attr('font-size', base_radius * 2 - 2)
-            .attr('fill', 'white')
+            .attr('fill', 'black')
             .text(
               d.label.substring(0, 1) === 'C'
                 ? ''
@@ -377,7 +377,7 @@ const PathwayPreview = ({
       .attr('width', width)
       .attr('height', height - text_height)
       .attr('viewBox', [-width / 2, -height / 2, width, height])
-      .attr('style', 'font: 10px sans-serif white;')
+      .attr('style', 'font: 10px sans-serif black;')
 
     const pie = d3.pie().value((d) => d.value)
     // node here isn't network nodes, it's the nodes of the arc for the pie
@@ -387,7 +387,7 @@ const PathwayPreview = ({
       .append('path') // draw arc
       .attr('fill', (d) => colors[d.data.id])
       .attr('d', arc)
-      .attr('stroke', 'white')
+      .attr('stroke', 'black')
       .append('title')
       .text((d) => d.data.id)
   }, [])
@@ -434,13 +434,10 @@ const Network = (): React.JSX.Element => {
 
   const selected_pathway = useAppStore((state) => state.selected_pathway)
   const network_data = useAppStore((state) => state.network_data)
-  const selected_ann_cat_idx = useAppStore((state) => state.selected_ann_cat)
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
   const ec_data = useAppStore((state) => state.ec)
 
   // Here we map to pathway level regardless of what was selected in the above
-  const parsed_data = useAppStore((state) => state.parsed_data)
-  const { outer_matrix_index } = parsed_data
-  const selected_ann_cat = outer_matrix_index[selected_ann_cat_idx + 1]
   const ann_map = Object.fromEntries(
     ec_data
       .filter((e) => e['superpathway'] === selected_ann_cat)

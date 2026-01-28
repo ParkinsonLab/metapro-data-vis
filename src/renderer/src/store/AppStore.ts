@@ -11,10 +11,10 @@ interface AppState {
   krona_data: any
   isLoading: boolean
   selectedFile: File | null
-  selected_ann_cat: number
+  selected_ann_cat: string
   selected_pathway: string
   selected_annotations: string[]
-  selected_taxon: number
+  selected_taxon: object // {level: string, name: string}
   mainState: 'upload' | 'chord' | 'network' | 'graph' | 'overview' | 'krona'
   tax_rank: 'kingdom' | 'phylum' | 'family' | 'class' | 'order' | 'genus'
   ann_rank: 'pathway' | 'superpathway'
@@ -30,10 +30,10 @@ export const useAppStore = create<AppState>((set) => ({
   krona_data: {},
   isLoading: false,
   selectedFile: null,
-  selected_ann_cat: 0,
+  selected_ann_cat: '',
   selected_pathway: '',
   selected_annotations: [],
-  selected_taxon: 0,
+  selected_taxon: {},
   mainState: 'upload',
   tax_rank: 'phylum',
   ann_rank: 'superpathway',

@@ -91,13 +91,40 @@ app.whenReady().then(() => {
   })
 
   // get taxonomic categories
-  ipcMain.on('get-tax-cats', (event, names: string[], level: string) => {
-    event.reply('got-tax-cats', get_parents_at_level(names, level))
+  // if a filter is supplied, filter the results before returning
+  // it's a bit awkward converting back to an obj, but this avoid a separate db function
+  ipcMain.on('get-tax-cats', (event, names: string[], level: string, filter: any = {}) => {
+    let result
+    if (_.isEmpty(filter)) {
+      result = get_parents_at_level(names, level)
+    } else {
+      const raw_result = get_parents_multilevel(names, [filter.level, level])
+      result = Object.fromEntries(
+        raw_result
+          .filter((e) => e[filter.level] === filter.name && e[level])
+          .map((e) => [e.id, e[level]])
+      )
+    }
+    event.reply('got-tax-cats', result)
   })
 
   // get taxonomic data for krona
-  ipcMain.on('get-tax-tree', (event, names: string[], levels: string[]) => {
-    event.reply('got-tax-tree', get_parents_multilevel(names, levels))
+  ipcMain.on('get-tax-tree', (event, names: string[], levels: string[], filter: any = {}) => {
+    let result
+    let raw_result
+    if (_.isEmpty(filter)) {
+      result = get_parents_multilevel(names, levels)
+    } else {
+      if (!levels.includes(filter.level)) {
+        raw_result = get_parents_multilevel(names, [...levels, filter.level])
+      } else {
+        raw_result = get_parents_multilevel(names, levels)
+      }
+      result = raw_result
+        .filter((e) => e[filter.level] === filter.name)
+        .map((e) => _.pick(e, ['id', ...levels]))
+    }
+    event.reply('got-tax-tree', result)
   })
 
   app.on('activate', function () {

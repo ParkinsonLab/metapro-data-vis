@@ -6,13 +6,13 @@ body{
         font-weight: bold;
     }
     .chord-label {
-        stroke: white;
-        fill: white;
+        stroke: black;
+        fill: black;
         font-size: 10px;
     }
     .network-group-label {
-        stroke: white;
-        fill: white;
+        stroke: black;
+        fill: black;
         font-size: 14px;
     }
     .sub-selector-container{
@@ -22,7 +22,7 @@ body{
     }
     .sub-selector-container span{
         padding: 0px 5px;
-        border-left: dotted white 1px;
+        border-left: dotted black 1px;
         cursor: pointer;
     }
     .sub-selector-container span:first-child{
@@ -46,6 +46,15 @@ body{
         text-align: center;
         height: 20px;
         overflow: hidden;
+    }
+    .chord-reset-button {
+        border: 0;
+        background: inherit;
+    }
+    #chord-inner-container {
+        display:flex;
+        flex-direction: row;
+        align-items: flex-start;
     }
     #pathway-container {
         display: flex;
@@ -98,7 +107,6 @@ body{
         background-size: cover;
         background-repeat: no-repeat;
         background-position: center;
-        filter: invert(100%);
         z-index: -10;
     }
 
@@ -117,11 +125,10 @@ body{
         left: 10%;
         width: 80%;
         height: 80%;
-        background: url('./assets/genome_export.svg'), rgb(228, 228, 224);
+        background: url('./assets/genome_export.svg'), rgb(245, 245, 245);
         background-size: 80px;
         background-repeat: no-repeat;
         background-position: center;
-        filter: invert(100%);
         z-index: -1;
     }
 
@@ -140,11 +147,10 @@ body{
         left: 11.5%;
         width: 80%;
         height: 80%;
-        background: url('./assets/metabolic_export.svg'), rgb(228, 228, 224);
+        background: url('./assets/metabolic_export.svg'), rgb(245, 245, 245);
         background-size: cover;
         background-repeat: no-repeat;
         background-position: center;
-        filter: invert(100%);
         z-index: -1;
     }
 
@@ -163,11 +169,10 @@ body{
         left: 10%;
         width: 80%;
         height: 80%;
-        background: url('./assets/signal_export.svg'), rgb(228, 228, 224);
+        background: url('./assets/signal_export.svg'), rgb(245, 245, 245);
         background-size: 150px;
         background-repeat: no-repeat;
         background-position: center;
-        filter: invert(100%);
         z-index: -1;
     }
     #loading-layer {
@@ -211,7 +216,7 @@ body{
     }
     #nav-container > * {
         font-size: 14px;
-        color: white;
+        color: black;
         height: 30px;
         margin: 10px;
         cursor: pointer;

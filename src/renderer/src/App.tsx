@@ -8,6 +8,7 @@ import { useAppStore } from './store/AppStore'
 import { useEffect, useState } from 'react'
 import { Oval } from 'react-loader-spinner'
 import './App.css'
+import { parse_data } from './components/parse'
 
 const NavBar = () => {
   const state_map = {
@@ -86,7 +87,7 @@ const LoadingLayer = () => {
         visible={true}
         height="120"
         width="120"
-        color="white"
+        color="black"
         ariaLabel="oval-loading"
         wrapperClass=""
       />
@@ -99,7 +100,21 @@ const App = (): React.JSX.Element => {
   // upload, chord, network, or plot, show the corresponding component.
   const mainState = useAppStore((state) => state.mainState)
   const isLoading = useAppStore((state) => state.isLoading)
+  const data = useAppStore((state) => state.data)
+  const ec = useAppStore((state) => state.ec)
+
+  // data reparse triggers
+  const selected_trank = useAppStore((state) => state.tax_rank)
+  const selected_arank = useAppStore((state) => state.ann_rank)
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
+
   console.log(mainState + ' from app')
+  useEffect(() => {
+    if (data.length > 0 && ec.length > 0){
+      parse_data(data, ec, selected_trank, selected_arank, selected_ann_cat, selected_taxon)
+    }
+  }, [data, ec, selected_trank, selected_arank, selected_ann_cat, selected_taxon])
   return (
     <>
       <NavBar />

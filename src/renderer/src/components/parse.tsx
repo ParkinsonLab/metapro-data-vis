@@ -170,15 +170,20 @@ const parse_data = (
   data: Array<object>,
   ec_data: Array<object>,
   tax_level: string,
-  ann_level: string
+  ann_level: string,
+  selected_ann_cat: string,
+  selected_taxon: object
 ) => {
   // first we need to get the taxonomic grouping, then do the actual parsing
   useAppStore.setState({ isLoading: true })
   const tax_terms = Object.keys(data[0]).filter((e) => !key_cols.includes(e))
   const ec_mapping = Object.fromEntries(
-    ec_data.map((e) => [e['ec'], ann_level === 'pathway' ? e['pathway_name'] : e['superpathway']])
+    ec_data
+      .filter((e) => (selected_ann_cat ? e['superpathway'] === selected_ann_cat : true))
+      .map((e) => [e['ec'], ann_level === 'pathway' ? e['pathway_name'] : e['superpathway']])
   )
   window.electron.ipcRenderer.once('got-tax-cats', (_event, tax_map) => {
+    console.log('parse data callback', data, ec_mapping, tax_map)
     const parsed_data = parse_data_callback(data, ec_mapping, tax_map)
     const counts_data = make_1d_count_matrix(data, tax_map)
     useAppStore.setState({
@@ -187,7 +192,7 @@ const parse_data = (
       isLoading: false
     })
   })
-  window.electron.ipcRenderer.send('get-tax-cats', tax_terms, tax_level)
+  window.electron.ipcRenderer.send('get-tax-cats', tax_terms, tax_level, selected_taxon)
 }
 
 const group_tax_tree_at_level = (tax_tree, level) => {
@@ -208,7 +213,7 @@ const group_tax_tree_at_level = (tax_tree, level) => {
 }
 
 const parse_tax_tree_recursive = (data, tax_tree, levels, name, total) => {
-  const species_level = levels.length === 0 
+  const species_level = levels.length === 0
   const no_children = tax_tree.length === 1 && !tax_tree[0][levels[1]]
   if (species_level || no_children) {
     // only one element should make it to the last level
@@ -246,14 +251,14 @@ const parse_tax_tree = (data, tax_tree, levels) => {
 
 // this is the function to call when data is first uploaded
 // it is broader than parse_data
-const get_krona_data = (data: Array<object>, tax_rank) => {
+const get_krona_data = (data: Array<object>, tax_rank, selected_taxon) => {
   const tax_terms = Object.keys(data[0]).filter((e) => !key_cols.includes(e))
   const levels = _.uniq([tax_rank, 'genus', 'species'])
   window.electron.ipcRenderer.once('got-tax-tree', (_event, tax_tree) => {
     const krona_data = parse_tax_tree(data, tax_tree, levels)
     useAppStore.setState({ krona_data })
   })
-  window.electron.ipcRenderer.send('get-tax-tree', tax_terms, levels)
+  window.electron.ipcRenderer.send('get-tax-tree', tax_terms, levels, selected_taxon)
 }
 export {
   parse_data,

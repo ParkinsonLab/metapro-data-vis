@@ -49,7 +49,7 @@ const OverviewSection = ({ id, index, counts }) => {
       .attr('width', width)
       .attr('height', height)
       .attr('viewBox', [-width / 2, -height / 2, width, height])
-      .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif white; z-index: 10;')
+      .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif black; z-index: 10;')
 
     const data = index.map((e, i) => ({ id: e, value: counts[i] }))
     const pie = d3.pie().value((d) => d.value)
@@ -64,7 +64,7 @@ const OverviewSection = ({ id, index, counts }) => {
       .append('path') // draw arc
       .attr('fill', (d) => colors(d.data.id))
       .attr('d', arc)
-      .attr('stroke', 'white')
+      .attr('stroke', 'black')
       .append('title')
       .text((d) => d.data.id)
   }, [])

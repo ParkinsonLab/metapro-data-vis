@@ -3,16 +3,20 @@
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
-import { useState, useEffect, useRef } from 'react'
-import { parse_data } from './parse'
-import { stat } from 'fs'
+import { useEffect, useRef } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons'
+
+//global
+const t_ranks = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus']
+const a_ranks = ['pathway', 'superpathway']
 
 const ChordSVG = () => {
   // Function to create the SVG element for the chord diagram
   const parsed_data = useAppStore((state) => state.parsed_data)
   const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
   const selected_taxon = useAppStore((state) => state.selected_taxon)
-
+  const tax_rank = useAppStore((state) => state.tax_rank)
   const ref = useRef<SVGSVGElement>(null)
 
   const width = 900
@@ -33,13 +37,23 @@ const ChordSVG = () => {
     const outer_gap_idc = gaps.map((e) => outer_matrix_index.indexOf(e))
 
     const handle_arc_click = (event, d) => {
-      const new_idx = d.index - 1
-      if (new_idx < outer_gap_idc[1] - 1 && new_idx !== selected_ann_cat) {
-        console.log('set selected_ann_cat to ' + new_idx)
-        useAppStore.setState({ selected_ann_cat: new_idx, selected_annotations: [] }) // adjusted to -1 because 0th element is gap_0
-      } else if (new_idx < outer_gap_idc[2] - 1 && new_idx !== selected_taxon) {
-        console.log('set selected_ann_cat to ' + new_idx)
-        useAppStore.setState({ selected_ann_cat: new_idx, selected_annotations: [] }) // adjusted to -1 because 0th element is gap_0
+      const selected_name = outer_matrix_index[d.index]
+      if (selected_name.substring(0, 3) === 'gap') return
+      if (d.index < outer_gap_idc[1] - 1 && d !== selected_ann_cat) {
+        console.log('set selected_ann_cat to ' + selected_name)
+        useAppStore.setState({
+          selected_ann_cat: selected_name,
+          selected_annotations: []
+        })
+      } else if (d.index < outer_gap_idc[2] - 1 && selected_name !== selected_taxon) {
+        console.log('set selected_taxon to ' + selected_name)
+        useAppStore.setState({
+          selected_taxon: { level: tax_rank, name: selected_name },
+          tax_rank:
+            tax_rank === t_ranks[t_ranks.length - 1]
+              ? tax_rank
+              : t_ranks[t_ranks.indexOf(tax_rank) + 1]
+        })
       }
     }
 
@@ -61,7 +75,7 @@ const ChordSVG = () => {
       .attr('width', width)
       .attr('height', height)
       .attr('viewBox', [-width / 2, -height / 2, width, height])
-      .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif white;')
+      .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif black;')
 
     const inner_chords = d3.chord().padAngle(0).sortSubgroups(d3.descending)(inner_count_matrix)
     const outer_chords = d3.chord().padAngle(0).sortSubgroups(d3.descending)(outer_count_matrix)
@@ -89,7 +103,7 @@ const ChordSVG = () => {
       .append('path') // draw arc
       .attr('fill', (d) => colors[outer_matrix_index[d.index]])
       .attr('d', outer_arc)
-      .attr('stroke', (d) => (d.index - 1 === selected_ann_cat ? 'blue' : 'white')) // adjusted to -1 because first element is gap_1
+      .attr('stroke', (d) => (d.index - 1 === selected_ann_cat ? 'blue' : 'black')) // adjusted to -1 because first element is gap_1
       .on('click', handle_arc_click)
     outer_nodes
       .append('title') // mouseover text
@@ -140,7 +154,7 @@ const ChordSVG = () => {
       .join('path')
       .attr('d', ribbon)
       .attr('fill', (d) => colors[inner_matrix_index[d.target.index]])
-      // .attr("stroke", "white")
+      // .attr("stroke", "black")
       .append('title')
       .text(
         (d) =>
@@ -158,12 +172,8 @@ const ChordSVG = () => {
 }
 
 const RankSelector = () => {
-  const t_ranks = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus']
-  const a_ranks = ['pathway', 'superpathway']
   const selected_trank = useAppStore((state) => state.tax_rank)
   const selected_arank = useAppStore((state) => state.ann_rank)
-  const data = useAppStore((state) => state.data)
-  const ec = useAppStore((state) => state.ec)
 
   const handle_trank_update = (event) => {
     useAppStore.setState({ tax_rank: event.currentTarget.id })
@@ -192,12 +202,6 @@ const RankSelector = () => {
     </span>
   ))
 
-  useEffect(() => {
-    if (data && ec && selected_trank && selected_arank) {
-      parse_data(data, ec, selected_trank, selected_arank)
-    }
-  }, [data, ec, selected_trank, selected_arank])
-
   return (
     <div id="chord-top-bar">
       <div className="sub-selector-container">{t_elements}</div>
@@ -207,10 +211,21 @@ const RankSelector = () => {
 }
 
 const Chord = (): React.JSX.Element => {
+  const reset_taxon = () => {
+    useAppStore.setState({ selected_taxon: {} })
+  }
+  const reset_ann = () => {
+    useAppStore.setState({ selected_ann_cat: '' })
+  }
+
   return (
     <div id="chord-container">
       <RankSelector />
-      <ChordSVG />
+      <div id="chord-inner-container">
+        <button className="chord-reset-button" onClick={reset_taxon}><FontAwesomeIcon icon={faArrowRotateLeft} /></button>
+        <ChordSVG />
+        <button className="chord-reset-button" onClick={reset_ann}><FontAwesomeIcon icon={faArrowRotateLeft} /></button>
+      </div>
     </div>
   )
 }
