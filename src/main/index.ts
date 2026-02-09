@@ -3,7 +3,14 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-import { parse_ec_chord, initialize, add_data } from './data_functions'
+import {
+  parse_ec_chord,
+  initialize,
+  add_data,
+  parse_krona,
+  parse_network,
+  parse_counts
+} from './data_functions'
 
 const api = [
   {
@@ -15,8 +22,20 @@ const api = [
     handler: add_data
   },
   {
+    channel: 'counts',
+    handler: parse_counts
+  },
+  {
+    channel: 'krona',
+    handler: parse_krona
+  },
+  {
     channel: 'chord',
     handler: parse_ec_chord
+  },
+  {
+    channel: 'network',
+    handler: parse_network
   }
 ]
 
@@ -69,70 +88,11 @@ app.whenReady().then(() => {
   createWindow()
 
   // set the API
-  api.forEach((e) => {
-    ipcMain.on(`request-${e.channel}`, (event, params) => {
-      event.reply(`response-${e.channel}`, e.handler(params))
+  for (const { channel, handler } of api) {
+    ipcMain.on(`request-${channel}`, (event, params) => {
+      event.reply(`response-${channel}`, handler(params))
     })
-  })
-
-  // // Add the parse-csv event listener
-  // //  when ipcMain receives the 'parse-csv' event with file content, use parse function from csv-parse/sync to parse the csv content into a json object and send the json object back to the renderer process
-  // ipcMain.on('parse-data', (event, fileContent) => {
-  //   const json = parse(fileContent, {
-  //     columns: true,
-  //     skip_empty_lines: true
-  //   })
-  //   event.reply('parsed-data', json)
-  // })
-
-  // // add another one for test data
-  // ipcMain.on('parse-test', (event) => {
-  //   event.reply('parsed-data', test_data)
-  //   event.reply('parsed-ec', ec_data)
-  // })
-
-  // // place nodes
-  // ipcMain.on('request-node-info', (event, pathway: number) => {
-  //   console.log('backend request node info')
-  //   event.reply('return-node-info', get_pathway_info(pathway))
-  // })
-
-  // // get taxonomic categories
-  // // if a filter is supplied, filter the results before returning
-  // // it's a bit awkward converting back to an obj, but this avoid a separate db function
-  // ipcMain.on('get-tax-cats', (event, names: string[], level: string, filter: any = {}) => {
-  //   let result
-  //   if (_.isEmpty(filter)) {
-  //     result = get_parents_at_level(names, level)
-  //   } else {
-  //     const raw_result = get_parents_multilevel(names, [filter.level, level])
-  //     result = Object.fromEntries(
-  //       raw_result
-  //         .filter((e) => e[filter.level] === filter.name && e[level])
-  //         .map((e) => [e.id, e[level]])
-  //     )
-  //   }
-  //   event.reply('got-tax-cats', result)
-  // })
-
-  // // get taxonomic data for krona
-  // ipcMain.on('get-tax-tree', (event, names: string[], levels: string[], filter: any = {}) => {
-  //   let result
-  //   let raw_result
-  //   if (_.isEmpty(filter)) {
-  //     result = get_parents_multilevel(names, levels)
-  //   } else {
-  //     if (!levels.includes(filter.level)) {
-  //       raw_result = get_parents_multilevel(names, [...levels, filter.level])
-  //     } else {
-  //       raw_result = get_parents_multilevel(names, levels)
-  //     }
-  //     result = raw_result
-  //       .filter((e) => e[filter.level] === filter.name)
-  //       .map((e) => _.pick(e, ['id', ...levels]))
-  //   }
-  //   event.reply('got-tax-tree', result)
-  // })
+  }
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

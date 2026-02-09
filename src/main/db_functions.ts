@@ -1,7 +1,7 @@
 import _ from 'lodash'
 import { DatabaseSync } from 'node:sqlite'
 
-const db = new DatabaseSync('resources/db/taxonomy.db')
+let db;
 
 type TaxResultRow = {
   c_name: string
@@ -25,9 +25,20 @@ type PathwayEdgeRow = {
 type PathwayRow = {
   ec: string
   pathway_id: number
-  pathway_name: string
+  pathway: string
   superpathway: string
 }
+
+const check_db = (): boolean => {
+  try {
+    db = new DatabaseSync('resources/db/taxonomy.db')
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
+check_db() // lets the following code work in tests
 
 const get_parents_at_level = (names: string[], rank: string) => {
   // assumes that level is one of ['realm', 'kingdom', 'phylum', 'class', 'order', 'family', 'genus']
@@ -102,7 +113,7 @@ const get_superpathway_info = () => {
     SELECT
       node.name AS ec,
       psp.id AS pathway_id,
-      psp.name AS pathway_name,
+      psp.name AS pathway,
       sp.name AS superpathway
     FROM pathway_nodes node
     LEFT JOIN pathway_superpathways psp ON psp.id = node.pathway
@@ -112,4 +123,4 @@ const get_superpathway_info = () => {
   return res
 }
 
-export { get_parents_at_level, get_superpathway_info, get_pathway_info, get_parents_multilevel }
+export { get_parents_at_level, get_superpathway_info, get_pathway_info, get_parents_multilevel, check_db }
