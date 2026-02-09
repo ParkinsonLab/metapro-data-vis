@@ -8,7 +8,7 @@ import { useAppStore } from './store/AppStore'
 import { useEffect, useState } from 'react'
 import { Oval } from 'react-loader-spinner'
 import './App.css'
-import { parse_data } from './components/parse'
+import { parse_data } from '../../main/parse'
 
 const NavBar = () => {
   const state_map = {

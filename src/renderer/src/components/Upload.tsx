@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/AppStore'
-import { parse_data, get_krona_data } from './parse'
+import { parse_data, get_krona_data } from '../../../main/parse'
 
 const Upload = (): React.JSX.Element => {
   // internal file object preloading

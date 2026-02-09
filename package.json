@@ -31,6 +31,7 @@
     "@fortawesome/react-fontawesome": "^3.1.1",
     "csv-parse": "^6.1.0",
     "d3": "^7.9.0",
+    "danfojs-node": "^1.2.0",
     "electron-updater": "^6.3.9",
     "lodash": "^4.17.21",
     "plotly.js": "^3.3.0",

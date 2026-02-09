@@ -34,19 +34,19 @@ const get_parents_at_level = (names: string[], rank: string) => {
 
   const placeholders = names.map(() => '?').join(', ')
   const q = `
-        WITH nsq AS (
-            SELECT tax_id, name FROM names
-            WHERE name IN (${placeholders})
-        )
-        SELECT
-            nsq.name AS c_name,
-            nsq.tax_id AS c_id,
-            np.name AS p_name,
-            parents.t_${rank} AS p_id
-        FROM nsq
-        LEFT JOIN parents ON nsq.tax_id == parents.tax_id
-        LEFT JOIN names np ON np.tax_id == parents.t_${rank} 
-    `
+    WITH nsq AS (
+      SELECT tax_id, name FROM names
+      WHERE name IN (${placeholders})
+    )
+    SELECT
+      nsq.name AS c_name,
+      nsq.tax_id AS c_id,
+      np.name AS p_name,
+      parents.t_${rank} AS p_id
+    FROM nsq
+    LEFT JOIN parents ON nsq.tax_id == parents.tax_id
+    LEFT JOIN names np ON np.tax_id == parents.t_${rank} 
+  `
   const q_res: Array<TaxResultRow> = db.prepare(q).all(...names) as Array<TaxResultRow>
   const res_entries = q_res.map((e) => [e.c_name, e.p_name])
   const all_cats = q_res.map((e) => e.p_name)
@@ -75,22 +75,22 @@ const get_parents_multilevel = (names: string[], levels: string[]) => {
 
 const get_pathway_info = (pathway_id) => {
   const node_q = `
-        SELECT
-            id, name AS label, x, y, type
-        FROM pathway_nodes
-        WHERE pathway == ${pathway_id}
-    `
+    SELECT
+      id, name AS label, x, y, type
+    FROM pathway_nodes
+    WHERE pathway == ${pathway_id}
+  `
   const edge_q = `
-        SELECT
-            n_source.id AS source,
-            n_source.name AS source_label,
-            n_target.id AS target,
-            n_target.name AS target_label
-        FROM pathway_edges edge
-        LEFT JOIN pathway_nodes n_source ON n_source.id == edge.source
-        LEFT JOIN pathway_nodes n_target ON n_target.id == edge.target
-        WHERE edge.pathway == ${pathway_id}
-    `
+    SELECT
+      n_source.id AS source,
+      n_source.name AS source_label,
+      n_target.id AS target,
+      n_target.name AS target_label
+    FROM pathway_edges edge
+    LEFT JOIN pathway_nodes n_source ON n_source.id == edge.source
+    LEFT JOIN pathway_nodes n_target ON n_target.id == edge.target
+    WHERE edge.pathway == ${pathway_id}
+  `
   const node_res: Array<PathwayNodeRow> = db.prepare(node_q).all() as Array<PathwayNodeRow>
   const edge_res: Array<PathwayEdgeRow> = db.prepare(edge_q).all() as Array<PathwayEdgeRow>
 
@@ -99,15 +99,15 @@ const get_pathway_info = (pathway_id) => {
 
 const get_superpathway_info = () => {
   const q = `
-        SELECT
-            node.name AS ec,
-            psp.id AS pathway_id,
-            psp.name AS pathway_name,
-            sp.name AS superpathway
-        FROM pathway_nodes node
-        LEFT JOIN pathway_superpathways psp ON psp.id = node.pathway
-        LEFT JOIN superpathways sp ON psp.superpathway = sp.id
-    `
+    SELECT
+      node.name AS ec,
+      psp.id AS pathway_id,
+      psp.name AS pathway_name,
+      sp.name AS superpathway
+    FROM pathway_nodes node
+    LEFT JOIN pathway_superpathways psp ON psp.id = node.pathway
+    LEFT JOIN superpathways sp ON psp.superpathway = sp.id
+  `
   const res: Array<PathwayRow> = db.prepare(q).all() as Array<PathwayRow>
   return res
 }
