@@ -9,7 +9,9 @@ import {
   add_data,
   parse_krona,
   parse_network,
-  parse_counts
+  parse_counts,
+  parse_overview,
+  add_test_data
 } from './data_functions'
 
 const api = [
@@ -20,6 +22,14 @@ const api = [
   {
     channel: 'load',
     handler: add_data
+  },
+  {
+    channel: 'load_test',
+    handler: add_test_data
+  },
+  {
+    channel: 'overview',
+    handler: parse_overview
   },
   {
     channel: 'counts',

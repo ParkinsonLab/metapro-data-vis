@@ -2,9 +2,9 @@
 
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
+import { useShallow } from 'zustand/react/shallow'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
-import { get_color } from './utils'
 
 const label_map = {
   counts: 'Expression',
@@ -15,13 +15,6 @@ const state_map = {
   counts: 'krona',
   ann: 'chord',
   dummy: 'chord'
-}
-
-const make_ann_counts = (index, count_matrix) => {
-  // basically this removes extra stuff, leaving just data needed for the annotation ring
-  const counts_idx = index.slice(1, index.indexOf('gap_2'))
-  const counts = counts_idx.map((e) => d3.sum(count_matrix[index.indexOf(e)]))
-  return { ann_counts_idx: counts_idx, ann_counts: counts }
 }
 
 const OverviewSection = ({ id, index, counts }) => {
@@ -80,29 +73,16 @@ const OverviewSection = ({ id, index, counts }) => {
 }
 
 const Overview = () => {
-  const counts_data = useAppStore((state) => state.parsed_counts_data)
-  const parsed_data = useAppStore((state) => state.parsed_data)
-  const krona_data = useAppStore((state) => state.krona_data)
-  const dummy_idx = ['g1', 'g2', 'g3', 'g4', 'g5']
-  const dummy_counts = [5, 17, 22, 8, 11]
+  const { counts_data, ann_data, dummy_data } = useAppStore((state) => state.overview_data)
+  const ready = !_.isEmpty(ann_data) && !_.isEmpty(counts_data) && !_.isEmpty(dummy_data)
 
-  let counts_idx, counts, ann_counts_idx, ann_counts
-  if (!_.isEmpty(parsed_data)) {
-    const { outer_count_matrix, outer_matrix_index } = parsed_data
-    const tmp = make_ann_counts(outer_matrix_index, outer_count_matrix)
-    ann_counts_idx = tmp.ann_counts_idx
-    ann_counts = tmp.ann_counts
-  }
-  if (!_.isEmpty(counts_data)) {
-    counts_idx = counts_data.counts_idx
-    counts = counts_data.counts
-  }
-  const ready = counts_idx && ann_counts_idx && !_.isEmpty(krona_data)
   return (
     <div id="overview-container">
-      {ready && <OverviewSection id="counts" index={counts_idx} counts={counts} />}
-      {ready && <OverviewSection id="ann" index={ann_counts_idx} counts={ann_counts} />}
-      {ready && <OverviewSection index={dummy_idx} id="dummy" counts={dummy_counts} />}
+      {ready && (
+        <OverviewSection id="counts" index={counts_data.index} counts={counts_data.counts} />
+      )}
+      {ready && <OverviewSection id="ann" index={ann_data.index} counts={ann_data.counts} />}
+      {ready && <OverviewSection index={dummy_data.index} id="dummy" counts={dummy_data.counts} />}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { ECDH } from 'crypto'
 import { get_color, key_cols, sum, mean } from './utils'
 import _ from 'lodash'
 // file for the data parser
@@ -96,16 +97,35 @@ const make_count_vector = (data: Array<object>, tax_map: object) => {
   const tax_cats = _.uniq(_.sortBy(Object.values(tax_map)))
   const all_taxa = _.uniq(Object.keys(tax_map))
   const counts = Object.fromEntries(tax_cats.map((e) => [e, []]))
-  data.forEach((e) => {
-    all_taxa.forEach((t) => {
-      const cat = tax_map[t]
-      const val = Number(e[t])
+  for (const row of data) {
+    for (const taxon of all_taxa) {
+      const cat = tax_map[taxon]
+      const val = Number(row[taxon])
       if (cat && val > 0) counts[cat].push(val)
-    })
-  })
+    }
+  }
   return {
-    counts_idx: tax_cats,
-    counts: tax_cats.map((e) => mean(counts[e]))
+    index: tax_cats,
+    counts: tax_cats.map((e) => sum(counts[e]))
+  }
+}
+
+// similar to make count vector but for annotations (i.e. row-wise sum)
+const make_ann_vector = (data, ann_map) => {
+  // a simplified count matrix that just tallies the total RPKM mapped to each taxonomic category
+  const all_taxa = Object.keys(data[0]).filter((e) => !key_cols.includes(e))
+  const res = Object.fromEntries(Object.values(ann_map).map((e) => [e, 0]))
+  const tmp = data.map((e) => [
+    e['EC#'],
+    sum(Object.values(_.pick(e, all_taxa)).map((e) => Number(e)))
+  ])
+  for (const [ec, val] of tmp) {
+    res[ann_map[ec]] += val
+  }
+  const index = Object.keys(res)
+  return {
+    index: index,
+    counts: index.map((e) => res[e])
   }
 }
 
@@ -163,8 +183,4 @@ const parse_tax_tree = (data, tax_tree, levels) => {
   return parse_tax_tree_recursive(parsed_data, tax_tree, levels, 'root', total)
 }
 
-export {
-  parse_ec_data,
-  make_count_vector,
-  parse_tax_tree
-}
+export { parse_ec_data, make_count_vector, make_ann_vector, parse_tax_tree }

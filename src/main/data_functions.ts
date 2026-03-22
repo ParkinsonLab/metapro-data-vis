@@ -9,10 +9,11 @@ import {
   get_superpathway_info,
   get_pathway_info,
   get_parents_multilevel,
-  check_db
+  check_db,
+  get_name_from_id
 } from './db_functions'
-import { key_cols, reduce_to_dict } from './utils'
-import { parse_ec_data, parse_tax_tree, make_count_vector } from './parse'
+import { key_cols, reduce_to_dict, empty_filter, get_color } from './utils'
+import { parse_ec_data, parse_tax_tree, make_count_vector, make_ann_vector } from './parse'
 
 // store loaded data and ec in-memory
 let data = {}
@@ -30,6 +31,7 @@ const get_fname = (f_path) => {
 
 const initialize = () => {
   // TODO: check for database
+  console.log('initialize')
   if (!check_db()) {
     // TODO: download the database
     return 3
@@ -37,33 +39,39 @@ const initialize = () => {
   ec = get_superpathway_info()
 }
 
-const add_data = ({ name: new_name, data: new_data, test = false }) => {
-  let to_add
-  if (test) {
-    to_add = test_data_paths.map((e) => [
-      get_fname(e),
-      fs.readFileSync(path.join(__dirname, e), 'utf8')
-    ])
-  } else {
-    to_add = [[new_name, new_data]]
-  }
+const add_data = ({ name, data: raw_data }) => {
+  console.log('add_data')
+  const parsed_data = parse(raw_data, {
+    delimiter: '\t',
+    columns: (header) => {
+      header.map((e) => (key_cols.includes(e) ? e : get_name_from_id(e)))
+    },
+    skip_empty_lines: true
+  }).map((item) => ({
+    ...item,
+    'EC#': item['EC#'].substring(3)
+  }))
+  console.log(parsed_data.slice(0, 10))
+  data = { ...data, [name]: parsed_data }
+  return name
+}
 
-  const parsed_data = to_add.map((e) => [
-    e[0],
-    parse(e[1], {
-      delimiter: '\t',
-      columns: true,
-      skip_empty_lines: true
-    })
+const add_test_data = () => {
+  console.log('add_test_data')
+  const to_add = test_data_paths.map((e) => [
+    get_fname(e),
+    fs.readFileSync(path.join(__dirname, e), 'utf8')
   ])
-
-  data = { ...data, ...Object.fromEntries(parsed_data) }
+  for (const [name, data] of to_add) {
+    add_data({ name, data })
+  }
+  return to_add.map((e) => e[0])
 }
 
 // when making a request, always supply the filter parameter
 // if it doesn't actually exist, put the filter_name as '' or a falsy value
 const subset_data = (name, { level, name: filter_name }) => {
-  if (!filter_name) return data
+  if (!(level && filter_name)) return data
 
   // subset
   const raw_data = ec[name]
@@ -79,6 +87,7 @@ const subset_data = (name, { level, name: filter_name }) => {
 }
 
 const subset_ec = ({ level, name }) => {
+  if (!(level && name)) return ec
   return ec.filter((e) => e[level] === name)
 }
 
@@ -94,8 +103,8 @@ const agg_by_ec = (data) => {
   const ops = Object.fromEntries(
     df.columns.filter((e) => !key_cols.includes(e)).map((e) => [e, 'sum'])
   )
+  console.log(df.head(10))
   const agg_df = df.groupby(['EC#']).agg(ops)
-  console.log(agg_df)
   agg_df.rename(
     Object.fromEntries(
       agg_df.columns.filter((e) => e.endsWith('_sum')).map((e) => [e, e.substring(0, e.length - 4)])
@@ -140,6 +149,7 @@ const parse_ec_chord = ({
   selected_ann_cat: { level: string; name: string }
   selected_taxon: { level: string; name: string }
 }) => {
+  console.log('parse_ec_chord')
   // if in comparison mode, get the delta first
   const ec_map = get_ec_map(selected_ann_cat, ann_level)
   const raw_data = names_to_data(names)
@@ -184,21 +194,22 @@ const get_delta = (data_1: object[], data_2: object[]) => {
 // this is the function to call when data is first uploaded
 // it is broader than parse_data
 const parse_krona = ({ names, tax_rank, selected_taxon }) => {
-  const data = subset_data(names_to_data(names), selected_taxon)
-  const tax_terms = Object.keys(data[0]).filter((e) => !key_cols.includes(e))
+  const data_subset = subset_data(names_to_data(names), selected_taxon)
+  const tax_terms = Object.keys(data_subset[0]).filter((e) => !key_cols.includes(e))
   const levels = _.uniq([tax_rank, 'genus', 'species'])
   const tax_tree = get_parents_multilevel(tax_terms, levels)
-  return parse_tax_tree(data, tax_tree, levels)
+  return parse_tax_tree(data_subset, tax_tree, levels)
 }
 
+// this is meant for the preview
 const parse_counts = ({ names, tax_rank, selected_taxon, selected_ann_cat }) => {
-  const data = subset_data_by_ann(
+  const data_subset = subset_data_by_ann(
     subset_data(names_to_data(names), selected_taxon),
     selected_ann_cat
   )
 
-  const tax_map = get_tax_map(data, tax_rank)
-  return make_count_vector(data, tax_map)
+  const tax_map = get_tax_map(data_subset, tax_rank)
+  return make_count_vector(data_subset, tax_map)
 }
 
 const subset_parsed_data = (data_matrix, data_matrix_index, annotation_checker) => {
@@ -258,4 +269,33 @@ const parse_network = ({ names, tax_level, selected_taxon, pathway_name, width, 
   return to_return
 }
 
-export { parse_ec_chord, parse_krona, initialize, add_data, get_delta, parse_counts, parse_network }
+// the overview always happens at the phylum and superpathway level
+const parse_overview = ({ names }) => {
+  const data_subset = subset_data(names_to_data(names), empty_filter)
+  const tax_map = get_tax_map(data_subset, 'phylum')
+  const ann_map = get_ec_map(empty_filter, 'superpathway')
+  const counts_data = make_count_vector(data_subset, tax_map)
+  const ann_data = make_ann_vector(data_subset, ann_map)
+  const dummy_data = {
+    index: ['g1', 'g2', 'g3', 'g4', 'g5'],
+    counts: [5, 17, 22, 8, 11],
+    colors: Array(5).map((_, i) => get_color(i, 5))
+  }
+  return {
+    counts_data,
+    ann_data,
+    dummy_data
+  }
+}
+
+export {
+  parse_ec_chord,
+  parse_krona,
+  initialize,
+  add_data,
+  add_test_data,
+  get_delta,
+  parse_counts,
+  parse_network,
+  parse_overview
+}

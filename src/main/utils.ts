@@ -1,4 +1,4 @@
-const key_cols = ['EC#', 'GeneID', 'Length', 'Reads', 'RPKM']
+const key_cols = ['EC#', 'GeneID', 'Length', 'Reads', 'RPKM', 'Unclassified']
 
 const sum = (arr: number[]): number => {
   return arr.reduce((acc, e) => (acc += e), 0)
@@ -34,4 +34,6 @@ const reduce_to_dict = (pairs): Record<string, string[]> => {
   return Object.fromEntries([...map.entries()].map(([k, set]) => [k, Array.from(set)]))
 }
 
-export { map_lum, get_color, sum, mean, key_cols, reduce_to_dict }
+const empty_filter = { level: '', name: '' }
+
+export { map_lum, get_color, sum, mean, key_cols, reduce_to_dict, empty_filter }

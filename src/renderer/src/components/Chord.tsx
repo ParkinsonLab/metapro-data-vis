@@ -13,7 +13,7 @@ const a_ranks = ['pathway', 'superpathway']
 
 const ChordSVG = () => {
   // Function to create the SVG element for the chord diagram
-  const parsed_data = useAppStore((state) => state.parsed_data)
+  const parsed_data = useAppStore((state) => state.chord_data)
   const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
   const selected_taxon = useAppStore((state) => state.selected_taxon)
   const tax_rank = useAppStore((state) => state.tax_rank)
@@ -26,18 +26,18 @@ const ChordSVG = () => {
 
   const draw_chord = () => {
     const {
-      inner_count_matrix,
-      inner_matrix_index,
-      outer_count_matrix,
-      outer_matrix_index,
+      count_matrix,
+      index,
       colors
     } = parsed_data
 
+    console.log('draw_chord')
+
     const gaps = ['gap_1', 'gap_2', 'gap_3']
-    const outer_gap_idc = gaps.map((e) => outer_matrix_index.indexOf(e))
+    const outer_gap_idc = gaps.map((e) => count_matrix.indexOf(e))
 
     const handle_arc_click = (event, d) => {
-      const selected_name = outer_matrix_index[d.index]
+      const selected_name = count_matrix[d.index]
       if (selected_name.substring(0, 3) === 'gap') return
       if (d.index < outer_gap_idc[1] - 1 && d !== selected_ann_cat) {
         console.log('set selected_ann_cat to ' + selected_name)
@@ -77,37 +77,37 @@ const ChordSVG = () => {
       .attr('viewBox', [-width / 2, -height / 2, width, height])
       .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif black;')
 
-    const inner_chords = d3.chord().padAngle(0).sortSubgroups(d3.descending)(inner_count_matrix)
-    const outer_chords = d3.chord().padAngle(0).sortSubgroups(d3.descending)(outer_count_matrix)
+    const inner_chords = d3.chord().padAngle(0).sortSubgroups(d3.descending)(count_matrix)
+    const outer_chords = d3.chord().padAngle(0).sortSubgroups(d3.descending)(count_matrix)
 
     const get_group_label = (d) => [
       {
-        value: outer_matrix_index[d.index],
+        value: index[d.index],
         angle: d.startAngle + (d.endAngle - d.startAngle) / 2,
         size: d.value
       }
     ]
 
     // outer arc
-    const label_threshold = d3.sum(outer_count_matrix.flat()) / 800
+    const label_threshold = d3.sum(count_matrix.flat()) / 800
     const outer_nodes = svg
       .append('g')
       .selectAll()
       .data(
         outer_chords.groups.filter(
-          (d) => !gaps.map((e) => outer_matrix_index.indexOf(e)).includes(d.index)
+          (d) => !gaps.map((e) => index.indexOf(e)).includes(d.index)
         )
       )
       .join('g')
     outer_nodes
       .append('path') // draw arc
-      .attr('fill', (d) => colors[outer_matrix_index[d.index]])
+      .attr('fill', (d) => colors[index[d.index]])
       .attr('d', outer_arc)
       .attr('stroke', (d) => (d.index - 1 === selected_ann_cat ? 'blue' : 'black')) // adjusted to -1 because first element is gap_1
       .on('click', handle_arc_click)
     outer_nodes
       .append('title') // mouseover text
-      .text((d) => `${outer_matrix_index[d.index]} [${Math.trunc(d.value)}]`)
+      .text((d) => `${index[d.index]} [${Math.trunc(d.value)}]`)
 
     const gap_regex = /^gap_[0-9]+$/
     const text_labels = outer_nodes
@@ -136,15 +136,15 @@ const ChordSVG = () => {
       .selectAll()
       .data(
         inner_chords.groups.filter(
-          (d) => !gaps.map((e) => inner_matrix_index.indexOf(e)).includes(d.index)
+          (d) => !gaps.map((e) => index.indexOf(e)).includes(d.index)
         )
       )
       .join('g')
       .append('path')
-      .attr('fill', (d) => colors[inner_matrix_index[d.index]])
+      .attr('fill', (d) => colors[index[d.index]])
       .attr('d', inner_arc)
       .append('title')
-      .text((d) => `${inner_matrix_index[d.index]} [${Math.trunc(d.value)}]`)
+      .text((d) => `${index[d.index]} [${Math.trunc(d.value)}]`)
 
     svg
       .append('g')
@@ -153,16 +153,17 @@ const ChordSVG = () => {
       .attr('fill-opacity', 0.7)
       .join('path')
       .attr('d', ribbon)
-      .attr('fill', (d) => colors[inner_matrix_index[d.target.index]])
+      .attr('fill', (d) => colors[index[d.target.index]])
       // .attr("stroke", "black")
       .append('title')
       .text(
         (d) =>
-          `${inner_matrix_index[d.target.index]} → ${inner_matrix_index[d.source.index]} [${Math.trunc(d.source.value)}]`
+          `${index[d.target.index]} → ${index[d.source.index]} [${Math.trunc(d.source.value)}]`
       )
   }
 
   useEffect(() => {
+    console.log(parsed_data)
     if (parsed_data !== null && !_.isEmpty(parsed_data)) {
       draw_chord()
     }

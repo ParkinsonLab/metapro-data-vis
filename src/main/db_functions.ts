@@ -123,4 +123,14 @@ const get_superpathway_info = () => {
   return res
 }
 
-export { get_parents_at_level, get_superpathway_info, get_pathway_info, get_parents_multilevel, check_db }
+const get_name_from_id = (id) => {
+  const q = `
+    SELECT name FROM names
+    WHERE tax_id = ${id}
+  `
+  const q_res: Array<TaxResultRow> = db.prepare(q).all()
+  console.log(q_res[0].name)
+  return q_res[0].name
+}
+
+export { get_parents_at_level, get_superpathway_info, get_pathway_info, get_parents_multilevel, check_db, get_name_from_id }
