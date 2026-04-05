@@ -13,8 +13,12 @@ const make_count_matrix = (data, matrix_index, tax_map, ann_map) => {
     annotations: string[],
     value: number
   ): void => {
+    // if either are missing, just skip this row
+    if (!(species && annotations)) {
+      return
+    }
     const species_index = matrix_index.indexOf(tax_map ? tax_map[species] : species)
-    const annotation_idc = annotations.map((e) => matrix_index.indexOf(ann_map[e]))
+    const annotation_idc = annotations.map((e) => matrix_index.indexOf(e))
     if (species_index >= 0) {
       for (const annotation_index of annotation_idc) {
         if (annotation_index >= 0) {
@@ -25,14 +29,14 @@ const make_count_matrix = (data, matrix_index, tax_map, ann_map) => {
     }
   }
 
-  const val_cols = Object.keys(data[0]).filter((e) => key_cols.includes(e))
+  const val_cols = Object.keys(data[0]).filter((e) => !key_cols.includes(e))
   const count_matrix = data.reduce(
     (acc: number[][], row: Record<string, string | number>) => {
       const ec_key = row['EC#']
       for (const key of val_cols) {
         const val = Number(row[key])
         if (val > 0) {
-          add_to_count_map(acc, tax_map[key], ann_map[ec_key], val)
+          add_to_count_map(acc, key, ann_map[ec_key], val)
         }
       }
       return acc
@@ -177,7 +181,7 @@ const parse_tax_tree = (data, tax_tree, levels) => {
   // this makes use the 1D matrix function but do not aggregate to taxonomic categories
   // by using self_map instead of a real tax_map so each entry is its own category
   const self_map = Object.fromEntries(tax_tree.map((e) => [e.id, e.id]))
-  const { counts_idx, counts } = make_count_vector(data, self_map)
+  const { index: counts_idx, counts } = make_count_vector(data, self_map)
   const parsed_data = Object.fromEntries(counts_idx.map((e, i) => [e, counts[i]]))
   const total = sum(Object.values(parsed_data))
   return parse_tax_tree_recursive(parsed_data, tax_tree, levels, 'root', total)

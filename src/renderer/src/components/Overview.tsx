@@ -2,7 +2,6 @@
 
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
-import { useShallow } from 'zustand/react/shallow'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
 

@@ -2,7 +2,7 @@ import * as dfd from 'danfojs-node'
 import fs from 'fs'
 import path from 'path'
 import _ from 'lodash'
-import { parse } from 'csv-parse/sync'
+import { parse, type CastingContext } from 'csv-parse/sync'
 
 import {
   get_parents_at_level,
@@ -37,21 +37,45 @@ const initialize = () => {
     return 3
   }
   ec = get_superpathway_info()
+  return 0
+}
+
+const coerce_cell_to_float = (raw: string | undefined): number | null => {
+  if (raw == null) return null
+  const s = String(raw).trim()
+  if (s === '') return null
+  if (/^(nan|na|null|none)$/i.test(s)) return null
+  const n = Number(s)
+  return Number.isFinite(n) ? n : null
+}
+
+const normalize_ec_value = (value: string): string => {
+  const s = value.trim()
+  if (s === '' || /^none$/i.test(s)) return '0.0.0.0'
+  const body = /^EC:/i.test(s) ? s.slice(3).trim() : s
+  if (body === '' || /^none$/i.test(body)) return '0.0.0.0'
+  return body
+}
+
+/** Per-field cast during parse: one pass, no second row map or per-row object spread. */
+const add_data_field_cast = (value: string, context: CastingContext): string | number | null => {
+  if (context.header) return value
+  const col = context.column
+  if (col === 'GeneID') return value
+  if (col === 'EC#') return normalize_ec_value(value)
+  return coerce_cell_to_float(value)
 }
 
 const add_data = ({ name, data: raw_data }) => {
   console.log('add_data')
-  const parsed_data = parse(raw_data, {
+  const parsed_data = parse<Record<string, string | number | null>>(raw_data, {
     delimiter: '\t',
-    columns: (header) => {
-      header.map((e) => (key_cols.includes(e) ? e : get_name_from_id(e)))
-    },
+    columns: (header) => header.map((e) => (key_cols.includes(e) ? e : get_name_from_id(e))),
+    cast: add_data_field_cast,
+    cast_date: false,
     skip_empty_lines: true
-  }).map((item) => ({
-    ...item,
-    'EC#': item['EC#'].substring(3)
-  }))
-  console.log(parsed_data.slice(0, 10))
+  })
+  // console.log(parsed_data.slice(0, 10))
   data = { ...data, [name]: parsed_data }
   return name
 }
@@ -70,20 +94,19 @@ const add_test_data = () => {
 
 // when making a request, always supply the filter parameter
 // if it doesn't actually exist, put the filter_name as '' or a falsy value
-const subset_data = (name, { level, name: filter_name }) => {
-  if (!(level && filter_name)) return data
+const subset_data = (raw_data, { level, name: filter_name }) => {
+  if (!(level && filter_name)) return raw_data
 
   // subset
-  const raw_data = ec[name]
   const parent_map = get_parents_at_level(
-    Object.keys(raw_data[0]).filter((e) => key_cols.includes(e)),
+    Object.keys(raw_data[0]).filter((e) => !key_cols.includes(e)),
     level
   )
   const good_keys = [
     ...key_cols,
     ...Object.keys(parent_map).filter((e) => parent_map[e] === filter_name)
   ]
-  return data[name].map((e) => _.pick(e, good_keys))
+  return raw_data.map((e) => _.pick(e, good_keys))
 }
 
 const subset_ec = ({ level, name }) => {
@@ -103,7 +126,6 @@ const agg_by_ec = (data) => {
   const ops = Object.fromEntries(
     df.columns.filter((e) => !key_cols.includes(e)).map((e) => [e, 'sum'])
   )
-  console.log(df.head(10))
   const agg_df = df.groupby(['EC#']).agg(ops)
   agg_df.rename(
     Object.fromEntries(
@@ -111,12 +133,13 @@ const agg_by_ec = (data) => {
     ),
     { inplace: true }
   )
-  return dfd.toJSON(agg_df, { format: 'row' })
+  return dfd.toJSON(agg_df, { format: 'column' })
 }
 
+/** `data` must be one consistent row matrix: either rows from a single loaded file or rows already merged from multiple files (same columns on every row). */
 const get_tax_map = (data, level) => {
   return get_parents_at_level(
-    _.uniq(Object.keys(data[0]).filter((e) => key_cols.includes(e))),
+    _.uniq(Object.keys(data[0]).filter((e) => !key_cols.includes(e))),
     level
   )
 }
@@ -130,7 +153,7 @@ const names_to_data = (names: string[]) => {
   if (!names[1]) {
     raw_data = data[names[0]]
   } else {
-    raw_data = get_delta(data[names[0]], data[names[2]])
+    raw_data = get_delta(data[names[0]], data[names[1]])
   }
   return raw_data
 }
@@ -182,9 +205,13 @@ const get_delta = (data_1: object[], data_2: object[]) => {
     const alt_col = `${col}_1`
     let new_col
     if (merge_df.columns.includes(alt_col)) {
-      new_col = merge_df[col].sub(merge_df[alt_col])
+      // Ensure both columns are numeric before subtraction
+      const col_numeric = merge_df.column(col).asType('float32')
+      const alt_col_numeric = merge_df.column(alt_col).asType('float32')
+      new_col = col_numeric.sub(alt_col_numeric)
     } else {
-      new_col = merge_df[col]
+      // Ensure the column is numeric
+      new_col = merge_df.column(col).asType('float32')
     }
     res.addColumn(col, new_col, { inplace: true })
   }
@@ -287,6 +314,26 @@ const parse_overview = ({ names }) => {
     dummy_data
   }
 }
+
+// testing
+initialize()
+add_test_data()
+// console.log(parse_overview({'names': ['test_rpkm_1.tsv', 'test_rpkm_2.tsv']}))
+// names,
+// tax_level,
+// ann_level,
+// selected_ann_cat,
+// selected_taxon
+console.log(
+  parse_ec_chord({
+    names: ['test_rpkm_1.tsv', 'test_rpkm_2.tsv'],
+    tax_level: 'genus',
+    ann_level: 'superpathway',
+    selected_ann_cat: empty_filter,
+    selected_taxon: {'level': 'phylum', 'name': 'Firmicutes'}
+  })
+)
+console.log('complete')
 
 export {
   parse_ec_chord,

@@ -128,8 +128,11 @@ const get_name_from_id = (id) => {
     SELECT name FROM names
     WHERE tax_id = ${id}
   `
-  const q_res: Array<TaxResultRow> = db.prepare(q).all()
-  console.log(q_res[0].name)
+  const q_res = db.prepare(q).all()
+  if(q_res.length === 0){
+    console.log(`${id} not found in name db`)
+    return id
+  }
   return q_res[0].name
 }
 
