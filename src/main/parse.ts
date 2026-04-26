@@ -1,5 +1,4 @@
-import { ECDH } from 'crypto'
-import { get_color, key_cols, sum, mean } from './utils'
+import { get_color, key_cols, sum } from './utils'
 import _ from 'lodash'
 // file for the data parser
 // cols from ec_rpkm which don't countain counts

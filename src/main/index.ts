@@ -9,6 +9,7 @@ import {
   add_data,
   parse_krona,
   parse_network,
+  parse_pathway_list,
   parse_counts,
   parse_overview,
   add_test_data
@@ -46,6 +47,10 @@ const api = [
   {
     channel: 'network',
     handler: parse_network
+  },
+  {
+    channel: 'pathway_list',
+    handler: parse_pathway_list
   }
 ]
 
@@ -97,10 +102,20 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  // set the API
+  // Wire the API. Every handler is wrapped so that a thrown error always
+  // produces a reply; without this, an exception silently leaves the renderer
+  // hanging on `isLoading: true` forever.
+  // Wire format: { ok: true, value } | { ok: false, error }
   for (const { channel, handler } of api) {
     ipcMain.on(`request-${channel}`, (event, params) => {
-      event.reply(`response-${channel}`, handler(params))
+      try {
+        const value = handler(params)
+        event.reply(`response-${channel}`, { ok: true, value })
+      } catch (err) {
+        const error = err instanceof Error ? err.message : String(err)
+        console.error(`[ipc:${channel}] handler threw:`, err)
+        event.reply(`response-${channel}`, { ok: false, error })
+      }
     })
   }
 

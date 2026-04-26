@@ -2,31 +2,38 @@ import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
+import { request } from '../ipc'
 
+// ---------------------------------------------------------------------------
+// Network pane
+//
+// Two views, switched on `selected_pathway`:
+//   - PathwayList: clickable grid of pathway names within the currently
+//     selected superpathway. Picking one fires a `network` request.
+//   - PathwayDetail: full d3 network for the selected pathway, fed entirely
+//     by `network_data` from the store (no client-side aggregation).
+//
+// Pre-PR5 this component leaned on a `parsed_data` blob and a deleted
+// `parse.ts` for client-side tax aggregation, neither of which exist anymore.
+// ---------------------------------------------------------------------------
 
-const draw_elbow_line = (x1, y1, x2, y2) => {
+const draw_elbow_line = (x1: number, y1: number, x2: number, y2: number): string => {
   const dx = x2 - x1
   const dy = y2 - y1
   const min_arc = 1
-  const arc_f = 0.8 // when to start turning
+  const arc_f = 0.8
 
-  // don't draw arc if it's almost horizontal or vertical
   if (Math.abs(dx) <= min_arc) return `M ${x1},${y1} v ${dy}`
   if (Math.abs(dy) <= min_arc) return `M ${x1},${y1} h ${dx}`
 
-  // calculations if we're drawing an arc
-  const m1 = Math.abs(dy) >= Math.abs(dx) ? 'v' : 'h' // mode of the first line
-
-  // we need to calculate for the arc before we know how much v1 can be
+  const m1 = Math.abs(dy) >= Math.abs(dx) ? 'v' : 'h'
   const r_basis = m1 === 'v' ? dx : dy
   const r = Math.abs(r_basis * (1 - arc_f))
   const rdx = r * Math.sign(dx)
   const rdy = r * Math.sign(dy)
-
-  const v1 = m1 === 'v' ? dy - rdy : dx - rdx // value of the first line
-
-  const m2 = m1 === 'v' ? 'h' : 'v' // second segment's mode
-  const v2 = m2 === 'v' ? dy - rdy : dx - rdx // second segment length
+  const v1 = m1 === 'v' ? dy - rdy : dx - rdx
+  const m2 = m1 === 'v' ? 'h' : 'v'
+  const v2 = m2 === 'v' ? dy - rdy : dx - rdx
 
   let sweep
   if (m1 === 'v') {
@@ -34,38 +41,52 @@ const draw_elbow_line = (x1, y1, x2, y2) => {
   } else {
     sweep = dy * dx >= 0 ? 1 : 0
   }
-  const d = `M ${x1},${y1} ${m1} ${v1} a ${r} ${r} 0 0 ${sweep} ${rdx},${rdy} ${m2} ${v2}`
-  return d
+  return `M ${x1},${y1} ${m1} ${v1} a ${r} ${r} 0 0 ${sweep} ${rdx},${rdy} ${m2} ${v2}`
 }
 
-const get_symbol = (type, size) => {
+const get_symbol = (type: string, size: number): string => {
   let s_type
-  if (type === 'circle') {
-    s_type = d3.symbolCircle
-  } else if (type === 'rectangle') {
-    s_type = d3.symbolSquare
-  } else {
-    s_type = d3.symbolDiamond
-  }
-  return d3.symbol(s_type, size)()
+  if (type === 'circle') s_type = d3.symbolCircle
+  else if (type === 'rectangle') s_type = d3.symbolSquare
+  else s_type = d3.symbolDiamond
+  return d3.symbol(s_type, size)() ?? ''
 }
 
-const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Element => {
-  // Do not mount this component without checking that data exists
-  // Check at parent level
-  // Since this replaces the preview panel, network data should not be able to
-  // change while this is mounted
+interface PathwayNode {
+  id: string
+  label: string
+  type: string
+  x: number
+  y: number
+  values: { id: string; value: number }[]
+}
 
-  // set data load callback
+interface PathwayEdge {
+  source: PathwayNode
+  target: PathwayNode
+}
+
+interface NetworkData {
+  nodes: PathwayNode[]
+  edges: PathwayEdge[]
+  colors: Record<string, string>
+}
+
+const PathwayDetail = ({
+  base_width,
+  base_height,
+  pathway,
+  network_data
+}: {
+  base_width: number
+  base_height: number
+  pathway: string
+  network_data: NetworkData
+}): React.JSX.Element => {
   const max_label_length = 11
   const ref = useRef<SVGSVGElement>(null)
   const selected_annotations = useAppStore((state) => state.selected_annotations)
 
-  // reformat data
-  const parsed_data = useAppStore((state) => state.parsed_data)
-  const network_data = useAppStore((state) => state.network_data)
-
-  // for pan and zoom
   const [zoom, set_zoom] = useState(1)
   const [view_offset, set_view_offset] = useState({
     x: -base_width / 2,
@@ -74,55 +95,36 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
   const [dragging, set_dragging] = useState(false)
   const drag_start = useRef({ x: 0, y: 0 })
 
-  const handleWheel = (event: React.WheelEvent<SVGSVGElement>) => {
+  const handleWheel = (event: React.WheelEvent<SVGSVGElement>): void => {
     const max_factor = 3
     const min_factor = 1
-
     set_zoom((curr) => {
-      const n_f = event.deltaY <= 0 ? curr - 0.1 : curr + 0.1
-      return n_f >= min_factor ? Math.min(n_f, max_factor) : min_factor
+      const next = event.deltaY <= 0 ? curr - 0.1 : curr + 0.1
+      return next >= min_factor ? Math.min(next, max_factor) : min_factor
     })
   }
 
-  const handleMouseDown = (event: React.MouseEvent<SVGSVGElement>) => {
-    // We want to allow dragging starting from background only (svg element, not child)
-    if (
-      ref.current &&
-      event.button === 0 &&
-      event.target === ref.current // only if the click is on background
-    ) {
-      console.log('m_down')
+  const handleMouseDown = (event: React.MouseEvent<SVGSVGElement>): void => {
+    if (ref.current && event.button === 0 && event.target === ref.current) {
       set_dragging(true)
-      drag_start.current = {
-        x: event.clientX,
-        y: event.clientY
-      }
+      drag_start.current = { x: event.clientX, y: event.clientY }
     }
   }
 
-  const handleMouseUp = (_event: React.MouseEvent<SVGSVGElement>) => {
-    if (ref.current) {
-      console.log('m_up')
-      set_dragging(false)
-    }
+  const handleMouseUp = (): void => {
+    set_dragging(false)
   }
 
-  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+  const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>): void => {
     if (!dragging) return
-
     const { x, y } = drag_start.current
     const dx = event.clientX - x
     const dy = event.clientY - y
     drag_start.current = { x: event.clientX, y: event.clientY }
-    console.log(event.clientX, event.clientY)
-    set_view_offset((curr) => ({
-      x: curr.x - dx,
-      y: curr.y - dy
-    }))
+    set_view_offset((curr) => ({ x: curr.x - dx, y: curr.y - dy }))
   }
 
-  const handle_node_click = (_event, d) => {
-    console.log(d)
+  const handle_node_click = (_event: unknown, d: PathwayNode): void => {
     if (selected_annotations.includes(d.label)) {
       useAppStore.setState({ selected_annotations: _.without(selected_annotations, d.label) })
     } else {
@@ -130,28 +132,16 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
     }
   }
 
-  const handle_back_click = (_event) => {
-    console.log('click_back')
-    useAppStore.setState({ selected_pathway: '' })
+  const handle_back_click = (): void => {
+    useAppStore.setState({ selected_pathway: '', network_data: {} })
   }
 
   useEffect(() => {
-    console.log('pathway_redraw')
     const width = base_width * zoom
     const height = base_height * zoom
-
     const node_size = Math.min(height, width) / 10
 
-    const plot_data = get_formatted_network_data(
-      parsed_data,
-      network_data,
-      pathway,
-      ann_map,
-      height,
-      width
-    )
-
-    const { nodes, edges, colors } = plot_data
+    const { nodes, edges, colors } = network_data
     const svg = d3.select(ref.current)
     svg.selectAll('*').remove()
     svg
@@ -160,37 +150,33 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
       .attr('viewBox', [view_offset.x * zoom, view_offset.y * zoom, base_width, base_height])
       .attr('style', 'max-width: 100%; height: auto')
 
-    // links
-    const link_selection = svg
+    svg
       .append('g')
-      .selectAll('line')
-      .data(edges)
+      .selectAll('path')
+      .data(edges.filter((e) => e.source && e.target))
       .join('path')
       .attr('d', (d) => draw_elbow_line(d.source.x, d.source.y, d.target.x, d.target.y))
       .attr('fill', 'none')
       .attr('stroke', 'grey')
       .attr('stroke-width', 0.5)
 
-    const node_selection = svg
+    svg
       .append('g')
       .selectAll('g')
       .data(nodes)
       .join((enter) => {
         const g = enter.append('g')
-        g.each(function (d) {
-          // For each toy_data row, construct the arc pie pieces within this 'g'
+        g.each(function (this: SVGGElement, d: PathwayNode) {
           const base_radius = Math.sqrt(node_size) / 2
           const arc = d3
-            .arc()
+            .arc<d3.PieArcDatum<{ id: string; value: number }>>()
             .innerRadius(base_radius / 0.5)
             .outerRadius(base_radius)
-          // d is an array; generate pie data manually
-          const pie = d3.pie().value((d2) => d2.value)
+          const pie = d3.pie<{ id: string; value: number }>().value((d2) => d2.value)
           const pie_g = d3.select(this)
           pie_g.attr('transform', `translate(${d.x}, ${d.y})`)
 
-          // First, append the symbol path (so it goes below the pie wedges)
-          const symbolPath = pie_g
+          pie_g
             .insert('path', null)
             .attr('d', get_symbol(d.type, node_size))
             .attr('fill', selected_annotations.includes(d.label) ? 'orange' : 'black')
@@ -198,15 +184,13 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
             .append('title')
             .text(d.label)
 
-          // Then, append the pie wedge paths so they're rendered above the symbol
           pie_g
             .selectAll('.pie-wedge')
             .data(pie(d.values))
             .join('path')
             .attr('d', arc)
-            .attr('fill', (d2) => colors[d2.data.id])
+            .attr('fill', (d2) => colors[d2.data.id] ?? 'lightgray')
 
-          // Append label text directly beneath the symbol
           pie_g
             .append('text')
             .attr('x', 0)
@@ -225,7 +209,7 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
         })
         return g
       })
-  }, [selected_annotations, zoom, view_offset])
+  }, [network_data, selected_annotations, zoom, view_offset, base_width, base_height])
 
   return (
     <div id="pathway-container">
@@ -251,141 +235,152 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
   )
 }
 
-const PathwayPreview = ({
-  height,
-  width,
+const PathwayCard = ({
   pathway,
-  ann_map
+  width,
+  height
 }: {
-  height: number
-  width: number
   pathway: string
-  ann_map: Record<string, string>
+  width: number
+  height: number
 }): React.JSX.Element => {
-  const ref = useRef<SVGSVGElement>(null)
-  const base_radius = Math.min(height, width) * 0.3
-  const rad_step = Math.ceil(base_radius * 0.2)
-  const text_height = 25
-
-  const parsed_data = useAppStore((state) => state.parsed_data)
-  const ec_data = useAppStore((state) => state.ec)
-  const { inner_count_matrix, inner_matrix_index, tax_map: tax_map, colors } = parsed_data
-  const { data, ann_idx, tax_idx } = subset_data(
-    inner_count_matrix,
-    inner_matrix_index,
-    (e) => ann_map[e] === pathway
-  )
-  const { data: condensed_data, tax_cats } = condense_to_tax_group(data, tax_idx, tax_map)
-  const pie_data = tax_cats.map((e, i) => ({
-    id: e,
-    value: d3.sum(condensed_data.map((e2) => e2[i]))
-  }))
-
-  const handle_click = (event) => {
-    console.log('handle click on preview')
-    const pathway_id = _.find(ec_data, (e) => e.pathway_name === pathway)['pathway_id']
-    useAppStore.setState({ isLoading: true })
-    window.electron.ipcRenderer.once('return-node-info', (_, data) => {
-      console.log('network_data', data)
-      useAppStore.setState({ network_data: data, selected_pathway: pathway, isLoading: false })
-    })
-    window.electron.ipcRenderer.send('request-node-info', pathway_id)
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
+  const selected_taxon = useAppStore((state) => state.selected_taxon) as {
+    level?: string
+    name?: string
   }
+  const tax_rank = useAppStore((state) => state.tax_rank)
 
-  useEffect(() => {
-    const arc = d3
-      .arc()
-      .innerRadius(base_radius)
-      .outerRadius(base_radius + rad_step)
-
-    const svg = d3.select(ref.current)
-    svg.selectAll('*').remove()
-    svg
-      .attr('width', width)
-      .attr('height', height - text_height)
-      .attr('viewBox', [-width / 2, -height / 2, width, height])
-      .attr('style', 'font: 10px sans-serif black;')
-
-    const pie = d3.pie().value((d) => d.value)
-    // node here isn't network nodes, it's the nodes of the arc for the pie
-    const nodes = svg.append('g').selectAll().data(pie(pie_data)).join('g')
-
-    nodes
-      .append('path') // draw arc
-      .attr('fill', (d) => colors[d.data.id])
-      .attr('d', arc)
-      .attr('stroke', 'black')
-      .append('title')
-      .text((d) => d.data.id)
-  }, [])
+  const handle_click = (): void => {
+    useAppStore.setState({ selected_pathway: pathway })
+    request('network', {
+      names: selected_file_list,
+      tax_level: tax_rank,
+      selected_taxon: selected_taxon ?? {},
+      pathway_name: pathway,
+      width: 900,
+      height: 550
+    })
+  }
 
   return (
     <div
       onClick={handle_click}
       className="pathway-preview-item"
-      style={{ height: height, width: width }}
+      style={{
+        width,
+        height,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: 4,
+        border: '1px solid #ccc',
+        cursor: 'pointer',
+        boxSizing: 'border-box',
+        fontSize: 12,
+        overflow: 'hidden'
+      }}
+      title={pathway}
     >
-      <svg ref={ref} />
-      <span className="pathway-preview-item-name">{pathway}</span>
+      <span>{pathway}</span>
     </div>
   )
 }
 
-const PathwayPreviewContainer = ({ height, width, superpathway, ann_map }) => {
-  // prevent mounting of this element if parrsed_data is null at the parent level
-  // here we assume that it has been loaded
-
-  const pathways = _.uniq(Object.values(ann_map))
+const PathwayList = ({
+  height,
+  width,
+  superpathway,
+  pathways
+}: {
+  height: number
+  width: number
+  superpathway: string
+  pathways: string[]
+}): React.JSX.Element => {
+  if (pathways.length === 0) {
+    return (
+      <div id="pathway-preview-outer-container">
+        <div className="bold" id="network-title">
+          {`Superpathway: ${superpathway}`}
+        </div>
+        <div style={{ padding: 16 }}>No pathways found in this superpathway.</div>
+      </div>
+    )
+  }
   const grid_size = Math.ceil(Math.sqrt(pathways.length))
   const c_width = width / grid_size
   const c_height = height / grid_size
-  const elements = pathways.map((e) => (
-    <PathwayPreview height={c_height} width={c_width} pathway={e} ann_map={ann_map} key={e} />
-  ))
-
   return (
     <div id="pathway-preview-outer-container">
       <div className="bold" id="network-title">
-        {'Superpathway: ' + superpathway}
+        {`Superpathway: ${superpathway}`}
       </div>
-      <div id="pathway-preview-container">{elements}</div>
+      <div
+        id="pathway-preview-container"
+        style={{ display: 'flex', flexWrap: 'wrap', width, height }}
+      >
+        {pathways.map((p) => (
+          <PathwayCard key={p} pathway={p} width={c_width} height={c_height} />
+        ))}
+      </div>
     </div>
   )
 }
 
 const Network = (): React.JSX.Element => {
-  // parsed_data emptiness checks are done at the parent level
-
   const width = 900
   const height = 550
 
   const selected_pathway = useAppStore((state) => state.selected_pathway)
-  const network_data = useAppStore((state) => state.network_data)
-  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
-  const ec_data = useAppStore((state) => state.ec)
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat) as
+    | string
+    | { level?: string; name?: string }
+  const network_data = useAppStore((state) => state.network_data) as NetworkData | object
+  const pathway_list = useAppStore((state) => state.pathway_list)
 
-  // Here we map to pathway level regardless of what was selected in the above
-  const ann_map = Object.fromEntries(
-    ec_data
-      .filter((e) => e['superpathway'] === selected_ann_cat)
-      .map((e) => [e['ec'], e['pathway_name']])
-  )
+  // selected_ann_cat is set in two slightly different shapes depending on
+  // history: a bare superpathway name (string) when picked from chord, or an
+  // empty object on reset. Normalize.
+  const superpathway_name =
+    typeof selected_ann_cat === 'string' ? selected_ann_cat : (selected_ann_cat?.name ?? '')
+
+  // Fetch the pathway list whenever the active superpathway changes.
+  useEffect(() => {
+    if (!superpathway_name) return
+    request('pathway_list', { superpathway: superpathway_name })
+  }, [superpathway_name])
+
+  if (!superpathway_name) {
+    return (
+      <div id="network-container" style={{ padding: 16 }}>
+        Select a superpathway in the Chord view to see its pathways here.
+      </div>
+    )
+  }
+
+  const detail_ready =
+    selected_pathway &&
+    network_data &&
+    !_.isEmpty(network_data) &&
+    Array.isArray((network_data as NetworkData).nodes)
 
   return (
     <div>
-      {selected_pathway && !_.isEmpty(network_data) ? (
-        <Pathway
+      {detail_ready ? (
+        <PathwayDetail
           base_width={width}
           base_height={height}
           pathway={selected_pathway}
-          ann_map={ann_map}
+          network_data={network_data as NetworkData}
         />
       ) : (
-        <PathwayPreviewContainer
+        <PathwayList
           width={width}
           height={height}
-          superpathway={selected_ann_cat}
-          ann_map={ann_map}
+          superpathway={superpathway_name}
+          pathways={pathway_list}
         />
       )}
     </div>

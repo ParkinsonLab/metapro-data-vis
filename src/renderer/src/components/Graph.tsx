@@ -120,7 +120,7 @@ function Graph(): React.JSX.Element {
           tickfont: { color: 'black' }
         },
         yaxis: {
-          title: { text: 'Toxonomy', font: { color: 'black' } },
+          title: { text: 'Taxonomy', font: { color: 'black' } },
           tickmode: 'array',
           tickvals: tax_cats
             .map((e, i) => tax_cat_csum[i] + tax_cat_counts[e] / 2 - 1)

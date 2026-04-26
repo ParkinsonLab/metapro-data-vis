@@ -1,22 +1,36 @@
-//Overview graphic with bacterial cell
+// Overview pane: small pies summarizing the loaded dataset's expression and
+// metabolism breakdown. Clicking a pie navigates to the matching detail view.
 
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
+import { request } from '../ipc'
 import * as d3 from 'd3'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
-const label_map = {
+// Inline copy of the project's HSL color generator. Lives in src/main/utils.ts
+// today; renderer code shouldn't reach into the main process tree, so we copy
+// the four-line implementation here. Move to src/shared/ when one exists.
+const get_color = (i: number, n: number): string =>
+  `hsl(${Math.trunc((360 / (n + 1)) * i)} 75 50)`
+
+const label_map: Record<string, string> = {
   counts: 'Expression',
-  ann: 'Metabolism',
-  dummy: 'Signalling'
+  ann: 'Metabolism'
 }
-const state_map = {
+const state_map: Record<string, 'krona' | 'chord'> = {
   counts: 'krona',
-  ann: 'chord',
-  dummy: 'chord'
+  ann: 'chord'
 }
 
-const OverviewSection = ({ id, index, counts }) => {
+const OverviewSection = ({
+  id,
+  index,
+  counts
+}: {
+  id: 'counts' | 'ann'
+  index: string[]
+  counts: number[]
+}): React.JSX.Element => {
   const base_radius = 50
   const rad_step = 10
   const width = 125
@@ -24,12 +38,11 @@ const OverviewSection = ({ id, index, counts }) => {
 
   const ref = useRef<SVGSVGElement>(null)
 
-  const handleClick = () => {
+  const handleClick = (): void => {
     useAppStore.setState({ mainState: state_map[id] })
   }
 
   useEffect(() => {
-    console.log(`drawing overview ${id}`, index, counts)
     const arc = d3
       .arc()
       .innerRadius(base_radius)
@@ -40,26 +53,26 @@ const OverviewSection = ({ id, index, counts }) => {
     svg
       .attr('width', width)
       .attr('height', height)
-      .attr('viewBox', [-width / 2, -height / 2, width, height])
+      .attr('viewBox', `${-width / 2} ${-height / 2} ${width} ${height}`)
       .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif black; z-index: 10;')
 
     const data = index.map((e, i) => ({ id: e, value: counts[i] }))
-    const pie = d3.pie().value((d) => d.value)
+    const pie = d3.pie<{ id: string; value: number }>().value((d) => d.value)
     const colors = d3.scaleOrdinal(
       index,
       index.map((_, i, arr) => get_color(i, arr.length))
     )
 
-    const nodes = svg.append('g').selectAll().data(pie(data)).join('g')
+    const nodes = svg.append('g').selectAll('g').data(pie(data)).join('g')
 
     nodes
-      .append('path') // draw arc
+      .append('path')
       .attr('fill', (d) => colors(d.data.id))
-      .attr('d', arc)
+      .attr('d', arc as any)
       .attr('stroke', 'black')
       .append('title')
       .text((d) => d.data.id)
-  }, [])
+  }, [index, counts])
 
   return (
     <div className="overview-parent" id={`overview-${id}-parent`} onClick={handleClick}>
@@ -71,17 +84,37 @@ const OverviewSection = ({ id, index, counts }) => {
   )
 }
 
-const Overview = () => {
-  const { counts_data, ann_data, dummy_data } = useAppStore((state) => state.overview_data)
-  const ready = !_.isEmpty(ann_data) && !_.isEmpty(counts_data) && !_.isEmpty(dummy_data)
+const Overview = (): React.JSX.Element => {
+  const overview_data = useAppStore((state) => state.overview_data)
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
+  const { counts_data, ann_data } = overview_data ?? {}
+
+  // Fetch on mount whenever files are selected. Effect re-runs when the file
+  // list reference changes, so picking new files in Upload and coming back
+  // here triggers a fresh fetch.
+  useEffect(() => {
+    if (selected_file_list.length === 0) return
+    request('overview', { names: selected_file_list })
+  }, [selected_file_list])
+
+  if (selected_file_list.length === 0) {
+    return (
+      <div id="overview-container">
+        <p>Load and select files in the Upload tab to see the overview.</p>
+      </div>
+    )
+  }
+
+  const ready = !_.isEmpty(counts_data) && !_.isEmpty(ann_data)
 
   return (
     <div id="overview-container">
       {ready && (
-        <OverviewSection id="counts" index={counts_data.index} counts={counts_data.counts} />
+        <>
+          <OverviewSection id="counts" index={counts_data.index} counts={counts_data.counts} />
+          <OverviewSection id="ann" index={ann_data.index} counts={ann_data.counts} />
+        </>
       )}
-      {ready && <OverviewSection id="ann" index={ann_data.index} counts={ann_data.counts} />}
-      {ready && <OverviewSection index={dummy_data.index} id="dummy" counts={dummy_data.counts} />}
     </div>
   )
 }

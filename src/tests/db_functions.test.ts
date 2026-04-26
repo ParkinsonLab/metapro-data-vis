@@ -3,6 +3,7 @@ import {
   get_parents_at_level,
   get_parents_multilevel,
   get_pathway_info,
+  get_pathways_in_superpathway,
   get_superpathway_info
 } from '../main/db_functions'
 
@@ -84,8 +85,9 @@ describe('db_functions', () => {
   })
 
   describe('get_pathway_info', () => {
-    it('returns nodes and edges for pathway', () => {
+    it('resolves pathway name to id, then returns nodes and edges', () => {
       mockAllResults.push(
+        [{ id: 1 }],
         [
           { id: 'n1', label: 'Node1', x: 0, y: 0, type: 'enzyme' },
           { id: 'n2', label: 'Node2', x: 10, y: 10, type: 'compound' }
@@ -99,7 +101,7 @@ describe('db_functions', () => {
           }
         ]
       )
-      const result = get_pathway_info(1)
+      const result = get_pathway_info('Glycolysis')
       expect(result).toEqual({
         nodes: [
           { id: 'n1', label: 'Node1', x: 0, y: 0, type: 'enzyme' },
@@ -116,26 +118,51 @@ describe('db_functions', () => {
       })
     })
 
-    it('returns empty nodes and edges when none exist', () => {
-      mockAllResults.push([], [])
-      const result = get_pathway_info(999)
+    it('returns empty nodes/edges when the name does not resolve', () => {
+      mockAllResults.push([])
+      const result = get_pathway_info('UnknownPathway')
       expect(result).toEqual({ nodes: [], edges: [] })
     })
   })
 
+  describe('get_pathways_in_superpathway', () => {
+    it('returns the (id, name) pairs in DB row order', () => {
+      mockAllResults.push([
+        { id: 1, name: 'Glycolysis' },
+        { id: 2, name: 'TCA Cycle' }
+      ])
+      const result = get_pathways_in_superpathway('Carbohydrate metabolism')
+      expect(result).toEqual([
+        { id: 1, name: 'Glycolysis' },
+        { id: 2, name: 'TCA Cycle' }
+      ])
+    })
+
+    it('returns [] when no rows match', () => {
+      mockAllResults.push([])
+      const result = get_pathways_in_superpathway('Nonexistent')
+      expect(result).toEqual([])
+    })
+  })
+
   describe('get_superpathway_info', () => {
-    it('returns pathway rows with ec, pathway_id, pathway_name, superpathway', () => {
+    // SQL aliases the pathway name as `pathway` (not `pathway_name`); the
+    // previous test asserted a fictitious shape that only matched the mock
+    // data we ourselves pushed in. The real DB returns `pathway`, and that's
+    // also what data_functions.ts and the renderer rely on (e.g. the level
+    // literal `'pathway'` indexing into these rows via `e[level]`).
+    it('returns pathway rows with ec, pathway_id, pathway, superpathway', () => {
       mockAllResults.push([
         {
           ec: '1.1.1.1',
           pathway_id: 1,
-          pathway_name: 'Glycolysis',
+          pathway: 'Glycolysis',
           superpathway: 'Carbohydrate metabolism'
         },
         {
           ec: '2.2.2.2',
           pathway_id: 2,
-          pathway_name: 'TCA',
+          pathway: 'TCA',
           superpathway: 'Energy metabolism'
         }
       ])
@@ -144,7 +171,7 @@ describe('db_functions', () => {
       expect(result[0]).toEqual({
         ec: '1.1.1.1',
         pathway_id: 1,
-        pathway_name: 'Glycolysis',
+        pathway: 'Glycolysis',
         superpathway: 'Carbohydrate metabolism'
       })
       expect(result[1].superpathway).toBe('Energy metabolism')

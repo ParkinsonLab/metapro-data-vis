@@ -28,6 +28,10 @@ type PathwayRow = {
   pathway: string
   superpathway: string
 }
+type PathwaySummary = {
+  id: number
+  name: string
+}
 
 const check_db = (): boolean => {
   try {
@@ -84,12 +88,31 @@ const get_parents_multilevel = (names: string[], levels: string[]) => {
   return res
 }
 
-const get_pathway_info = (pathway_id) => {
+/**
+ * Look up the nodes and edges that compose a single pathway, by readable name.
+ *
+ * Previously this took the integer `pathway_id`. Renderers only ever know the
+ * pathway *name* (it's what we surface in the chord/network UI), and the old
+ * code path silently passed the name into a query that compared against the
+ * integer key (`WHERE pathway == ${pathway_id}`), so it always returned 0
+ * rows. Now we resolve the name -> id with a parameterized query first.
+ *
+ * Returns empty `{ nodes: [], edges: [] }` if the name doesn't exist in the
+ * `pathway_superpathways` table.
+ */
+const get_pathway_info = (pathway_name: string) => {
+  const id_q = `SELECT id FROM pathway_superpathways WHERE name = ?`
+  const id_res = db.prepare(id_q).all(pathway_name) as Array<{ id: number }>
+  if (id_res.length === 0) {
+    return { nodes: [] as PathwayNodeRow[], edges: [] as PathwayEdgeRow[] }
+  }
+  const pathway_id = id_res[0].id
+
   const node_q = `
     SELECT
       id, name AS label, x, y, type
     FROM pathway_nodes
-    WHERE pathway == ${pathway_id}
+    WHERE pathway = ?
   `
   const edge_q = `
     SELECT
@@ -98,14 +121,28 @@ const get_pathway_info = (pathway_id) => {
       n_target.id AS target,
       n_target.name AS target_label
     FROM pathway_edges edge
-    LEFT JOIN pathway_nodes n_source ON n_source.id == edge.source
-    LEFT JOIN pathway_nodes n_target ON n_target.id == edge.target
-    WHERE edge.pathway == ${pathway_id}
+    LEFT JOIN pathway_nodes n_source ON n_source.id = edge.source
+    LEFT JOIN pathway_nodes n_target ON n_target.id = edge.target
+    WHERE edge.pathway = ?
   `
-  const node_res: Array<PathwayNodeRow> = db.prepare(node_q).all() as Array<PathwayNodeRow>
-  const edge_res: Array<PathwayEdgeRow> = db.prepare(edge_q).all() as Array<PathwayEdgeRow>
+  const node_res = db.prepare(node_q).all(pathway_id) as Array<PathwayNodeRow>
+  const edge_res = db.prepare(edge_q).all(pathway_id) as Array<PathwayEdgeRow>
 
   return { nodes: node_res, edges: edge_res }
+}
+
+/**
+ * Lists every pathway belonging to a given superpathway, in DB-row order.
+ * Used by the Network pane to render the clickable pathway grid.
+ */
+const get_pathways_in_superpathway = (superpathway_name: string): PathwaySummary[] => {
+  const q = `
+    SELECT psp.id AS id, psp.name AS name
+    FROM pathway_superpathways psp
+    LEFT JOIN superpathways sp ON psp.superpathway = sp.id
+    WHERE sp.name = ?
+  `
+  return db.prepare(q).all(superpathway_name) as PathwaySummary[]
 }
 
 const get_superpathway_info = () => {
@@ -123,17 +160,35 @@ const get_superpathway_info = () => {
   return res
 }
 
-const get_name_from_id = (id) => {
-  const q = `
-    SELECT name FROM names
-    WHERE tax_id = ${id}
-  `
-  const q_res = db.prepare(q).all()
-  if(q_res.length === 0){
-    console.log(`${id} not found in name db`)
+/**
+ * Resolve a numeric NCBI tax_id to a name. If the id is missing from the
+ * bundled DB, returns the id verbatim so callers can still render *something*.
+ *
+ * Pass a `missing` Set if you want to collect the misses for an aggregate
+ * warning instead of logging one line per miss (very noisy on real fixtures
+ * where a single TSV can have hundreds of unknown ids).
+ */
+const get_name_from_id = (id, missing?: Set<string | number>): string => {
+  const q_res = db.prepare('SELECT name FROM names WHERE tax_id = ?').all(id) as Array<{
+    name: string
+  }>
+  if (q_res.length === 0) {
+    if (missing) {
+      missing.add(id)
+    } else {
+      console.log(`${id} not found in name db`)
+    }
     return id
   }
   return q_res[0].name
 }
 
-export { get_parents_at_level, get_superpathway_info, get_pathway_info, get_parents_multilevel, check_db, get_name_from_id }
+export {
+  get_parents_at_level,
+  get_superpathway_info,
+  get_pathway_info,
+  get_pathways_in_superpathway,
+  get_parents_multilevel,
+  check_db,
+  get_name_from_id
+}

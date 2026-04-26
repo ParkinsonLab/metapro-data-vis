@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAppStore } from '../store/AppStore'
-import { parse_data, get_krona_data } from '../../../main/parse'
+import { request } from '../ipc'
 
 const DataSelector = () => {
   const file_list = useAppStore((state) => state.file_list)
@@ -23,13 +23,14 @@ const DataSelector = () => {
     set_f2(e.target.value)
   }
   const handleUpdate = () => {
-    useAppStore.setState({ selected_file_list: [f1, f2].filter((e) => e) })
-    window.electron.ipcRenderer.send('request-chord', {
-      names: [f1, f2],
+    const names = [f1, f2].filter((e) => e)
+    useAppStore.setState({ selected_file_list: names })
+    request('chord', {
+      names,
       tax_level: default_settings.tax_rank,
       ann_level: default_settings.ann_rank,
       selected_ann_cat: default_settings.selected_ann_cat,
-      selected_taxon: default_settings.selected_taxon,
+      selected_taxon: default_settings.selected_taxon
     })
   }
 
@@ -99,12 +100,11 @@ const Upload = (): React.JSX.Element => {
   // when the ipcRenderer replies with the parsed csv data, set the data in the app store and set the main state to chord
   const handleUploadClick = (_event: React.MouseEvent<HTMLButtonElement>) => {
     if (data_file) {
-      // Read the file content using FileReader API
       const dataReader = new FileReader()
       dataReader.onload = (e) => {
         const fileContent = e.target?.result as string
         if (fileContent) {
-          window.electron.ipcRenderer.send('request-load', {
+          request('load', {
             name: data_name,
             data: fileContent,
             test: false
@@ -116,8 +116,7 @@ const Upload = (): React.JSX.Element => {
   }
 
   const handleTestFileClick = () => {
-    // contents mostly copied from the real thing
-    window.electron.ipcRenderer.send('request-load_test')
+    request('load_test')
   }
 
   return (

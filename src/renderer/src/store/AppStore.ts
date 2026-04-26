@@ -2,11 +2,11 @@ import { create } from 'zustand'
 
 // Define your store state interface
 interface AppState {
-  // Example state properties - customize based on your needs
   overview_data: any
   chord_data: any
   network_preview_data: any
   network_data: any
+  pathway_list: string[]
   krona_data: any
   isLoading: boolean
   file_list: string[]
@@ -19,14 +19,18 @@ interface AppState {
   mainState: 'upload' | 'chord' | 'network' | 'graph' | 'overview' | 'krona'
   tax_rank: 'kingdom' | 'phylum' | 'family' | 'class' | 'order' | 'genus'
   ann_rank: 'pathway' | 'superpathway'
-  // Add more state properties as needed
+  // null = handshake not yet completed; true/false once known
+  db_ready: boolean | null
+  // most recent IPC error surfaced to the user; null when no error is pending
+  last_error: string | null
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>(() => ({
   overview_data: {},
   chord_data: {},
   network_preview_data: {},
   network_data: {},
+  pathway_list: [],
   krona_data: {},
   isLoading: false,
   file_list: [],
@@ -38,5 +42,7 @@ export const useAppStore = create<AppState>((set) => ({
   selected_annotations: [],
   mainState: 'upload',
   tax_rank: 'phylum',
-  ann_rank: 'superpathway'
+  ann_rank: 'superpathway',
+  db_ready: null,
+  last_error: null
 }))

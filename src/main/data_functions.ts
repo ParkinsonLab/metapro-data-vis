@@ -8,6 +8,7 @@ import {
   get_parents_at_level,
   get_superpathway_info,
   get_pathway_info,
+  get_pathways_in_superpathway,
   get_parents_multilevel,
   check_db,
   get_name_from_id
@@ -68,14 +69,20 @@ const add_data_field_cast = (value: string, context: CastingContext): string | n
 
 const add_data = ({ name, data: raw_data }) => {
   console.log('add_data')
+  const missing_tax_ids = new Set<string | number>()
   const parsed_data = parse<Record<string, string | number | null>>(raw_data, {
     delimiter: '\t',
-    columns: (header) => header.map((e) => (key_cols.includes(e) ? e : get_name_from_id(e))),
+    columns: (header) =>
+      header.map((e) => (key_cols.includes(e) ? e : get_name_from_id(e, missing_tax_ids))),
     cast: add_data_field_cast,
     cast_date: false,
     skip_empty_lines: true
   })
-  // console.log(parsed_data.slice(0, 10))
+  if (missing_tax_ids.size > 0) {
+    console.warn(
+      `[add_data:${name}] ${missing_tax_ids.size} tax_id(s) not found in name db; using raw ids as fallback`
+    )
+  }
   data = { ...data, [name]: parsed_data }
   return name
 }
@@ -239,61 +246,114 @@ const parse_counts = ({ names, tax_rank, selected_taxon, selected_ann_cat }) => 
   return make_count_vector(data_subset, tax_map)
 }
 
-const subset_parsed_data = (data_matrix, data_matrix_index, annotation_checker) => {
-  // rows only for annotations that pass the checker
-  const ann_idx = data_matrix_index.filter((e) => annotation_checker(e))
-  const tax_idx_start = data_matrix_index.indexOf('gap_2') + 1
-  const tax_idx_end = data_matrix_index.indexOf('gap_3')
-  const tax_idx = data_matrix_index.slice(tax_idx_start, tax_idx_end)
-  const t_1 = data_matrix.filter((_, i) => annotation_checker(data_matrix_index[i]))
-  const t_2 = t_1.map((e) => e.slice(tax_idx_start, tax_idx_end))
-  return {
-    data: t_2,
-    ann_idx, // 1st dimension index
-    tax_idx // 2nd dimension index
-  }
-}
-
-const parse_network = ({ names, tax_level, selected_taxon, pathway_name, width, height }) => {
-  const { count_matrix, index, colors, ann_map } = parse_ec_chord({
-    names,
-    tax_level,
-    ann_level: 'ec',
-    selected_taxon,
-    selected_ann_cat: { level: 'pathway', name: pathway_name }
-  })
-  const { data, ann_idx, tax_idx } = subset_parsed_data(
-    count_matrix,
-    index,
-    (e) => ann_map[e] === pathway_name
-  )
+/**
+ * Build the per-pathway network view.
+ *
+ * Renders the static pathway graph (from `pathway_nodes` / `pathway_edges`) and
+ * decorates each enzyme node with a small tax-distribution pie computed from
+ * the loaded data (filtered to ECs in this pathway and the user's tax filter).
+ *
+ * Earlier versions delegated tax aggregation to `parse_ec_chord`, but the
+ * `ann_map` it returns at `ann_level: 'ec'` is `ec → ec` (not `ec → pathway`),
+ * so the row filter never matched and the pie data was always empty. We now
+ * compute the per-EC tax breakdown directly from the filtered data, which is
+ * also faster (no symmetric chord matrix is built).
+ */
+const parse_network = ({
+  names,
+  tax_level,
+  selected_taxon,
+  pathway_name,
+  width,
+  height
+}: {
+  names: string[]
+  tax_level: string
+  selected_taxon: { level: string; name: string }
+  pathway_name: string
+  width: number
+  height: number
+}) => {
+  console.log('parse_network')
 
   const network_data = get_pathway_info(pathway_name)
-  const new_nodes = network_data.nodes.map((e) => {
+  const placed_nodes = network_data.nodes.map((node) => ({
+    ...node,
+    // The pathway-graph layout was authored with x/y swapped relative to our
+    // SVG axes; we flip and rescale into the renderer's viewBox here so the
+    // renderer can stay generic.
+    x: (node.y / 1100) * width - width / 2 + 100,
+    y: (node.x / 1000) * height - height / 2
+  }))
+
+  const filtered_rows = subset_data_by_ann(
+    subset_data(names_to_data(names), selected_taxon),
+    { level: 'pathway', name: pathway_name }
+  )
+
+  let tax_cats: string[] = []
+  let colors: Record<string, string> = {}
+  const ec_to_pie = new Map<string, number[]>()
+
+  // `subset_data` may strip every taxonomy column when the taxon filter has
+  // no matches; `agg_by_ec` then crashes inside danfojs because it has no
+  // value columns to sum. Skip aggregation when nothing's left to aggregate.
+  const has_value_cols =
+    filtered_rows.length > 0 &&
+    filtered_rows[0] &&
+    Object.keys(filtered_rows[0]).some((k) => !key_cols.includes(k))
+
+  if (has_value_cols) {
+    // danfojs's toJSON return type is `void | object`; we know the column-
+    // format output is a Record<string, Record<string, unknown>>.
+    const agg_data = agg_by_ec(filtered_rows) as Record<string, Record<string, unknown>>
+    const tax_columns = Object.keys(agg_data).filter((c) => !key_cols.includes(c))
+    const tax_map = get_parents_at_level(tax_columns, tax_level)
+    tax_cats = _.uniq(_.sortBy(Object.values(tax_map))) as string[]
+    colors = Object.fromEntries(tax_cats.map((cat, i) => [cat, get_color(i, tax_cats.length)]))
+
+    const ec_col = (agg_data['EC#'] ?? {}) as Record<string, string>
+    for (const idx of Object.keys(ec_col)) {
+      const ec = ec_col[idx]
+      const pie = tax_cats.map(() => 0)
+      for (const taxon of tax_columns) {
+        const cat = tax_map[taxon]
+        if (!cat) continue
+        const pos = tax_cats.indexOf(cat)
+        if (pos < 0) continue
+        const cell = agg_data[taxon]?.[idx]
+        const value = Number(cell)
+        if (Number.isFinite(value)) pie[pos] += value
+      }
+      ec_to_pie.set(ec, pie)
+    }
+  }
+
+  const new_nodes = placed_nodes.map((node) => {
+    const pie = ec_to_pie.get(node.label)
     return {
-      ...e,
-      x: (e.y / 1100) * width - width / 2 + 100,
-      y: (e.x / 1000) * height - height / 2,
-      values: ann_idx.includes(e.label)
-        ? data[ann_idx.indexOf(e.label)].map((e, i) => ({
-            id: tax_idx[i],
-            value: e
-          }))
-        : []
+      ...node,
+      values: pie ? tax_cats.map((cat, i) => ({ id: cat, value: pie[i] })) : []
     }
   })
 
-  const new_edges = network_data.edges.map((e) => ({
-    source: _.find(new_nodes, (e2) => e2.id === e.source),
-    target: _.find(new_nodes, (e2) => e2.id === e.target)
+  const new_edges = network_data.edges.map((edge) => ({
+    source: _.find(new_nodes, (n) => n.id === edge.source),
+    target: _.find(new_nodes, (n) => n.id === edge.target)
   }))
 
-  const to_return = {
-    nodes: new_nodes,
-    edges: new_edges,
-    colors: colors
-  }
-  return to_return
+  return { nodes: new_nodes, edges: new_edges, colors }
+}
+
+/**
+ * Return the names of every pathway under a given superpathway.
+ *
+ * The renderer uses this to populate the clickable pathway grid in the
+ * Network pane before any expensive per-pathway layout is computed.
+ */
+const parse_pathway_list = ({ superpathway }: { superpathway: string }): string[] => {
+  console.log('parse_pathway_list')
+  return get_pathways_in_superpathway(superpathway).map((p) => p.name)
 }
 
 // the overview always happens at the phylum and superpathway level
@@ -303,37 +363,44 @@ const parse_overview = ({ names }) => {
   const ann_map = get_ec_map(empty_filter, 'superpathway')
   const counts_data = make_count_vector(data_subset, tax_map)
   const ann_data = make_ann_vector(data_subset, ann_map)
-  const dummy_data = {
-    index: ['g1', 'g2', 'g3', 'g4', 'g5'],
-    counts: [5, 17, 22, 8, 11],
-    colors: Array(5).map((_, i) => get_color(i, 5))
-  }
   return {
     counts_data,
-    ann_data,
-    dummy_data
+    ann_data
   }
 }
 
-// testing
-initialize()
-add_test_data()
-// console.log(parse_overview({'names': ['test_rpkm_1.tsv', 'test_rpkm_2.tsv']}))
-// names,
-// tax_level,
-// ann_level,
-// selected_ann_cat,
-// selected_taxon
-console.log(
-  parse_ec_chord({
-    names: ['test_rpkm_1.tsv', 'test_rpkm_2.tsv'],
-    tax_level: 'genus',
-    ann_level: 'superpathway',
-    selected_ann_cat: empty_filter,
-    selected_taxon: {'level': 'phylum', 'name': 'Firmicutes'}
-  })
-)
-console.log('complete')
+// In-process debug harness. Only runs when explicitly enabled so importers
+// (e.g. unit tests, the renderer process via IPC) don't pay the ~60s cost
+// or mask errors from individual functions.
+if (process.env.RUN_HARNESS === '1') {
+  initialize()
+  add_test_data()
+  console.log(
+    parse_ec_chord({
+      names: ['test_rpkm_1.tsv', 'test_rpkm_2.tsv'],
+      tax_level: 'genus',
+      ann_level: 'superpathway',
+      selected_ann_cat: empty_filter,
+      selected_taxon: { level: 'phylum', name: 'Firmicutes' }
+    })
+  )
+  console.log('complete')
+}
+
+const __test__ = {
+  setData: (next: Record<string, unknown>): void => {
+    data = next
+  },
+  setEc: (next: unknown): void => {
+    ec = next
+  },
+  getData: (): Record<string, unknown> => data,
+  getEc: (): unknown => ec,
+  reset: (): void => {
+    data = {}
+    ec = undefined
+  }
+}
 
 export {
   parse_ec_chord,
@@ -344,5 +411,18 @@ export {
   get_delta,
   parse_counts,
   parse_network,
-  parse_overview
+  parse_pathway_list,
+  parse_overview,
+  get_fname,
+  coerce_cell_to_float,
+  normalize_ec_value,
+  add_data_field_cast,
+  subset_data,
+  subset_ec,
+  subset_data_by_ann,
+  agg_by_ec,
+  get_tax_map,
+  get_ec_map,
+  names_to_data,
+  __test__
 }

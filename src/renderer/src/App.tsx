@@ -1,46 +1,76 @@
 import Upload from './components/Upload'
 import Chord from './components/Chord'
 import Network from './components/Network'
-import Graph from './components/Graph'
 import Overview from './components/Overview'
 import Krona from './components/Krona'
 import { useAppStore } from './store/AppStore'
-import { useEffect, useState } from 'react'
+import { type Channel, type IPCEnvelope, request } from './ipc'
+import { useEffect } from 'react'
 import { Oval } from 'react-loader-spinner'
 import './App.css'
 
-const channel_handlers = {
-  load: (data) => {
-    console.log(`adding ${data}`)
+const channel_handlers: Record<Channel, (value: unknown) => void> = {
+  // initialize() returns 0 on success, 3 when the taxonomy DB cannot be opened.
+  handshake: (value) => {
+    useAppStore.setState({ db_ready: value === 0 })
+    if (value !== 0) {
+      useAppStore.setState({
+        last_error:
+          'Taxonomy database is unreachable (resources/db/taxonomy.db). Visualizations will not load until this is fixed.'
+      })
+    }
+  },
+  load: (value) => {
+    const name = value as string
     useAppStore.setState((state) => ({
-      file_list: [...(state.file_list || []), data]
+      file_list: [...(state.file_list || []), name]
     }))
   },
-  load_test: (data) => {
-    console.log(`adding ${data}`)
+  load_test: (value) => {
+    const names = value as string[]
     useAppStore.setState((state) => ({
-      file_list: [...(state.file_list || []), ...data],
-      selected_file_list: data.slice(2)
+      file_list: [...(state.file_list || []), ...names],
+      selected_file_list: names
     }))
   },
-  overview: (data) => {
-    useAppStore.setState({ overview_data: data })
+  counts: (value) => {
+    useAppStore.setState({ network_preview_data: value })
   },
-  krona: (data) => {
-    useAppStore.setState({ krona_data: data })
+  overview: (value) => {
+    useAppStore.setState({ overview_data: value })
   },
-  chord: (data) => {
-    useAppStore.setState({ chord_data: data })
+  krona: (value) => {
+    useAppStore.setState({ krona_data: value })
   },
-  network: (data) => {
-    useAppStore.setState({ network_data: data })
+  chord: (value) => {
+    useAppStore.setState({ chord_data: value })
+  },
+  network: (value) => {
+    useAppStore.setState({ network_data: value })
+  },
+  pathway_list: (value) => {
+    useAppStore.setState({ pathway_list: value as string[] })
   }
 }
 
-const register_handlers = () => {
-  for (const channel in channel_handlers) {
-    window.electron.ipcRenderer.on(`response-${channel}`, (_, data) => {
-      channel_handlers[channel](data)
+const register_handlers = (): void => {
+  for (const channel of Object.keys(channel_handlers) as Channel[]) {
+    window.electron.ipcRenderer.on(`response-${channel}`, (_, payload: IPCEnvelope) => {
+      // Always clear the spinner: every response, success or failure, ends
+      // whatever request started it.
+      useAppStore.setState({ isLoading: false })
+
+      if (!payload || typeof payload !== 'object' || !('ok' in payload)) {
+        console.error(`[ipc:${channel}] received malformed envelope`, payload)
+        useAppStore.setState({ last_error: `${channel}: malformed response` })
+        return
+      }
+      if (payload.ok === false) {
+        console.error(`[ipc:${channel}] ${payload.error}`)
+        useAppStore.setState({ last_error: `${channel}: ${payload.error}` })
+        return
+      }
+      channel_handlers[channel](payload.value)
     })
   }
 }
@@ -136,10 +166,34 @@ const DataInfoBar = () => {
   if (selected_file_list.length === 0){
     text = 'no data selected'
   } else {
-    text = selected_file_list.join('vs')
+    text = selected_file_list.join(' vs ')
   }
   return (
     <p>{text}</p>
+  )
+}
+
+const ErrorBanner = (): React.JSX.Element | null => {
+  const last_error = useAppStore((state) => state.last_error)
+  if (!last_error) return null
+  return (
+    <div
+      role="alert"
+      style={{
+        background: '#fde2e1',
+        border: '1px solid #c0392b',
+        color: '#642723',
+        padding: '8px 12px',
+        margin: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        fontSize: '13px'
+      }}
+    >
+      <span style={{ flex: 1 }}>{last_error}</span>
+      <button onClick={() => useAppStore.setState({ last_error: null })}>Dismiss</button>
+    </div>
   )
 }
 
@@ -167,21 +221,23 @@ const App = (): React.JSX.Element => {
   // register data response handlers once
   useEffect(() => {
     register_handlers()
-    window.electron.ipcRenderer.send('request-handshake')
+    request('handshake', undefined, { silent: true })
   }, [])
 
   return (
     <>
       <NavBar />
+      <ErrorBanner />
       <DataInfoBar />
       {isLoading && <LoadingLayer />}
       <div id="main-container">
         {mainState === 'upload' && <Upload />}
-        {/* {mainState === 'overview' && <Overview />} */}
+        {mainState === 'overview' && <Overview />}
+        {mainState === 'krona' && <Krona />}
         {mainState === 'chord' && <Chord />}
-        {/* {mainState === 'network' && <Network />}
-        {mainState === 'graph' && <Graph />}
-        {mainState === 'krona' && <Krona />} */}
+        {mainState === 'network' && <Network />}
+        {/* Graph remains unmounted; out of scope for PR 5. */}
+        {/* {mainState === 'graph' && <Graph />} */}
       </div>
     </>
   )

@@ -2,24 +2,50 @@
 
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
+import { request } from '../ipc'
 import * as d3 from 'd3'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
-const Krona = () => {
-  const ref = useRef(null)
+// Same HSL generator used in Overview.tsx and src/main/utils.ts. Inlined here
+// to avoid the renderer reaching into the main process tree.
+const get_color = (i: number, n: number): string =>
+  `hsl(${Math.trunc((360 / (n + 1)) * i)} 75 50)`
+
+const Krona = (): React.JSX.Element => {
+  const ref = useRef<SVGSVGElement>(null)
   const data = useAppStore((state) => state.krona_data)
-  const { colors } = useAppStore((state) => state.parsed_data)
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
+  const tax_rank = useAppStore((state) => state.tax_rank)
   const width = 600
   const height = width
   const radius = width / 6
   const label_max = 15
 
+  // Trigger a krona request on mount whenever files are selected. Re-fires if
+  // the user picks new files or changes tax_rank elsewhere.
   useEffect(() => {
-    console.log('drawing krona', data, colors)
+    if (selected_file_list.length === 0) return
+    request('krona', { names: selected_file_list, tax_rank, selected_taxon: {} })
+  }, [selected_file_list, tax_rank])
 
-    const svg = d3.select(ref.current).attr('viewBox', [-width / 2, -height / 2, width, width])
+  useEffect(() => {
+    if (_.isEmpty(data)) return
+
+    const svg = d3
+      .select(ref.current)
+      .attr('viewBox', `${-width / 2} ${-height / 2} ${width} ${width}`)
     svg.style('font', '8px sans-serif')
     svg.selectAll('*').remove()
+
+    // The tree response no longer carries colors; build a per-id palette from
+    // the unique node ids. d3.scaleOrdinal would give us category10's 10
+    // colors; we re-use the project's HSL ramp so the look matches Overview.
+    const all_ids = _.uniq(
+      d3.hierarchy(data).descendants().map((d: any) => d.data.id)
+    ) as string[]
+    const colors: Record<string, string> = Object.fromEntries(
+      all_ids.map((id, i) => [id, get_color(i, all_ids.length)])
+    )
 
     // const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
 
@@ -139,7 +165,14 @@ const Krona = () => {
       .on('click', clicked)
 
     parent.on('click', clicked)
-  }, [])
+  }, [data])
+
+  if (selected_file_list.length === 0) {
+    return <p>Load and select files in the Upload tab to render the krona chart.</p>
+  }
+  if (_.isEmpty(data)) {
+    return <p>Computing krona…</p>
+  }
 
   return (
     <div>
