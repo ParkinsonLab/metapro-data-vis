@@ -47,12 +47,13 @@ const ChordSVG = () => {
         })
       } else if (d.index < outer_gap_idc[2] - 1 && selected_name !== selected_taxon) {
         console.log('set selected_taxon to ' + selected_name)
+        const next_rank =
+          tax_rank === t_ranks[t_ranks.length - 1]
+            ? tax_rank
+            : (t_ranks[t_ranks.indexOf(tax_rank) + 1] as typeof tax_rank)
         useAppStore.setState({
           selected_taxon: { level: tax_rank, name: selected_name },
-          tax_rank:
-            tax_rank === t_ranks[t_ranks.length - 1]
-              ? tax_rank
-              : t_ranks[t_ranks.indexOf(tax_rank) + 1]
+          tax_rank: next_rank
         })
       }
     }
@@ -103,7 +104,7 @@ const ChordSVG = () => {
       .append('path') // draw arc
       .attr('fill', (d) => colors[index[d.index]])
       .attr('d', outer_arc)
-      .attr('stroke', (d) => (d.index - 1 === selected_ann_cat ? 'blue' : 'black')) // adjusted to -1 because first element is gap_1
+      .attr('stroke', (d) => (count_matrix[d.index] === selected_ann_cat ? 'blue' : 'black'))
       .on('click', handle_arc_click)
     outer_nodes
       .append('title') // mouseover text
@@ -216,7 +217,7 @@ const Chord = (): React.JSX.Element => {
     useAppStore.setState({ selected_taxon: {} })
   }
   const reset_ann = () => {
-    useAppStore.setState({ selected_ann_cat: '' })
+    useAppStore.setState({ selected_ann_cat: {} })
   }
 
   return (

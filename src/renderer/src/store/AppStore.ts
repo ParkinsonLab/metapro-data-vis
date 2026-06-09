@@ -12,7 +12,9 @@ interface AppState {
   file_list: string[]
   selected_file_list: string[]
   selectedFile: File | null
-  selected_ann_cat: object
+  selected_ann_cat: object | string
+  /** @deprecated Graph pane only; component unmounted */
+  parsed_data?: any
   selected_taxon: object // {level: string, name: string}
   selected_pathway: string
   selected_annotations: string[]
