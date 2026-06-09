@@ -164,7 +164,37 @@ Use `multer` with memory storage. On `POST /api/data`:
 - `src/preload/` (context bridge)
 - All Electron dependencies (`electron`, `electron-vite`, `electron-builder`, `electron-updater`, `@electron-toolkit/*`)
 
-## 8. Build & Scripts
+## 8. Node.js & npm
+
+### Current state (pre-migration)
+
+| Source | Node | npm |
+|---|---|---|
+| `package.json` `engines` | Not set (now pinned — see below) | Not set |
+| CI | Was Node 20; now **22** | Bundled with Node |
+| Electron 38 runtime | Bundled Node ~22.18 | N/A |
+| `@types/node` | ^22.18.6 | — |
+
+The backend uses `node:sqlite` (`DatabaseSync`), which requires **Node ≥ 22.5.0** and is enabled without `--experimental-sqlite` from **22.13.0** onward. Electron 38 already ran the main process on Node 22; the migration makes that explicit by using standalone Node instead of the Electron bundle.
+
+### Pinned versions (all environments)
+
+| Artifact | Value | Purpose |
+|---|---|---|
+| `package.json` `engines.node` | `>=22.13.0` | Documents minimum; `npm install` warns on mismatch |
+| `.nvmrc` | `22` | Local dev version hint for nvm/fnm/volta |
+| CI (`.github/workflows/test.yml`) | `22` | Matches runtime and `node:sqlite` requirement |
+| Docker base image | `node:22` / `node:22-slim` | Production runtime |
+
+**npm:** No explicit pin. `package-lock.json` lockfileVersion 3 (npm 7+). Use whatever npm ships with Node 22 (~10.x). No change expected from the migration.
+
+### Impact of migration
+
+- **Runtime:** No meaningful change — Electron's bundled Node 22 → standalone Node 22 in Docker
+- **CI:** Aligns test runner with actual runtime (was mismatched at Node 20)
+- **Dev:** Developers should use Node 22 locally (`.nvmrc` + `engines`)
+
+## 9. Build & Scripts
 
 ### Target `package.json` scripts
 
@@ -185,7 +215,7 @@ test         # vitest run (unchanged)
 - **Backend:** `tsc` with `tsconfig.node.json` (or new `tsconfig.server.json`)
 - **Remove:** `electron.vite.config.ts`, `electron-builder.yml`, `dev-app-update.yml`
 
-## 9. Docker
+## 10. Docker
 
 ### Dockerfile (multi-stage)
 
@@ -211,7 +241,7 @@ docker run -p 8080:8080 metapro-viz
 
 `docker build` + `docker push` with version tags replaces `electron-builder` artifacts (`.dmg`, `.exe`, `.AppImage`). Users pull new images instead of auto-update.
 
-## 10. Error Handling
+## 11. Error Handling
 
 Identical semantics to current IPC:
 
@@ -222,7 +252,7 @@ Identical semantics to current IPC:
 | DB unreachable (`handshake` returns 3) | `db_ready: false` + error banner |
 | Hung request | Spinner indefinitely (same as lost IPC reply today) |
 
-## 11. Testing
+## 12. Testing
 
 | Layer | Plan |
 |---|---|
@@ -230,7 +260,7 @@ Identical semantics to current IPC:
 | New API integration tests | Optional phase 2 — Supertest against Express routes |
 | CI (`.github/workflows/test.yml`) | Keep `npm test`; add Docker build smoke test later |
 
-## 12. Performance Expectations
+## 13. Performance Expectations
 
 | Factor | Electron (today) | HTTP (target) |
 |---|---|---|
@@ -241,7 +271,7 @@ Identical semantics to current IPC:
 
 Single-threaded synchronous handlers remain the bottleneck (acceptable for single-user local use).
 
-## 13. Risks & Mitigations
+## 14. Risks & Mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
@@ -251,9 +281,9 @@ Single-threaded synchronous handlers remain the bottleneck (acceptable for singl
 | Dev ergonomics without Electron HMR | Slower iteration | Vite proxy from day one |
 | Dual tooling during strangler | Confusion | Time-box; delete Electron in final phase |
 | `danfojs-node` in container | Image size / ARM compat | Verify in Docker build CI |
-| `node:sqlite` | Requires Node 20+ | Pin Node 22 in Dockerfile |
+| `node:sqlite` | Requires Node ≥ 22.13.0 | Pinned via `engines`, `.nvmrc`, CI, Docker |
 
-## 14. Out of Scope (v1)
+## 15. Out of Scope (v1)
 
 - Client-side `fetch` timeouts / `AbortController`
 - Async job queue with polling or SSE
@@ -264,12 +294,13 @@ Single-threaded synchronous handlers remain the bottleneck (acceptable for singl
 - nginx reverse proxy
 - Split frontend/API containers
 
-## 15. Success Criteria
+## 16. Success Criteria
 
-1. User runs `docker run -p 8080:8080 metapro-viz` and opens browser to `localhost:8080`
-2. All 5 mounted visualizations work (Upload, Overview, Krona, Chord, Network)
-3. Browser file upload loads TSV data and drives visualizations
-4. Delta mode (two files) works as today
-5. `npm test` passes without Electron
-6. No Electron dependencies remain in `package.json`
-7. Existing test fixtures and `taxonomy.db` integration tests pass
+1. Node 22 pinned consistently (`engines`, `.nvmrc`, CI, Docker)
+2. User runs `docker run -p 8080:8080 metapro-viz` and opens browser to `localhost:8080`
+3. All 5 mounted visualizations work (Upload, Overview, Krona, Chord, Network)
+4. Browser file upload loads TSV data and drives visualizations
+5. Delta mode (two files) works as today
+6. `npm test` passes without Electron
+7. No Electron dependencies remain in `package.json`
+8. Existing test fixtures and `taxonomy.db` integration tests pass
