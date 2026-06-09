@@ -1,5 +1,6 @@
 import express, { type Express } from 'express'
 import cors from 'cors'
+import multer from 'multer'
 import {
   parse_ec_chord,
   parse_krona,
@@ -7,10 +8,13 @@ import {
   parse_pathway_list,
   parse_counts,
   parse_overview,
+  add_data,
   add_test_data,
   initialize
 } from './data_functions'
 import { wrapHandler } from './envelope'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } })
 
 const vizRoutes: Array<{ path: string; handler: (params?: unknown) => unknown }> = [
   { path: '/api/viz/overview', handler: parse_overview },
@@ -37,6 +41,17 @@ export const createApp = (): Express => {
       res.status(200).json(envelope)
     })
   }
+
+  app.post('/api/data', upload.single('file'), (req, res) => {
+    const name = req.body.name as string
+    if (!name || !req.file) {
+      res.status(200).json({ ok: false, error: 'name and file are required' })
+      return
+    }
+    const data = req.file.buffer.toString('utf8')
+    const envelope = wrapHandler(add_data)({ name, data })
+    res.status(200).json(envelope)
+  })
 
   app.post('/api/data/test', (req, res) => {
     if (process.env.NODE_ENV === 'production') {
