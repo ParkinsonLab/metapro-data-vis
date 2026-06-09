@@ -5,7 +5,7 @@ import {
   get_pathway_info,
   get_pathways_in_superpathway,
   get_superpathway_info
-} from '../main/db_functions'
+} from '../server/db_functions'
 
 const mockAllResults = vi.hoisted(() => [] as unknown[][])
 

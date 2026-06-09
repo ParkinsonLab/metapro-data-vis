@@ -33,9 +33,11 @@ type PathwaySummary = {
   name: string
 }
 
+const DB_PATH = process.env.TAXONOMY_DB_PATH ?? 'resources/db/taxonomy.db'
+
 const check_db = (): boolean => {
   try {
-    db = new DatabaseSync('resources/db/taxonomy.db')
+    db = new DatabaseSync(DB_PATH)
     return true
   } catch (error) {
     return false

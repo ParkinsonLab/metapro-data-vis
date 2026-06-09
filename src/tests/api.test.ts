@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parse_ec_chord, add_test_data, initialize } from '../main/data_functions'
+import { parse_ec_chord, add_test_data, initialize } from '../server/data_functions'
 
 describe('chord_api', () => {
   // Real fixture pipeline takes ~20s on the full TSVs; default 5s timeout is too low.
