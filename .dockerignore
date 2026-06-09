@@ -1,0 +1,8 @@
+node_modules
+out
+dist
+.git
+.github
+*.md
+resources/scripts
+resources/example_data
