@@ -99,19 +99,11 @@ const Upload = (): React.JSX.Element => {
   //create the handleFileChange function that will be called when the file input changes
   // when the ipcRenderer replies with the parsed csv data, set the data in the app store and set the main state to chord
   const handleUploadClick = (_event: React.MouseEvent<HTMLButtonElement>) => {
-    if (data_file) {
-      const dataReader = new FileReader()
-      dataReader.onload = (e) => {
-        const fileContent = e.target?.result as string
-        if (fileContent) {
-          request('load', {
-            name: data_name,
-            data: fileContent,
-            test: false
-          })
-        }
-      }
-      dataReader.readAsText(data_file)
+    if (data_file && data_name) {
+      const form = new FormData()
+      form.append('name', data_name)
+      form.append('file', data_file)
+      request('load', form)
     }
   }
 
