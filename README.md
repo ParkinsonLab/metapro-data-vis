@@ -8,21 +8,22 @@ Metapro Viz is a downstream data visualization tool for [MetaPro](https://github
 
 ## Usage
 
-Metapro Viz is provided as an installable executable. Please run the executable to install and then run.
+Metapro Viz runs as a web application. Start it with Docker:
 
+```bash
+docker run -p 8080:8080 metapro-viz
+```
+
+Open http://localhost:8080
 
 ## Development
 
-### Install
-
 ```bash
-$ npm install
-```
-
-### Dev server
-
-```bash
-$ npm start
+npm install   # Node 22, see .nvmrc
+npm run dev   # API :3001 + Vite :5173
+npm test
+npm run build
+npm start     # production on :8080
 ```
 
 ### Database
