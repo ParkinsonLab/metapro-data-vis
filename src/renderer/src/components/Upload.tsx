@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/AppStore'
-import { request } from '../ipc'
+import { request } from '../api'
 
 const DataSelector = () => {
   const file_list = useAppStore((state) => state.file_list)

@@ -3,7 +3,7 @@
 
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
-import { request } from '../ipc'
+import { request } from '../api'
 import * as d3 from 'd3'
 import { useEffect, useRef } from 'react'
 
