@@ -8,10 +8,25 @@ Metapro Viz is a downstream data visualization tool for [MetaPro](https://github
 
 ## Usage
 
-Metapro Viz runs as a web application. Start it with Docker:
+Metapro Viz runs as a web application. Build and start with Docker:
 
 ```bash
+docker build -t metapro-viz .
 docker run -p 8080:8080 metapro-viz
+```
+
+**Apple Silicon (M1/M2/M3):** the backend depends on TensorFlow native bindings that are x86_64-only in Linux containers. Before building:
+
+1. Install Rosetta 2 if prompted: `softwareupdate --install-rosetta`
+2. In **Docker Desktop → Settings → General**, enable:
+   - **Use Virtualization framework**
+   - **Use Rosetta for x86_64/amd64 emulation on Apple Silicon** (on macOS 14.1+ this may already be on)
+
+Then build and run with the `amd64` platform:
+
+```bash
+docker build --platform linux/amd64 -t metapro-viz .
+docker run --platform linux/amd64 -p 8080:8080 metapro-viz
 ```
 
 Open http://localhost:8080

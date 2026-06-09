@@ -172,6 +172,8 @@ docker run -p 8080:8080 metapro-viz
 # Open http://localhost:8080
 ```
 
+**Apple Silicon:** enable Rosetta emulation in Docker Desktop (Settings → General → *Use Rosetta for x86_64/amd64 emulation on Apple Silicon*; requires Virtualization framework). Then build/run with `--platform linux/amd64` — see `README.md`.
+
 The DB is **not** shipped with the source: per README, releases fetch it; otherwise it is built locally from the notebooks under `resources/scripts/`. The Docker image copies `resources/db/taxonomy.db` at build time.
 
 The module-level debug harness in `src/server/data_functions.ts` (which calls `initialize()` + `add_test_data()` + `parse_ec_chord(...)`) is gated behind `RUN_HARNESS=1`. To execute it manually:
