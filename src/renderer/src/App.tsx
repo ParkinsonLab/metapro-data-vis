@@ -4,7 +4,7 @@ import Network from './components/Network'
 import Overview from './components/Overview'
 import Krona from './components/Krona'
 import { useAppStore } from './store/AppStore'
-import { type Channel, type IPCEnvelope, request } from './ipc'
+import { type Channel, registerChannelHandler, request } from './api'
 import { useEffect } from 'react'
 import { Oval } from 'react-loader-spinner'
 import './App.css'
@@ -50,28 +50,6 @@ const channel_handlers: Record<Channel, (value: unknown) => void> = {
   },
   pathway_list: (value) => {
     useAppStore.setState({ pathway_list: value as string[] })
-  }
-}
-
-const register_handlers = (): void => {
-  for (const channel of Object.keys(channel_handlers) as Channel[]) {
-    window.electron.ipcRenderer.on(`response-${channel}`, (_, payload: IPCEnvelope) => {
-      // Always clear the spinner: every response, success or failure, ends
-      // whatever request started it.
-      useAppStore.setState({ isLoading: false })
-
-      if (!payload || typeof payload !== 'object' || !('ok' in payload)) {
-        console.error(`[ipc:${channel}] received malformed envelope`, payload)
-        useAppStore.setState({ last_error: `${channel}: malformed response` })
-        return
-      }
-      if (payload.ok === false) {
-        console.error(`[ipc:${channel}] ${payload.error}`)
-        useAppStore.setState({ last_error: `${channel}: ${payload.error}` })
-        return
-      }
-      channel_handlers[channel](payload.value)
-    })
   }
 }
 
@@ -218,9 +196,13 @@ const App = (): React.JSX.Element => {
   //   }
   // }, [data, ec, selected_trank, selected_arank, selected_ann_cat, selected_taxon])
 
-  // register data response handlers once
   useEffect(() => {
-    register_handlers()
+    for (const [channel, handler] of Object.entries(channel_handlers) as [
+      Channel,
+      (v: unknown) => void
+    ][]) {
+      registerChannelHandler(channel, handler)
+    }
     request('handshake', undefined, { silent: true })
   }, [])
 

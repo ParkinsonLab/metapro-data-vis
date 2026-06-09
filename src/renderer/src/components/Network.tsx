@@ -2,7 +2,7 @@ import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
-import { request } from '../ipc'
+import { request } from '../api'
 
 // ---------------------------------------------------------------------------
 // Network pane
