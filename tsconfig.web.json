@@ -1,19 +1,14 @@
 {
-  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
-  "include": [
-    "src/renderer/src/env.d.ts",
-    "src/renderer/src/**/*",
-    "src/renderer/src/**/*.tsx",
-    "src/preload/*.d.ts"
-  ],
   "compilerOptions": {
-    "composite": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
+    "strict": false,
+    "composite": true,
     "baseUrl": ".",
-    "paths": {
-      "@renderer/*": [
-        "src/renderer/src/*"
-      ]
-    }
-  }
+    "paths": { "@renderer/*": ["src/renderer/src/*"] },
+    "types": ["vite/client"]
+  },
+  "include": ["src/renderer/src/**/*", "src/renderer/src/**/*.tsx"]
 }
