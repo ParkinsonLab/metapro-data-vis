@@ -1,3 +1,4 @@
+import path from 'path'
 import express, { type Express } from 'express'
 import cors from 'cors'
 import multer from 'multer'
@@ -62,10 +63,16 @@ export const createApp = (): Express => {
     res.status(200).json(envelope)
   })
 
+  const distPath = path.join(__dirname, '../../dist')
+  app.use(express.static(distPath))
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
+
   return app
 }
 
-const port = Number(process.env.PORT ?? 3001)
+const port = Number(process.env.PORT ?? (process.env.NODE_ENV === 'production' ? 8080 : 3001))
 if (require.main === module) {
   createApp().listen(port, () => console.log(`API listening on :${port}`))
 }
