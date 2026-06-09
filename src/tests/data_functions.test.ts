@@ -186,7 +186,7 @@ describe('integration with real DB and real TSV fixtures', () => {
   })
 
   describe('add_data (direct call with synthetic TSV using real tax_ids)', () => {
-    it('remaps numeric tax_id headers via the real get_name_from_id (2→Bacteria, 1239→Firmicutes)', () => {
+    it('remaps numeric tax_id headers via the real get_name_from_id (2→Bacteria, 1239→Bacillota)', () => {
       const tsv = [
         'GeneID\tLength\tReads\tEC#\tRPKM\t2\t1239',
         'g1\t100\t5\tEC:1.1.1.1\t0.5\t1.0\t2.0',
@@ -197,11 +197,11 @@ describe('integration with real DB and real TSV fixtures', () => {
       const stored = (__test__.getData() as Record<string, Record<string, unknown>[]>)['__synth__']
       expect(stored).toHaveLength(2)
       const cols = Object.keys(stored[0])
-      expect(cols).toEqual(expect.arrayContaining(['Bacteria', 'Firmicutes']))
+      expect(cols).toEqual(expect.arrayContaining(['Bacteria', 'Bacillota']))
       expect(stored[0]['EC#']).toBe('1.1.1.1')
       expect(stored[1]['EC#']).toBe('0.0.0.0')
       expect(stored[0]['Bacteria']).toBe(1.0)
-      expect(stored[0]['Firmicutes']).toBe(2.0)
+      expect(stored[0]['Bacillota']).toBe(2.0)
     })
   })
 
@@ -244,13 +244,13 @@ describe('integration with real DB and real TSV fixtures', () => {
     it('returns input unchanged when filter has no level or no name', () => {
       expect(subset_data(file_a_rows, empty_filter)).toBe(file_a_rows)
       expect(subset_data(file_a_rows, { level: 'phylum', name: '' })).toBe(file_a_rows)
-      expect(subset_data(file_a_rows, { level: '', name: 'Firmicutes' })).toBe(file_a_rows)
+      expect(subset_data(file_a_rows, { level: '', name: 'Bacillota' })).toBe(file_a_rows)
     })
 
-    it('keeps key_cols + only columns whose phylum is Firmicutes (real DB lookup)', () => {
+    it('keeps key_cols + only columns whose phylum is Bacillota (real DB lookup)', () => {
       const subset = subset_data(file_a_rows.slice(0, 5_000), {
         level: 'phylum',
-        name: 'Firmicutes'
+        name: 'Bacillota'
       })
       expect(subset.length).toBe(5_000)
       const cols = Object.keys(subset[0])
@@ -307,7 +307,7 @@ describe('integration with real DB and real TSV fixtures', () => {
       for (const v of Object.values(out)) {
         expect(typeof v).toBe('string')
       }
-      expect(Object.values(out)).toContain('Firmicutes')
+      expect(Object.values(out)).toContain('Bacillota')
     }, 60_000)
   })
 
@@ -326,13 +326,13 @@ describe('integration with real DB and real TSV fixtures', () => {
   })
 
   describe('parse_ec_chord (end-to-end)', () => {
-    it('runs end-to-end on real fixtures with a phylum=Firmicutes taxon filter and returns chord-shape', () => {
+    it('runs end-to-end on real fixtures with a phylum=Bacillota taxon filter and returns chord-shape', () => {
       const out = parse_ec_chord({
         names: [loaded_names[0]],
         tax_level: 'genus',
         ann_level: 'superpathway',
         selected_ann_cat: empty_filter,
-        selected_taxon: { level: 'phylum', name: 'Firmicutes' }
+        selected_taxon: { level: 'phylum', name: 'Bacillota' }
       })
       expect(out.index[0]).toBe('gap_1')
       expect(out.index).toContain('gap_2')
