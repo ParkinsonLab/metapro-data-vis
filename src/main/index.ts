@@ -13,7 +13,7 @@ import {
   parse_counts,
   parse_overview,
   add_test_data
-} from './data_functions'
+} from '../server/data_functions'
 
 const api = [
   {

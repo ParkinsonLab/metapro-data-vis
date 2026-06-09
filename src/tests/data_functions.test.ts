@@ -21,8 +21,8 @@ import {
   get_ec_map,
   names_to_data,
   __test__
-} from '../main/data_functions'
-import { empty_filter, key_cols } from '../main/utils'
+} from '../server/data_functions'
+import { empty_filter, key_cols } from '../server/utils'
 
 // ===========================================================================
 // Pure helpers — no DB, no fixtures. These test parsing/normalization rules.
