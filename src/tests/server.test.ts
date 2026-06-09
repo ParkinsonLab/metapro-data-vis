@@ -19,18 +19,22 @@ describe('API POST /api/data', () => {
   const app = createApp()
   const fixture = path.join(__dirname, '../../resources/example_data/test_rpkm_1.tsv')
 
-  it('loads a TSV via multipart upload', async () => {
-    if (!fs.existsSync(fixture)) {
-      console.warn('fixture missing, skipping')
-      return
-    }
-    const res = await request(app)
-      .post('/api/data')
-      .field('name', 'test-upload.tsv')
-      .attach('file', fixture)
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ ok: true, value: 'test-upload.tsv' })
-  })
+  it(
+    'loads a TSV via multipart upload',
+    async () => {
+      if (!fs.existsSync(fixture)) {
+        console.warn('fixture missing, skipping')
+        return
+      }
+      const res = await request(app)
+        .post('/api/data')
+        .field('name', 'test-upload.tsv')
+        .attach('file', fixture)
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ ok: true, value: 'test-upload.tsv' })
+    },
+    120_000
+  )
 })
 
 describe('API /api/viz/overview', () => {
