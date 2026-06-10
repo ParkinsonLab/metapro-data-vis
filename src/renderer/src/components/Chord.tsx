@@ -229,7 +229,7 @@ const Chord = (): React.JSX.Element => {
     useAppStore.setState({ selected_taxon: {} })
   }
   const reset_ann = () => {
-    useAppStore.setState({ selected_ann_cat: {} })
+    useAppStore.setState({ selected_ann_cat: '' })
   }
 
   return (
