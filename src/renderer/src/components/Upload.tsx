@@ -121,7 +121,12 @@ const Upload = (): React.JSX.Element => {
         onChange={(e) => set_data_name(e.target.value)}
       />
       <p>RPKM File</p>
-      <input type="file" id="dataFile" accept="text/csv" onChange={handleDataFileChange} />
+      <input
+        type="file"
+        id="dataFile"
+        accept=".tsv,text/tab-separated-values"
+        onChange={handleDataFileChange}
+      />
       <div>
         <button onClick={handleUploadClick}>Load Files</button>
         <button onClick={handleTestFileClick}>Load Test Files</button>
