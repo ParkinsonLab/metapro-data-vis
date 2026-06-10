@@ -27,21 +27,21 @@ const ChordSVG = () => {
   const draw_chord = () => {
     const {
       count_matrix,
-      index: matrix_labels,
+      index,
       colors
     } = parsed_data
 
-    if (!Array.isArray(matrix_labels) || !Array.isArray(count_matrix)) {
+    if (!Array.isArray(index) || !Array.isArray(count_matrix)) {
       console.error('[Chord] expected chord_data { count_matrix, index, colors }', parsed_data)
       return
     }
 
     const gaps = ['gap_1', 'gap_2', 'gap_3']
-    const outer_gap_idc = gaps.map((e) => matrix_labels.indexOf(e))
+    const outer_gap_idc = gaps.map((e) => index.indexOf(e))
 
     const handle_arc_click = (event, d) => {
       // d.index is the matrix row/col (0..n-1); matrix_labels[d.index] is the label string.
-      const selected_name = String(matrix_labels[d.index] ?? '')
+      const selected_name = String(index[d.index] ?? '')
       if (selected_name.substring(0, 3) === 'gap') return
       if (
         d.index > outer_gap_idc[0] &&
@@ -95,7 +95,7 @@ const ChordSVG = () => {
 
     const get_group_label = (d) => [
       {
-        value: matrix_labels[d.index],
+        value: index[d.index],
         angle: d.startAngle + (d.endAngle - d.startAngle) / 2,
         size: d.value
       }
@@ -108,19 +108,19 @@ const ChordSVG = () => {
       .selectAll()
       .data(
         outer_chords.groups.filter(
-          (d) => !gaps.map((e) => matrix_labels.indexOf(e)).includes(d.index)
+          (d) => !gaps.map((e) => index.indexOf(e)).includes(d.index)
         )
       )
       .join('g')
     outer_nodes
       .append('path') // draw arc
-      .attr('fill', (d) => colors[matrix_labels[d.index]])
+      .attr('fill', (d) => colors[index[d.index]])
       .attr('d', outer_arc)
-      .attr('stroke', (d) => (matrix_labels[d.index] === selected_ann_cat ? 'blue' : 'black'))
+      .attr('stroke', (d) => (index[d.index] === selected_ann_cat ? 'blue' : 'black'))
       .on('click', handle_arc_click)
     outer_nodes
       .append('title') // mouseover text
-      .text((d) => `${matrix_labels[d.index]} [${Math.trunc(d.value)}]`)
+      .text((d) => `${index[d.index]} [${Math.trunc(d.value)}]`)
 
     const gap_regex = /^gap_[0-9]+$/
     const text_labels = outer_nodes
@@ -149,15 +149,15 @@ const ChordSVG = () => {
       .selectAll()
       .data(
         inner_chords.groups.filter(
-          (d) => !gaps.map((e) => matrix_labels.indexOf(e)).includes(d.index)
+          (d) => !gaps.map((e) => index.indexOf(e)).includes(d.index)
         )
       )
       .join('g')
       .append('path')
-      .attr('fill', (d) => colors[matrix_labels[d.index]])
+      .attr('fill', (d) => colors[index[d.index]])
       .attr('d', inner_arc)
       .append('title')
-      .text((d) => `${matrix_labels[d.index]} [${Math.trunc(d.value)}]`)
+      .text((d) => `${index[d.index]} [${Math.trunc(d.value)}]`)
 
     svg
       .append('g')
@@ -166,12 +166,12 @@ const ChordSVG = () => {
       .attr('fill-opacity', 0.7)
       .join('path')
       .attr('d', ribbon)
-      .attr('fill', (d) => colors[matrix_labels[d.target.index]])
+      .attr('fill', (d) => colors[index[d.target.index]])
       // .attr("stroke", "black")
       .append('title')
       .text(
         (d) =>
-          `${matrix_labels[d.target.index]} → ${matrix_labels[d.source.index]} [${Math.trunc(d.source.value)}]`
+          `${index[d.target.index]} → ${index[d.source.index]} [${Math.trunc(d.source.value)}]`
       )
   }
 
