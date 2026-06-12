@@ -33,7 +33,7 @@ Metapro Viz ingests RPKM TSV output from [MetaPro](https://github.com/ParkinsonL
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Analysis style | **SQL-first via DuckDB** | Declarative over imperative; no pandas dependency |
+| Analysis style | **SQL-first via DuckDB + JupySQL** | Declarative over imperative; `%%sql` cells for syntax highlighting |
 | Analysis code location | **Jupyter notebook** | Colocation and interactivity; code lives in cells |
 | Dev testing | **CLI snippets** (`uv run python -c "..."`) before integrating into notebook | Validate logic in isolation |
 | Validation | **Full notebook execute** at end; iterate on code cells only | Reproducible outputs |
@@ -115,9 +115,10 @@ COPY db.names TO 'resources/db/parquet/names.parquet' (FORMAT PARQUET);
 
 **Dependencies (exploration only):**
 - `duckdb` — SQL engine, Parquet/TSV I/O, SQLite attach
+- `jupysql` — `%%sql` cells with SQL syntax highlighting (native DuckDB connection)
 - `jupyter`, `ipykernel` — notebook execution
 
-**Not included:** `pandas`, `pyarrow`, `dbt-core`, `dbt-duckdb`
+**Not included:** `pandas`, `pyarrow`, `duckdb-engine`, `dbt-core`, `dbt-duckdb`
 
 **Setup:**
 ```bash
@@ -132,7 +133,7 @@ Single notebook: `analytics/exploration/notebooks/exploratory_analysis.ipynb`
 
 | Section | Content |
 |---|---|
-| **1. Setup** | DuckDB connection, path constants, shared SQL helpers (e.g. `ec_normalize` as SQL `CASE`) |
+| **1. Setup** | Python cell: `duckdb.connect()`, `%load_ext sql`, `%sql conn`; path constants; shared SQL snippets (e.g. `ec_normalize` as `CASE`) |
 | **2. Verify inputs** | Assert Parquet + RPKM files exist; print row counts and file sizes; fail fast with pointer to `export_parquet.py` |
 | **3. Data dictionary** | Schema, row counts, PK/FK relationships per table; entity-relationship narrative |
 | **4. Cardinality & degrees** | min/max/median stats: names per tax_id, pathway in/out-degree, edges per pathway, etc. |
@@ -141,7 +142,7 @@ Single notebook: `analytics/exploration/notebooks/exploratory_analysis.ipynb`
 | **7. Cross-domain joins** | RPKM tax columns → `names`; EC → `pathway_nodes` → superpathway chain; match rates + unmapped ID lists |
 | **8. Findings summary** | Markdown cells summarizing validated assumptions, violations, and gotchas for future analytics |
 
-**Display:** `conn.sql("...").show()` in notebook cells.
+**Display:** Analysis sections use `%%sql` cells (JupySQL). Setup and dynamic path logic stay in Python cells. CLI snippet testing during development uses `conn.sql("...")` before promoting SQL into `%%sql` cells.
 
 ### 7.1 Reference Integrity Checks
 
@@ -204,7 +205,7 @@ All exploration work happens on branch `exploration/eda` in worktree `.worktrees
 | Artifact | Purpose |
 |---|---|
 | `exploratory_analysis.ipynb` (executed) | Canonical analysis report with stored outputs |
-| `docs/data-model.md` | Persistent data dictionary: table schemas, relationships, cardinality findings, join semantics |
+| `docs/data-model.md` | Data dictionary plus **as-found** relationships after EDA; discrepancies vs logical model flagged for review |
 | `exploration/README.md` | How to set up env, run dumps, execute notebook, dev workflow rules |
 
 ## 12. Out of Scope
@@ -222,20 +223,82 @@ All exploration work happens on branch `exploration/eda` in worktree `.worktrees
 - **JSON sidecars:** Add `analytics/exploration/output/` when transform pipeline needs programmatic artifacts
 - **uv workspace:** Promote to root workspace if multiple Python packages emerge under `analytics/`
 
-## 14. Entity Relationships
+## 14. Entity Relationships (Logical, Pre-Validation)
+
+This diagram states **how we expect** reference tables and RPKM sample files to relate — based on schema DDL, app join logic (`SPEC.md`, `db_functions.ts`), and MetaPro output conventions. Cardinalities shown are **assumed**, not measured. Section 7 EDA validates each edge; `docs/data-model.md` is updated with **as-found** facts afterward.
+
+**Discrepancy handling:** When observed relationships differ from this diagram (orphan rate, missing join keys, unexpected cardinality, undeclared FKs), EDA documents the gap. Whether a discrepancy is a **problem** is decided case-by-case after review — some gaps may be acceptable (e.g. unknown tax_ids left as raw IDs in the viz app).
+
+### 14.1 Reference tables (internal)
 
 ```mermaid
 erDiagram
-    nodes ||--o{ names : "tax_id"
-    nodes ||--o| parents : "tax_id"
-    nodes ||--o{ parents : "t_kingdom..t_species"
+    nodes ||--o{ names : "names.tax_id"
+    nodes ||--o| parents : "parents.tax_id"
+    nodes ||--o{ parents : "parents.t_kingdom..t_species"
     pathway_nodes ||--o{ pathway_edges : "source"
     pathway_nodes ||--o{ pathway_edges : "target"
-    superpathways ||--o{ pathway_superpathways : "id"
-    pathway_superpathways ||--o{ pathway_nodes : "pathway"
-    RPKM_TSV }o--o{ names : "tax_id columns"
-    RPKM_TSV }o--o{ pathway_nodes : "EC#"
+    superpathways ||--o{ pathway_superpathways : "superpathway"
+    pathway_superpathways ||--o{ pathway_nodes : "pathway_nodes.pathway"
 ```
+
+Solid lines: declared SQLite FKs where present. `pathway_nodes.pathway → pathway_superpathways.id` is **logical only** (used in app SQL, not declared as FK).
+
+### 14.2 RPKM sample files → reference tables (cross-domain)
+
+Both `test_rpkm_1.tsv` and `test_rpkm_2.tsv` share the same schema; edges below apply to each file independently (overlap/diff validated in section 7.2).
+
+```mermaid
+erDiagram
+    rpkm_sample {
+        string file "test_rpkm_1 or test_rpkm_2"
+        string GeneID PK_per_row
+        string EC_hash "EC# column"
+        int tax_id_header "one per wide column"
+        float rpkm_value "cell value"
+    }
+    names {
+        int tax_id
+        string name
+    }
+    nodes {
+        int id
+    }
+    parents {
+        int tax_id
+    }
+    pathway_nodes {
+        string name "EC number"
+        int pathway
+    }
+    pathway_superpathways {
+        int id
+        string name
+    }
+    superpathways {
+        string id
+        string name
+    }
+
+    rpkm_sample }o--o{ names : "header tax_id = names.tax_id"
+    rpkm_sample }o--o{ nodes : "header tax_id = nodes.id"
+    rpkm_sample }o--o| parents : "header tax_id = parents.tax_id"
+    rpkm_sample }o--o{ pathway_nodes : "normalize(EC#) = pathway_nodes.name"
+    pathway_nodes }o--|| pathway_superpathways : "pathway"
+    pathway_superpathways }o--|| superpathways : "superpathway"
+```
+
+**Join keys EDA must validate:**
+
+| Edge | Join key | Normalization |
+|---|---|---|
+| RPKM → `names` | Column header integer → `names.tax_id` | Headers are raw tax_ids |
+| RPKM → `nodes` | Column header → `nodes.id` | Same tax_id set as above |
+| RPKM → `parents` | Column header → `parents.tax_id` | Subset of tax_ids with hierarchy rows |
+| RPKM → `pathway_nodes` | `EC#` → `pathway_nodes.name` | `EC:x.y.z` → `x.y.z`; `None`/empty → `0.0.0.0` |
+| EC → superpathway chain | `pathway_nodes` → `pathway_superpathways` → `superpathways` | Matches `get_superpathway_info()` |
+
+**Not modeled as FK edges:** `GeneID`, `Length`, `Reads`, `RPKM`, `Unclassified` are row-level attributes with no reference table in scope.
 
 ## 15. Success Criteria
 
@@ -244,5 +307,5 @@ erDiagram
 - [ ] Parquet and RPKM files tracked via Git LFS
 - [ ] Notebook executes end-to-end reading only dump files + RPKM TSVs
 - [ ] All section C analyses produce stored outputs
-- [ ] `docs/data-model.md` documents schemas, relationships, and key findings
+- [ ] `docs/data-model.md` documents schemas, as-found relationships, and discrepancies vs logical model
 - [ ] No hand-edited notebook outputs in committed artifacts
