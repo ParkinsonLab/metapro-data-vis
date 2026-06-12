@@ -250,15 +250,19 @@ erDiagram
 
 **Legend:** Internal reference edges follow declared SQLite FKs where present. `pathway_nodes.pathway → pathway_superpathways.id` is **logical only** (used in app SQL, not declared as FK). RPKM cross-domain edges are the joins EDA must validate. Path from RPKM EC to superpathway runs through `pathway_nodes` → `pathway_superpathways` → `superpathways`.
 
+**RPKM join granularity:** RPKM TSVs are wide tables. After the fixed columns (`GeneID`, `Length`, `Reads`, `EC#`, `RPKM`, `Unclassified`), **each remaining column header is a tax_id**. Cross-domain joins are evaluated **per tax_id column header** (not per row, not once per file). The diagram compresses this to a single `rpkm_sample` node for readability.
+
 **Join keys EDA must validate:**
 
-| Edge | Join key | Normalization |
-|---|---|---|
-| RPKM → `names` | Column header integer → `names.tax_id` | Headers are raw tax_ids |
-| RPKM → `nodes` | Column header → `nodes.id` | Same tax_id set as above |
-| RPKM → `parents` | Column header → `parents.tax_id` | Subset of tax_ids with hierarchy rows |
-| RPKM → `pathway_nodes` | `EC#` → `pathway_nodes.name` | `EC:x.y.z` → `x.y.z`; `None`/empty → `0.0.0.0` |
-| EC → superpathway chain | `pathway_nodes` → `pathway_superpathways` → `superpathways` | Matches `get_superpathway_info()` |
+| Edge | RPKM side | Reference key | Per-header cardinality | Notes |
+|---|---|---|---|---|
+| RPKM → `names` | Tax_id column header (integer) | `names.tax_id` | 0..many `names` rows | Multiple name rows per tax_id expected (synonyms) |
+| RPKM → `nodes` | Same tax_id column header | `nodes.id` | 0..1 `nodes` row | Each header should resolve to at most one node |
+| RPKM → `parents` | Same tax_id column header | `parents.tax_id` | 0..1 `parents` row | Optional lookup: some headers may have `names`/`nodes` matches but no `parents` row; EDA measures match rate across all tax_id columns |
+| RPKM → `pathway_nodes` | `EC#` cell value (per row) | `pathway_nodes.name` | 0..many `pathway_nodes` rows | Row-level, not header-level; normalize before join |
+| EC → superpathway chain | Matched `pathway_nodes` rows | `pathway` → `pathway_superpathways.id` → `superpathways.id` | 0..1 chain per node | Follows `get_superpathway_info()` |
+
+**Normalization (RPKM → `pathway_nodes` only):** `EC:x.y.z` → `x.y.z`; `None`/empty → `0.0.0.0` (per `SPEC.md`).
 
 **Not modeled as FK edges:** `GeneID`, `Length`, `Reads`, `RPKM`, `Unclassified` are row-level attributes with no reference table in scope.
 
