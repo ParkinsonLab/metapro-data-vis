@@ -18,6 +18,7 @@ resources/*
 !resources/db/
 !resources/db/parquet/
 !resources/db/parquet/**
+!resources/example_data/
 !resources/example_data/test_rpkm_1.tsv
 !resources/example_data/test_rpkm_2.tsv
 
