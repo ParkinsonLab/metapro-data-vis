@@ -10,13 +10,17 @@ build
 
 .worktrees
 
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
 # python scripts
 resources/*
 !resources/scripts
 !resources/demo_gif.gif
 !resources/icon.png
-!resources/db/
-!resources/db/parquet/
 !resources/db/parquet/**
 !resources/example_data/
 !resources/example_data/test_rpkm_1.tsv
