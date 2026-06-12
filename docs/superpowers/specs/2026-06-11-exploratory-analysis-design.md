@@ -229,66 +229,26 @@ This diagram states **how we expect** reference tables and RPKM sample files to 
 
 **Discrepancy handling:** When observed relationships differ from this diagram (orphan rate, missing join keys, unexpected cardinality, undeclared FKs), EDA documents the gap. Whether a discrepancy is a **problem** is decided case-by-case after review — some gaps may be acceptable (e.g. unknown tax_ids left as raw IDs in the viz app).
 
-### 14.1 Reference tables (internal)
+### 14.1 Full logical model
+
+`rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv` (identical schema; overlap/diff validated in section 7.2). Relationship-only syntax — no entity attribute blocks — for reliable Mermaid rendering. Join-key detail is in the table below.
 
 ```mermaid
 erDiagram
-    nodes ||--o{ names : "names.tax_id"
-    nodes ||--o| parents : "parents.tax_id"
-    nodes ||--o{ parents : "parents.t_kingdom..t_species"
-    pathway_nodes ||--o{ pathway_edges : "source"
-    pathway_nodes ||--o{ pathway_edges : "target"
-    superpathways ||--o{ pathway_superpathways : "superpathway"
-    pathway_superpathways ||--o{ pathway_nodes : "pathway_nodes.pathway"
-```
-
-Solid lines: declared SQLite FKs where present. `pathway_nodes.pathway → pathway_superpathways.id` is **logical only** (used in app SQL, not declared as FK).
-
-### 14.2 RPKM sample files → reference tables (cross-domain)
-
-Both `test_rpkm_1.tsv` and `test_rpkm_2.tsv` share the same schema; edges below apply to each file independently (overlap/diff validated in section 7.2).
-
-```mermaid
-erDiagram
-    rpkm_sample {
-        string file_name
-        string gene_id PK
-        string ec_value
-        int tax_col_header
-        float rpkm_value
-    }
-    names {
-        int tax_id
-        string name
-    }
-    nodes {
-        int node_id
-    }
-    parents {
-        int tax_id
-    }
-    pathway_nodes {
-        string ec_name
-        int pathway_id
-    }
-    pathway_superpathways {
-        int id
-        string name
-    }
-    superpathways {
-        string id
-        string name
-    }
-
     rpkm_sample }o--o{ names : "tax_id_header"
     rpkm_sample }o--o{ nodes : "tax_id_header"
     rpkm_sample }o--o| parents : "tax_id_header"
-    rpkm_sample }o--o{ pathway_nodes : "ec_value_normalized"
-    pathway_nodes }o--|| pathway_superpathways : "pathway_id"
-    pathway_superpathways }o--|| superpathways : "superpathway_id"
+    rpkm_sample }o--o{ pathway_nodes : "ec_normalized"
+    nodes ||--o{ names : "tax_id"
+    nodes ||--o| parents : "tax_id"
+    nodes ||--o{ parents : "rank_columns"
+    pathway_nodes ||--o{ pathway_edges : "source"
+    pathway_nodes ||--o{ pathway_edges : "target"
+    pathway_superpathways ||--o{ pathway_nodes : "pathway"
+    superpathways ||--o{ pathway_superpathways : "superpathway"
 ```
 
-Attribute and join-key detail lives in the table below — kept out of diagram labels so Mermaid parsers do not choke on `=`, `#`, or parentheses.
+**Legend:** Internal reference edges follow declared SQLite FKs where present. `pathway_nodes.pathway → pathway_superpathways.id` is **logical only** (used in app SQL, not declared as FK). RPKM cross-domain edges are the joins EDA must validate. Path from RPKM EC to superpathway runs through `pathway_nodes` → `pathway_superpathways` → `superpathways`.
 
 **Join keys EDA must validate:**
 
