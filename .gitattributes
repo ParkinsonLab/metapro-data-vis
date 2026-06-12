@@ -1,0 +1,2 @@
+*.parquet filter=lfs diff=lfs merge=lfs -text
+resources/example_data/test_rpkm_*.tsv filter=lfs diff=lfs merge=lfs -text
