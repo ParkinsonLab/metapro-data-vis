@@ -251,25 +251,25 @@ Both `test_rpkm_1.tsv` and `test_rpkm_2.tsv` share the same schema; edges below 
 ```mermaid
 erDiagram
     rpkm_sample {
-        string file "test_rpkm_1 or test_rpkm_2"
-        string GeneID PK_per_row
-        string EC_hash "EC# column"
-        int tax_id_header "one per wide column"
-        float rpkm_value "cell value"
+        string file_name
+        string gene_id PK
+        string ec_value
+        int tax_col_header
+        float rpkm_value
     }
     names {
         int tax_id
         string name
     }
     nodes {
-        int id
+        int node_id
     }
     parents {
         int tax_id
     }
     pathway_nodes {
-        string name "EC number"
-        int pathway
+        string ec_name
+        int pathway_id
     }
     pathway_superpathways {
         int id
@@ -280,13 +280,15 @@ erDiagram
         string name
     }
 
-    rpkm_sample }o--o{ names : "header tax_id = names.tax_id"
-    rpkm_sample }o--o{ nodes : "header tax_id = nodes.id"
-    rpkm_sample }o--o| parents : "header tax_id = parents.tax_id"
-    rpkm_sample }o--o{ pathway_nodes : "normalize(EC#) = pathway_nodes.name"
-    pathway_nodes }o--|| pathway_superpathways : "pathway"
-    pathway_superpathways }o--|| superpathways : "superpathway"
+    rpkm_sample }o--o{ names : "tax_id_header"
+    rpkm_sample }o--o{ nodes : "tax_id_header"
+    rpkm_sample }o--o| parents : "tax_id_header"
+    rpkm_sample }o--o{ pathway_nodes : "ec_value_normalized"
+    pathway_nodes }o--|| pathway_superpathways : "pathway_id"
+    pathway_superpathways }o--|| superpathways : "superpathway_id"
 ```
+
+Attribute and join-key detail lives in the table below — kept out of diagram labels so Mermaid parsers do not choke on `=`, `#`, or parentheses.
 
 **Join keys EDA must validate:**
 
