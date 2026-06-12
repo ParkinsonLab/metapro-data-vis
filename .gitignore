@@ -8,6 +8,8 @@ build
 .vscode
 .editorconfig
 
+.worktrees
+
 # python scripts
 resources/*
 !resources/scripts
