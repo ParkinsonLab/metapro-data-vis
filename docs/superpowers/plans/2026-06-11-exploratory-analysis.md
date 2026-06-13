@@ -1001,6 +1001,112 @@ git commit -m "docs(analytics): add observed-grounded logical ER diagram to data
 
 ---
 
+## Task 15: Parents rank consistency audit
+
+**Goal:** Extend §6 reference-integrity checks so `parents` rank columns (`t_kingdom` … `t_species`) satisfy **ladder completeness** and **transitive consistency**. Update `data-model.md` edge evidence and regression validation targets from notebook outputs. Do not invent statistics.
+
+**Files:**
+- Modify: `analytics/exploration/notebooks/exploratory_analysis.ipynb` (§6)
+- Modify: `analytics/exploration/docs/data-model.md`
+
+**Prerequisite:** Existing §6 cells (orphan FK sample, partial rank completeness). Canonical logical model: `analytics/exploration/docs/data-model.md` — do not link to archived design specs.
+
+### Intended invariants (locked)
+
+Rank order (coarse → fine): `t_kingdom` → `t_phylum` → `t_class` → `t_order` → `t_family` → `t_genus` → `t_species`.
+
+For each `parents` row with `tax_id = T` (excluding the 5 meta/root tax_ids without `parents` rows: 1, 10239, 131567, 2787823, 2787854):
+
+1. **Ladder completeness:** If a finer rank is non-null, every coarser rank must be non-null (e.g. `t_species` set ⇒ `t_genus` … `t_kingdom` all set).
+2. **Rank column orphans:** Each non-null `t_*` value must exist in `nodes.id` (extend the §6 orphan-FK UNION; today only `t_kingdom` is checked).
+3. **Transitive consistency:** For each non-null rank tax_id on row `T`, the `parents` row for that rank tax_id must agree with `T` on all coarser ranks. Example: when `T.t_genus = G`, then `parents(G).t_kingdom … parents(G).t_family` must equal `T.t_kingdom … T.t_family`.
+
+These are **regression validation targets** — correctness depends on `tax_parents.csv` and `write_to_tax_db.ipynb`, not exhaustive DDL enforcement beyond per-column FKs.
+
+- [ ] **Step 1: Rank column orphan FKs (all ranks)**
+
+Extend the existing §6 orphan-FK `UNION ALL` cell (or add a dedicated cell) to check every rank column:
+
+```sql
+SELECT 'parents.t_phylum -> nodes' AS fk, COUNT(*) AS orphan_count
+FROM parents p LEFT JOIN nodes nd ON p.t_phylum = nd.id
+WHERE p.t_phylum IS NOT NULL AND nd.id IS NULL
+UNION ALL
+-- repeat for t_class, t_order, t_family, t_genus, t_species
+```
+
+Expected in current dump: 0 orphans per rank (verify; do not assume).
+
+- [ ] **Step 2: Full rank ladder completeness**
+
+Replace or supplement the partial 3-rule query (`genus_without_family`, `genus_without_order`, `phylum_without_kingdom`) with a full ladder. Suggested pattern:
+
+```sql
+SELECT
+    COUNT(*) AS total,
+    COUNT(CASE WHEN t_species IS NOT NULL AND (
+        t_genus IS NULL OR t_family IS NULL OR t_order IS NULL
+        OR t_class IS NULL OR t_phylum IS NULL OR t_kingdom IS NULL
+    ) THEN 1 END) AS species_missing_upstream,
+    COUNT(CASE WHEN t_genus IS NOT NULL AND (
+        t_family IS NULL OR t_order IS NULL OR t_class IS NULL
+        OR t_phylum IS NULL OR t_kingdom IS NULL
+    ) THEN 1 END) AS genus_missing_upstream,
+    -- continue for family, order, class, phylum
+    COUNT(CASE WHEN t_kingdom IS NOT NULL AND (
+        t_phylum IS NOT NULL OR t_class IS NOT NULL OR t_order IS NOT NULL
+        OR t_family IS NOT NULL OR t_genus IS NOT NULL OR t_species IS NOT NULL
+    ) AND (t_phylum IS NULL) THEN 1 END) AS kingdom_with_finer_but_missing_phylum
+FROM parents;
+```
+
+Report counts per violation type; expect 0 in current dump (verify).
+
+- [ ] **Step 3: Transitive consistency (self-join on `parents`)**
+
+Add one or more `%%sql` cells that self-join `parents` on rank tax_ids. Template for genus level:
+
+```sql
+SELECT COUNT(*) AS genus_snapshot_mismatches
+FROM parents t
+JOIN parents g ON g.tax_id = t.t_genus
+WHERE t.t_genus IS NOT NULL
+  AND (
+    t.t_kingdom IS DISTINCT FROM g.t_kingdom
+    OR t.t_phylum IS DISTINCT FROM g.t_phylum
+    OR t.t_class IS DISTINCT FROM g.t_class
+    OR t.t_order IS DISTINCT FROM g.t_order
+    OR t.t_family IS DISTINCT FROM g.t_family
+  );
+```
+
+Repeat for `t_family`, `t_order`, `t_class`, `t_phylum` (each joins `parents` on that rank tax_id and compares coarser columns). Optionally add a sample query (`LIMIT 20`) listing mismatching `tax_id` values when count > 0.
+
+- [ ] **Step 4: Update `data-model.md`**
+
+- **Edge evidence** row for `nodes` ↔ `parents` rank columns: replace “Not all rank columns exhaustively checked” with observed counts from Steps 1–3; set Review flag to `—` if all pass, or describe violations.
+- **Regression validation targets:** add rows for ladder completeness and transitive consistency with *Re-validate when*: `tax_parents.csv` or parents ETL changes.
+- **Reference Tables** bullet for rank completeness: cite full ladder results, not only the legacy 3-rule query.
+- Remove “Extend audit if rank joins become critical” review flag once audit is complete.
+
+- [ ] **Step 5: Execute notebook**
+
+```bash
+cd analytics && uv run jupyter execute --inplace exploration/notebooks/exploratory_analysis.ipynb
+```
+
+Expected: exit 0; new §6 cells have stored outputs.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add analytics/exploration/notebooks/exploratory_analysis.ipynb \
+        analytics/exploration/docs/data-model.md
+git commit -m "feat(analytics): add parents rank ladder and transitive consistency audit"
+```
+
+---
+
 ## Task 13: Final verification
 
 - [ ] **Step 1: Run export test**
@@ -1046,6 +1152,7 @@ Walk through each checkbox in the spec; all should pass.
 | §7 Notebook sections 1–8 | Tasks 6–12 |
 | §8 Immutability rules | Task 5 README |
 | §9 Git LFS | Tasks 2, 3, 4 |
-| §11 Documentation | Tasks 5, 12, 14 |
-| §14 Logical model + ER diagram | Tasks 11, 14 |
+| §7.1 Rank completeness + transitive consistency | Task 15 |
+| §11 Documentation | Tasks 5, 12, 14, 15 |
+| §14 Logical model + ER diagram | Tasks 11, 14, 15 |
 | §15 Success criteria | Task 13 |
