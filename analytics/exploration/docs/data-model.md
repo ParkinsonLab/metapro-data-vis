@@ -87,13 +87,13 @@ The most common normalized EC output displayed for `test_rpkm_1.tsv` is `None ->
 
 ## Logical ER Diagram (Observed-Grounded)
 
-Relationship-only Mermaid syntax (no entity attribute blocks). `rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`. Cardinalities on `rpkm_sample` edges are **per tax_id column header**, not per file.
+Relationship-only Mermaid syntax (no entity attribute blocks). `rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`. Cardinalities on `rpkm_sample` taxonomy edges are **per tax_id column header** on the forward (header → reference) side; the `|o` on the `rpkm_sample` side means **0..1 column header per reference `tax_id` per sample file** (not globally — shared tax_ids appear in both files).
 
 ```mermaid
 erDiagram
-    rpkm_sample ||--|| names : "tax_id_header"
-    rpkm_sample ||--|| nodes : "tax_id_header"
-    rpkm_sample ||--o| parents : "tax_id_header"
+    rpkm_sample |o--|| names : "tax_id_header"
+    rpkm_sample |o--|| nodes : "tax_id_header"
+    rpkm_sample |o--o| parents : "tax_id_header"
     rpkm_sample }o--o{ pathway_nodes : "ec_normalized"
     nodes ||--|| names : "tax_id"
     nodes ||--o| parents : "tax_id"
