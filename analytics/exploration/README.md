@@ -46,4 +46,4 @@ uv run jupyter execute exploration/notebooks/exploratory_analysis.ipynb
 
 - `scripts/export_parquet.py` — infrastructure (SQLite → Parquet)
 - `notebooks/exploratory_analysis.ipynb` — all analysis code + results
-- `docs/data-model.md` — data dictionary and as-found relationships
+- `docs/data-model.md` — data dictionary, logical ER diagram, and regression validation targets
