@@ -2,7 +2,9 @@
 
 > Generated from exploratory analysis. Factual claims match stored notebook outputs in `analytics/exploration/notebooks/exploratory_analysis.ipynb`.
 
-The pre-validation logical ER diagram is in `docs/superpowers/specs/2026-06-11-exploratory-analysis-design.md`, Section 14. The relationships below describe what the EDA observed in the exported Parquet reference tables and sample RPKM TSV files; discrepancies are flagged for review, not pre-judged as bugs.
+The intended logical model and cardinalities are defined in `docs/superpowers/specs/2026-06-11-exploratory-analysis-design.md`, Section 14. The diagram and edge evidence below describe **intended** relationships grounded in notebook measurements; gaps are flagged for review, not pre-judged as bugs.
+
+**Join convention:** Taxonomy joins use `tax_id`, not `names.id` (`names.id` is a UUID surrogate primary key from `write_to_tax_db.ipynb`).
 
 ## Reference Tables
 
@@ -22,19 +24,20 @@ Key fields used by the app and EDA:
 
 | Relationship | Key usage | Observed notebook result |
 |---|---|---|
-| `names.tax_id -> nodes.id` | Taxonomy name lookup | 0 orphan rows in the checked join |
-| `parents.t_kingdom -> nodes.id` | Taxonomic rank lookup sampled by EDA | 0 orphan rows in the checked join |
-| `pathway_edges.source -> pathway_nodes.id` | Pathway graph source node | 0 orphan rows in the checked join |
-| `pathway_superpathways.superpathway -> superpathways.id` | Superpathway lookup | 0 orphan rows in the checked join |
-| `pathway_nodes.pathway -> pathway_superpathways.id` | Logical app join, not declared as SQLite FK in the design spec | Missing-link query returned 0 displayed rows |
+| `names.tax_id -> nodes.id` | Taxonomy name lookup | 0 orphan rows in the checked join (§6) |
+| `parents.t_kingdom -> nodes.id` | Taxonomic rank lookup sampled by EDA | 0 orphan rows in the checked join (§6) |
+| `pathway_edges.source -> pathway_nodes.id` | Pathway graph source node | 0 orphan rows in the checked join (§6) |
+| `pathway_superpathways.superpathway -> superpathways.id` | Superpathway lookup | 0 orphan rows in the checked join (§6) |
+| `pathway_nodes.pathway -> pathway_superpathways.id` | Logical app join, not declared as SQLite FK in the design spec | Missing-link query returned 0 displayed rows (§7) |
 
 Additional cardinality checks:
 
-- `names` has exactly 1 row per `tax_id` in this dump: min 1, max 1, median 1.0, average 1.0.
-- `parents` has 2,840,134 rows; the rank completeness query found 0 `genus_without_family`, 0 `genus_without_order`, and 0 `phylum_without_kingdom` rows.
-- Pathway graph degree is sparse and skewed: out-degree min 0, max 945, median 0.0; in-degree min 0, max 945, median 0.0.
-- Pathway edge counts per pathway range from 2 to 2,410, with median 132.0.
-- Displayed dangling-node output is led by pathway 1100 with 3,716 dangling nodes, pathway 1110 with 2,480, and pathway 1120 with 1,208.
+- `names` has exactly 1 row per `tax_id` in this dump: min 1, max 1, median 1.0, average 1.0 (§4).
+- `parents` has 2,840,134 rows; 0 duplicate `tax_id` values (§6); 5 nodes have no `parents` row — tax_ids 1, 10239, 131567, 2787823, 2787854 (§6; acceptable meta/root exceptions per spec §14.1).
+- The rank completeness query found 0 `genus_without_family`, 0 `genus_without_order`, and 0 `phylum_without_kingdom` rows (§6).
+- Pathway graph degree is sparse and skewed: out-degree min 0, max 945, median 0.0; in-degree min 0, max 945, median 0.0 (§4).
+- Pathway edge counts per pathway range from 2 to 2,410, with median 132.0 (§4).
+- Displayed dangling-node output is led by pathway 1100 with 3,716 dangling nodes, pathway 1110 with 2,480, and pathway 1120 with 1,208 (§6).
 
 ## RPKM Wide Format
 
@@ -67,34 +70,72 @@ EC normalization used for joins:
 
 The most common normalized EC output displayed for `test_rpkm_1.tsv` is `None -> 0.0.0.0` with 235,991 rows. The displayed top EC-prefixed row is `EC:2.7.13.3 -> 2.7.13.3` with 8,513 rows.
 
-## Logical Relationships As Found
+## Logical ER Diagram (Observed-Grounded)
 
-| Edge | As-found result |
-|---|---|
-| RPKM tax_id headers -> `names.tax_id` | `test_rpkm_1.tsv`: 8/8 headers matched at least one `names` row; `test_rpkm_2.tsv`: 12/12 headers matched at least one `names` row |
-| RPKM tax_id headers -> `nodes.id` | `test_rpkm_1.tsv`: 8/8 headers matched; `test_rpkm_2.tsv`: 12/12 headers matched |
-| RPKM tax_id headers -> `parents.tax_id` | `test_rpkm_1.tsv`: 8/8 headers matched; `test_rpkm_2.tsv`: 12/12 headers matched |
-| Normalized RPKM `EC#` -> `pathway_nodes.name` | In `test_rpkm_1.tsv`, 9,034 distinct normalized EC values produced 3,258 matched `pathway_nodes` rows |
-| `pathway_nodes.pathway -> pathway_superpathways.id -> superpathways.id` | The missing-link query returned 0 displayed rows |
+Relationship-only Mermaid syntax (no entity attribute blocks). `rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`.
 
-The pathway node name field is not unique. In displayed duplicate-name output, `1.14.14.1` appears 77 times, `Glycolysis / Gluconeogenesis` appears 49 times, and `C00022` appears 48 times. Any EC-to-pathway join can therefore fan out.
+```mermaid
+erDiagram
+    rpkm_sample ||--|| names : "tax_id_header"
+    rpkm_sample ||--|| nodes : "tax_id_header"
+    rpkm_sample ||--o| parents : "tax_id_header"
+    rpkm_sample }o--o{ pathway_nodes : "ec_normalized"
+    nodes ||--|| names : "tax_id"
+    nodes ||--o| parents : "tax_id"
+    nodes ||--o{ parents : "rank_columns"
+    pathway_nodes ||--o{ pathway_edges : "source"
+    pathway_nodes ||--o{ pathway_edges : "target"
+    pathway_superpathways ||--o{ pathway_nodes : "pathway"
+    superpathways ||--o{ pathway_superpathways : "superpathway"
+```
 
-## Discrepancies Vs Pre-Validation Model
+### Edge evidence
 
-These are review flags only.
+| Edge | Intended | Observed | Enforced by schema? | Review flag |
+|---|---|---|---|---|
+| `nodes` ↔ `names` (`names.tax_id = nodes.id`) | 1:1 | min=max=1 `names` row per `tax_id`; 0 orphan `names.tax_id -> nodes` (§4, §6) | FK on `names.tax_id`; no `UNIQUE` on `names.tax_id` | — |
+| `nodes` ↔ `parents` (`parents.tax_id = nodes.id`) | 1:0..1 | 5 nodes without `parents` (tax_ids 1, 10239, 131567, 2787823, 2787854); 0 duplicate `parents.tax_id` (§6) | `UNIQUE` on `parents.tax_id`; FK on `parents.tax_id` | Acceptable meta/root exceptions (spec §14.1) |
+| RPKM `tax_id_header` → `nodes` | 1:1 per header | `test_rpkm_1.tsv`: 8/8 matched; `test_rpkm_2.tsv`: 12/12 matched (§7) | MetaPro output + reference completeness | — |
+| RPKM `tax_id_header` → `names` | 1:1 per header | `test_rpkm_1.tsv`: 8/8 matched (8 distinct); `test_rpkm_2.tsv`: 12/12 matched (12 distinct) (§7) | Same as above | — |
+| RPKM `tax_id_header` → `parents` | 1:0..1 per header | `test_rpkm_1.tsv`: 8/8 matched; `test_rpkm_2.tsv`: 12/12 matched (§7) | Same as above | — |
+| Reference `tax_id` → RPKM column header (per sample file) | 0..1 per file | Column headers are unique integers per file by construction; overlap measured (6 shared, 2 only in sample 1, 6 only in sample 2) (§5) | Wide TSV format (headers unique per file) | Re-validate if RPKM layout changes (regression target) |
+| RPKM row → `pathway_nodes` (normalized `EC#` = `name`) | 0..many | 9,034 distinct normalized EC values → 3,258 matched `pathway_nodes` rows in `test_rpkm_1.tsv` (§7) | Not enforced | Review unmatched EC coverage |
+| `pathway_nodes` → `pathway_edges` (`source`/`target`) | 0..many | Dangling nodes present; pathway 1100 has 3,716 dangling nodes (§6); out/in-degree max 945, median 0 (§4) | FK on `source`/`target` | Expected fan-out; not a taxonomy-style 1:1 |
+| `pathway_nodes.name` uniqueness | Not unique | Top duplicate `1.14.14.1`: 77 rows (§6) | Not enforced | EC joins can fan out |
+| `pathway_nodes.pathway` → `pathway_superpathways.id` | Logical only | Missing-link query returned 0 displayed rows (§7) | App SQL only, not SQLite FK | — |
+| `pathway_superpathways.superpathway` → `superpathways.id` | many:1 | 0 orphan rows in sampled join (§6) | Declared FK in build | — |
+| `nodes` ↔ `parents` rank columns (`t_kingdom` … `t_species` → `nodes.id`) | 0..1 per rank column when non-null | Sampled `parents.t_kingdom -> nodes`: 0 orphans (§6); rank completeness query: 0 genus_without_family, 0 genus_without_order, 0 phylum_without_kingdom (§6) | Not all rank columns exhaustively checked | Extend audit if rank joins become critical |
 
-| Area | Expected from logical model | Observed |
-|---|---|---|
-| `nodes -> names` cardinality | One node can have many names; synonyms are expected | Current dump has exactly 1 `names` row per `tax_id` by the notebook cardinality query |
-| RPKM `EC# -> pathway_nodes.name` coverage | 0..many pathway-node matches per normalized EC | `test_rpkm_1.tsv` has 9,034 distinct normalized EC values and 3,258 matched `pathway_nodes` rows |
-| Pathway node graph attachment | Pathway nodes participate in pathway graph edges | Displayed dangling-node query shows pathway nodes without source/target edges, led by pathway 1100 with 3,716 dangling nodes |
-| RPKM sample overlap | Samples share schema shape, but tax_id overlap had to be measured | `test_rpkm_1.tsv` and `test_rpkm_2.tsv` share 6 tax_id columns; 2 are only in sample 1 and 6 are only in sample 2 |
-| Optional `parents` relationship | Some RPKM tax_id headers may have names/nodes but no parents row | Both sample files have complete parent matches in notebook output: 8/8 and 12/12 |
+## Regression Validation Targets
+
+Invariants that hold in the current dump but are not fully guaranteed by SQLite DDL, upstream NCBI files, or ad-hoc build notebooks. Re-run the notebook checks when the trigger column applies.
+
+| Invariant | Holds today | Guaranteed by | Re-validate when |
+|---|---|---|---|
+| Exactly one `names` row per `tax_id` | Yes (min=max=1) | ETL filter (`scientific name` only), not `UNIQUE` on `names.tax_id` | `write_to_tax_db.ipynb` or NCBI names source changes |
+| `names.tax_id` → `nodes.id` orphan-free | Yes (0 orphans) | SQLite FK on `names.tax_id` | After DB rebuild |
+| At most one `parents` row per `tax_id` | Yes (0 duplicates) | `UNIQUE` on `parents.tax_id` in DDL | After DB rebuild |
+| Non-meta nodes have a `parents` row | Mostly (5 meta/root exceptions) | `tax_parents.csv` coverage only | `tax_parents.csv` or parents ETL changes |
+| RPKM tax_id header → 1:1 `nodes`/`names` | Yes in test fixtures (100%) | MetaPro output + reference completeness | New RPKM samples or taxonomy refresh |
+| Reference `tax_id` → ≤1 column header per sample file | Yes (unique headers) | Wide TSV format: column names unique per file | New RPKM layout or format change |
+
+## Discrepancies Vs Intended Logical Model
+
+Schema-vs-intent gaps and items requiring review. Not pre-judged as bugs.
+
+| Area | Intended | Observed | Review |
+|---|---|---|---|
+| `nodes` ↔ `parents` coverage | Every non-meta node has at most one `parents` row | 5 meta/root nodes lack `parents` rows (tax_ids 1, 10239, 131567, 2787823, 2787854) | Acceptable per spec §14.1; none appear as RPKM headers in test fixtures |
+| RPKM `EC#` → `pathway_nodes.name` coverage | 0..many pathway-node matches per normalized EC | 9,034 distinct normalized EC values → 3,258 matched rows in `test_rpkm_1.tsv` | Review unmatched normalized ECs and expected coverage |
+| Pathway node graph attachment | Pathway nodes may have 0..many edges | Dangling nodes present; pathway 1100 has 3,716 | Expected; not a schema-vs-intent gap |
+| `pathway_nodes.name` uniqueness | Not required to be unique | `1.14.14.1` appears 77 times | EC joins fan out by design |
+| RPKM sample overlap | Per-file header sets may differ | 6 shared tax_id columns; 2 only in sample 1; 6 only in sample 2 | Informational; no schema gap |
 
 ## Gotchas For Future Analytics
 
 - Do not treat tax_id headers as ordinary row values until the RPKM tables are unpivoted.
+- Join taxonomy on `tax_id`, not `names.id` (UUID surrogate).
 - Normalize `EC#` values before joining to pathway tables, and expect `0.0.0.0` to dominate when `EC#` is absent.
 - `pathway_nodes.name` is many-to-one from the perspective of EC labels; downstream summaries should decide whether to count distinct ECs, pathway nodes, pathways, or superpathways.
 - Several notebook outputs are display-limited top-N tables. For exhaustive audits, rerun or extend the underlying SQL cells rather than inferring from visible rows alone.
-- The logical ER diagram is intentionally pre-validation. Keep this as-found document updated when new dumps or sample files are introduced.
+- Keep this document updated when new dumps or sample files are introduced; re-run regression validation targets on data refresh.
