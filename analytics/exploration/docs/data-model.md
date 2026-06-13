@@ -27,6 +27,7 @@ Key fields used by the app and EDA:
 | `names.tax_id -> nodes.id` | Taxonomy name lookup | 0 orphan rows in the checked join (§6) |
 | `parents.t_kingdom -> nodes.id` | Taxonomic rank lookup sampled by EDA | 0 orphan rows in the checked join (§6) |
 | `pathway_edges.source -> pathway_nodes.id` | Pathway graph source node | 0 orphan rows in the checked join (§6) |
+| `pathway_edges.target -> pathway_nodes.id` | Pathway graph target node | 0 orphan rows in the checked join (§6) |
 | `pathway_superpathways.superpathway -> superpathways.id` | Superpathway lookup | 0 orphan rows in the checked join (§6) |
 | `pathway_nodes.pathway -> pathway_superpathways.id` | Logical app join, not declared as SQLite FK in the design spec | Missing-link query returned 0 displayed rows (§7) |
 
@@ -72,7 +73,7 @@ The most common normalized EC output displayed for `test_rpkm_1.tsv` is `None ->
 
 ## Logical ER Diagram (Observed-Grounded)
 
-Relationship-only Mermaid syntax (no entity attribute blocks). `rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`.
+Relationship-only Mermaid syntax (no entity attribute blocks). `rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`. Cardinalities on `rpkm_sample` edges are **per tax_id column header**, not per file.
 
 ```mermaid
 erDiagram
@@ -99,10 +100,10 @@ erDiagram
 | RPKM `tax_id_header` → `names` | 1:1 per header | `test_rpkm_1.tsv`: 8/8 matched (8 distinct); `test_rpkm_2.tsv`: 12/12 matched (12 distinct) (§7) | Same as above | — |
 | RPKM `tax_id_header` → `parents` | 1:0..1 per header | `test_rpkm_1.tsv`: 8/8 matched; `test_rpkm_2.tsv`: 12/12 matched (§7) | Same as above | — |
 | Reference `tax_id` → RPKM column header (per sample file) | 0..1 per file | Column headers are unique integers per file by construction; overlap measured (6 shared, 2 only in sample 1, 6 only in sample 2) (§5) | Wide TSV format (headers unique per file) | Re-validate if RPKM layout changes (regression target) |
-| RPKM row → `pathway_nodes` (normalized `EC#` = `name`) | 0..many | 9,034 distinct normalized EC values → 3,258 matched `pathway_nodes` rows in `test_rpkm_1.tsv` (§7) | Not enforced | Review unmatched EC coverage |
-| `pathway_nodes` → `pathway_edges` (`source`/`target`) | 0..many | Dangling nodes present; pathway 1100 has 3,716 dangling nodes (§6); out/in-degree max 945, median 0 (§4) | FK on `source`/`target` | Expected fan-out; not a taxonomy-style 1:1 |
+| RPKM row → `pathway_nodes` (normalized `EC#` = `name`) | 0..many | 9,034 distinct normalized EC values → 3,258 join rows to `pathway_nodes` in `test_rpkm_1.tsv` (§7; distinct matched EC count not measured; fan-out possible) | Not enforced | Review unmatched EC coverage |
+| `pathway_nodes` → `pathway_edges` (`source`/`target`) | 0..many | Dangling nodes present; pathway 1100 has 3,716 dangling nodes (§6); out/in-degree max 945, median 0 (§4); 0 orphan `source` and `target` → `pathway_nodes` (§6) | FK on `source`/`target` | Expected fan-out; not a taxonomy-style 1:1 |
 | `pathway_nodes.name` uniqueness | Not unique | Top duplicate `1.14.14.1`: 77 rows (§6) | Not enforced | EC joins can fan out |
-| `pathway_nodes.pathway` → `pathway_superpathways.id` | Logical only | Missing-link query returned 0 displayed rows (§7) | App SQL only, not SQLite FK | — |
+| `pathway_nodes.pathway` → `pathway_superpathways.id` | Logical only | Missing-link query returned 0 rows (`LIMIT 20`; not exhaustive) (§7) | App SQL only, not SQLite FK | — |
 | `pathway_superpathways.superpathway` → `superpathways.id` | many:1 | 0 orphan rows in sampled join (§6) | Declared FK in build | — |
 | `nodes` ↔ `parents` rank columns (`t_kingdom` … `t_species` → `nodes.id`) | 0..1 per rank column when non-null | Sampled `parents.t_kingdom -> nodes`: 0 orphans (§6); rank completeness query: 0 genus_without_family, 0 genus_without_order, 0 phylum_without_kingdom (§6) | Not all rank columns exhaustively checked | Extend audit if rank joins become critical |
 
@@ -126,7 +127,7 @@ Schema-vs-intent gaps and items requiring review. Not pre-judged as bugs.
 | Area | Intended | Observed | Review |
 |---|---|---|---|
 | `nodes` ↔ `parents` coverage | Every non-meta node has at most one `parents` row | 5 meta/root nodes lack `parents` rows (tax_ids 1, 10239, 131567, 2787823, 2787854) | Acceptable per spec §14.1; none appear as RPKM headers in test fixtures |
-| RPKM `EC#` → `pathway_nodes.name` coverage | 0..many pathway-node matches per normalized EC | 9,034 distinct normalized EC values → 3,258 matched rows in `test_rpkm_1.tsv` | Review unmatched normalized ECs and expected coverage |
+| RPKM `EC#` → `pathway_nodes.name` coverage | 0..many pathway-node matches per normalized EC | 9,034 distinct normalized EC values → 3,258 join rows in `test_rpkm_1.tsv` (distinct matched EC count not measured) | Review unmatched normalized ECs and expected coverage |
 | Pathway node graph attachment | Pathway nodes may have 0..many edges | Dangling nodes present; pathway 1100 has 3,716 | Expected; not a schema-vs-intent gap |
 | `pathway_nodes.name` uniqueness | Not required to be unique | `1.14.14.1` appears 77 times | EC joins fan out by design |
 | RPKM sample overlap | Per-file header sets may differ | 6 shared tax_id columns; 2 only in sample 1; 6 only in sample 2 | Informational; no schema gap |
