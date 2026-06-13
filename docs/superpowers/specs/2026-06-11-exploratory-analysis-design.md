@@ -20,7 +20,7 @@ Metapro Viz ingests RPKM TSV output from [MetaPro](https://github.com/ParkinsonL
 | Table | ~Rows | Purpose |
 |---|---|---|
 | `nodes` | 2.8M | Tax_id registry |
-| `names` | 2.8M | Name ↔ tax_id (many names per tax_id expected) |
+| `names` | 2.8M | Scientific name per tax_id (builder filters NCBI to `scientific name` only; 1:1 with `nodes` in practice) |
 | `parents` | 2.8M | Denormalized rank columns per tax_id |
 | `pathway_nodes` | 24K | KEGG map nodes (EC numbers as `name`) |
 | `pathway_edges` | 47K | Pathway graph edges |
@@ -205,7 +205,7 @@ All exploration work happens on branch `exploration/eda` in worktree `.worktrees
 | Artifact | Purpose |
 |---|---|
 | `exploratory_analysis.ipynb` (executed) | Canonical analysis report with stored outputs |
-| `docs/data-model.md` | Data dictionary plus **as-found** relationships after EDA; discrepancies vs logical model flagged for review |
+| `docs/data-model.md` | Data dictionary plus **observed-grounded logical ER diagram** (how relationships should hold, cited to notebook evidence); gaps and contradictions flagged for review |
 | `exploration/README.md` | How to set up env, run dumps, execute notebook, dev workflow rules |
 
 ## 12. Out of Scope
@@ -223,48 +223,83 @@ All exploration work happens on branch `exploration/eda` in worktree `.worktrees
 - **JSON sidecars:** Add `analytics/exploration/output/` when transform pipeline needs programmatic artifacts
 - **uv workspace:** Promote to root workspace if multiple Python packages emerge under `analytics/`
 
-## 14. Entity Relationships (Logical, Pre-Validation)
+## 14. Entity Relationships (Logical Model)
 
-This diagram states **how we expect** reference tables and RPKM sample files to relate — based on schema DDL, app join logic (`SPEC.md`, `db_functions.ts`), and MetaPro output conventions. Cardinalities shown are **assumed**, not measured. Section 7 EDA validates each edge; `docs/data-model.md` is updated with **as-found** facts afterward.
+This section states **how reference tables and RPKM sample files should relate** — grounded in schema DDL, DB build scripts (`write_to_tax_db.ipynb`), and app join logic (`SPEC.md`, `db_functions.ts`). Cardinalities here are the **intended logical constraints** for analytics and data-quality review.
 
-**Discrepancy handling:** When observed relationships differ from this diagram (orphan rate, missing join keys, unexpected cardinality, undeclared FKs), EDA documents the gap. Whether a discrepancy is a **problem** is decided case-by-case after review — some gaps may be acceptable (e.g. unknown tax_ids left as raw IDs in the viz app).
+**Pre-EDA diagram (superseded):** The first draft used overly permissive cardinalities (e.g. many `names` per `tax_id` for synonyms). The DB builder loads **scientific names only** and `get_name_from_id` reads `names.tax_id`; EDA confirmed exactly one `names` row per `tax_id` in the current dump. The authoritative observed-grounded diagram lives in `analytics/exploration/docs/data-model.md` (Task 14).
 
-### 14.1 Full logical model
+**Discrepancy handling:** When observed data violates an intended edge, EDA documents the gap. Whether a violation is a **problem** is decided case-by-case — e.g. unknown tax_id headers may be acceptable at parse time (app leaves raw id), but duplicate `names` per `tax_id` would break header rename logic.
 
-`rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv` (identical schema; overlap/diff validated in section 7.2). Relationship-only syntax — no entity attribute blocks — for reliable Mermaid rendering. Join-key detail is in the table below.
+### 14.1 Taxonomy + RPKM (intended cardinalities)
 
-```mermaid
-erDiagram
-    rpkm_sample }o--o{ names : "tax_id_header"
-    rpkm_sample }o--o{ nodes : "tax_id_header"
-    rpkm_sample }o--o| parents : "tax_id_header"
-    rpkm_sample }o--o{ pathway_nodes : "ec_normalized"
-    nodes ||--o{ names : "tax_id"
-    nodes ||--o| parents : "tax_id"
-    nodes ||--o{ parents : "rank_columns"
-    pathway_nodes ||--o{ pathway_edges : "source"
-    pathway_nodes ||--o{ pathway_edges : "target"
-    pathway_superpathways ||--o{ pathway_nodes : "pathway"
-    superpathways ||--o{ pathway_superpathways : "superpathway"
-```
+Join keys are on **`tax_id`**, not `names.id` (`names.id` is a UUID surrogate PK from the build script).
 
-**Legend:** Internal reference edges follow declared SQLite FKs where present. `pathway_nodes.pathway → pathway_superpathways.id` is **logical only** (used in app SQL, not declared as FK). RPKM cross-domain edges are the joins EDA must validate. Path from RPKM EC to superpathway runs through `pathway_nodes` → `pathway_superpathways` → `superpathways`.
+`rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`. **Per tax_id column header** (not per row, not once per file): each header is one integer tax_id in the wide TSV.
 
-**RPKM join granularity:** RPKM TSVs are wide tables. After the fixed columns (`GeneID`, `Length`, `Reads`, `EC#`, `RPKM`, `Unclassified`), **each remaining column header is a tax_id**. Cross-domain joins are evaluated **per tax_id column header** (not per row, not once per file). The diagram compresses this to a single `rpkm_sample` node for readability.
+| Edge | Join key | Intended cardinality | Reverse (per sample file) |
+|---|---|---|---|
+| `nodes` ↔ `names` | `names.tax_id = nodes.id` | **1:1** — each node has exactly one name row; each name row belongs to exactly one node | — |
+| `nodes` ↔ `parents` | `parents.tax_id = nodes.id` | **1:0..1** — each node has at most one parents row; each parents row belongs to exactly one node | — |
+| RPKM header → `nodes` | header integer = `nodes.id` | **1:1** — each tax_id header resolves to exactly one node | **0..1** — a given `nodes.id` may appear as 0 or 1 column header in a given sample file (see below) |
+| RPKM header → `names` | header integer = `names.tax_id` | **1:1** — each tax_id header resolves to exactly one name row | **0..1** — a given `names.tax_id` may appear as 0 or 1 column header in a given sample file |
+| RPKM header → `parents` | header integer = `parents.tax_id` | **1:0..1** — each tax_id header resolves to 0 or 1 parents row | **0..1** — a given `parents.tax_id` may appear as 0 or 1 column header in a given sample file |
 
-**Join keys EDA must validate:**
+**Reference tax_id → sample column header (per file):** RPKM files are wide: each tax_id is a **column name**, not a cell value. If column headers are unique within a file (as they should be), then each reference `tax_id` appears **at most once** as a header in that file — 0 if absent, 1 if present. That **is** the reverse direction; no separate DB check is required beyond asserting header uniqueness if the format is ever in doubt. EDA measured overlap between samples (6 shared headers) but did not add an explicit duplicate-header SQL check.
 
-| Edge | RPKM side | Reference key | Per-header cardinality | Notes |
-|---|---|---|---|---|
-| RPKM → `names` | Tax_id column header (integer) | `names.tax_id` | 0..many `names` rows | Multiple name rows per tax_id expected (synonyms) |
-| RPKM → `nodes` | Same tax_id column header | `nodes.id` | 0..1 `nodes` row | Each header should resolve to at most one node |
-| RPKM → `parents` | Same tax_id column header | `parents.tax_id` | 0..1 `parents` row | Optional lookup: some headers may have `names`/`nodes` matches but no `parents` row; EDA measures match rate across all tax_id columns |
-| RPKM → `pathway_nodes` | `EC#` cell value (per row) | `pathway_nodes.name` | 0..many `pathway_nodes` rows | Row-level, not header-level; normalize before join |
-| EC → superpathway chain | Matched `pathway_nodes` rows | `pathway` → `pathway_superpathways.id` → `superpathways.id` | 0..1 chain per node | Follows `get_superpathway_info()` |
+**RPKM header → reference when unmapped:** If a header tax_id is absent from reference tables, cardinality is 0 on the reference side; the app logs a warning and keeps the raw id (`SPEC.md`). Sample files in scope matched 100% (8/8 and 12/12).
+
+**Nodes without `parents` rows (acceptable in current dump):** Of 2,840,139 nodes, 5 have no `parents` row. All are top-level or meta taxa from NCBI — likely intentional gaps in `tax_parents.csv`, not orphan bugs:
+
+| `tax_id` | Scientific name | Notes |
+|---:|---|---|
+| 1 | root | Tree root |
+| 10239 | Viruses | Top-level domain |
+| 131567 | cellular organisms | Meta-node above domain |
+| 2787823 | unclassified entries | NCBI placeholder |
+| 2787854 | other entries | NCBI placeholder |
+
+Sample RPKM headers (8 + 12) all have `parents` rows; none of these five tax_ids appear as column headers in the test fixtures.
+
+**Rank columns:** `parents.t_kingdom` … `parents.t_species` are denormalized rank tax_ids; each references `nodes.id` when non-null. EDA samples these as logical FKs (not all rank columns exhaustively checked).
+
+### 14.2 Pathway + RPKM (intended cardinalities)
+
+Row-level (not header-level) for EC joins. Pathway internal edges remain as in the original model — several are **not** strict 1:1 (e.g. `pathway_nodes.name` is not unique).
+
+| Edge | Join key | Intended cardinality | Notes |
+|---|---|---|---|
+| RPKM row → `pathway_nodes` | normalized `EC#` = `pathway_nodes.name` | **0..many** pathway nodes per EC value | Fan-out observed; not a taxonomy-style 1:1 |
+| `pathway_nodes` → `pathway_edges` | `source` / `target` | **0..many** edges per node | Dangling nodes observed |
+| `pathway_nodes` → `pathway_superpathways` | `pathway_nodes.pathway = pathway_superpathways.id` | **logical only** (app SQL, not SQLite FK) | EDA missing-link sample returned 0 rows |
+| `pathway_superpathways` → `superpathways` | `superpathway = superpathways.id` | **many:1** | Declared FK in build |
 
 **Normalization (RPKM → `pathway_nodes` only):** `EC:x.y.z` → `x.y.z`; `None`/empty → `0.0.0.0` (per `SPEC.md`).
 
 **Not modeled as FK edges:** `GeneID`, `Length`, `Reads`, `RPKM`, `Unclassified` are row-level attributes with no reference table in scope.
+
+### 14.3 Observed-grounded ER diagram (deliverable)
+
+`analytics/exploration/docs/data-model.md` must include a Mermaid ER diagram using **relationship-only syntax** (no entity attribute blocks). Each edge is annotated in prose/table with:
+
+- Intended cardinality (from §14.1–14.2)
+- Notebook evidence (section + metric) or **“not measured — review”**
+- Flag if observation contradicts intent or if schema does not enforce the constraint
+
+### 14.4 Regression validation targets (invariants without source guarantee)
+
+Some relationships **hold in the current dump** but are **not fully guaranteed** by SQLite DDL, upstream NCBI files, or the ad-hoc build notebooks. Document these explicitly in `data-model.md` as **regression validation targets**: invariants to re-run when reference data, RPKM samples, or build scripts change.
+
+| Invariant | Holds today | Guaranteed by | Re-validate when |
+|---|---|---|---|
+| Exactly one `names` row per `tax_id` | Yes (min=max=1) | ETL filter (`scientific name` only), not `UNIQUE` on `names.tax_id` | `write_to_tax_db.ipynb` or NCBI names source changes |
+| `names.tax_id` → `nodes.id` orphan-free | Yes (0 orphans) | SQLite FK on `names.tax_id` | After DB rebuild |
+| At most one `parents` row per `tax_id` | Yes (0 duplicates) | `UNIQUE` on `parents.tax_id` in DDL | After DB rebuild |
+| Non-meta nodes have a `parents` row | Mostly (5 meta/root exceptions) | `tax_parents.csv` coverage only | `tax_parents.csv` or parents ETL changes |
+| RPKM tax_id header → 1:1 `nodes`/`names` | Yes in test fixtures (100%) | MetaPro output + reference completeness | New RPKM samples or taxonomy refresh |
+| Reference `tax_id` → ≤1 column header per sample file | Yes (unique headers) | Wide TSV format: column names unique per file | New RPKM layout or format change |
+
+**Naming:** **Regression validation target** = the invariant to protect on data refresh. **Enforcement** = what (if anything) makes it hold today. **Re-validate when** = trigger for re-running the notebook check. Passing today does not mean enforced forever — it means “watch this on the next refresh.”
 
 ## 15. Success Criteria
 
@@ -273,5 +308,5 @@ erDiagram
 - [ ] Parquet and RPKM files tracked via Git LFS
 - [ ] Notebook executes end-to-end reading only dump files + RPKM TSVs
 - [ ] All section C analyses produce stored outputs
-- [ ] `docs/data-model.md` documents schemas, as-found relationships, and discrepancies vs logical model
+- [ ] `docs/data-model.md` documents schemas, observed-grounded logical ER diagram, evidence per edge, and gaps for review
 - [ ] No hand-edited notebook outputs in committed artifacts

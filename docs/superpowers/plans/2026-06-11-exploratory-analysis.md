@@ -22,7 +22,7 @@
 | `analytics/exploration/scripts/export_parquet.py` | Create | SQLite → Parquet for 7 tables |
 | `analytics/exploration/scripts/test_export_parquet.py` | Create | Smoke test row counts vs SQLite |
 | `analytics/exploration/notebooks/exploratory_analysis.ipynb` | Create | All EDA SQL + committed outputs |
-| `analytics/exploration/docs/data-model.md` | Create | Data dictionary + as-found relationships |
+| `analytics/exploration/docs/data-model.md` | Create / extend | Data dictionary + observed-grounded logical ER diagram |
 | `.gitattributes` | Create | LFS rules for Parquet + RPKM TSVs |
 | `.gitignore` | Modify | Allow `resources/db/parquet/`, `test_rpkm_*.tsv` |
 | `resources/db/parquet/*.parquet` | Create (LFS) | Version-controlled reference dumps |
@@ -878,6 +878,8 @@ Structure:
 
 Populate with actual values after notebook execution.
 
+> **Follow-up:** Task 14 adds the observed-grounded logical ER diagram and tightens taxonomy cardinalities per spec §14.1.
+
 - [ ] **Step 3: Final notebook execute**
 
 ```bash
@@ -893,6 +895,108 @@ Expected: exit 0; all sections have stored outputs.
 git add analytics/exploration/notebooks/exploratory_analysis.ipynb \
         analytics/exploration/docs/data-model.md
 git commit -m "docs(analytics): complete EDA notebook and as-found data model"
+```
+
+---
+
+## Task 14: Observed-grounded logical ER diagram
+
+**Goal:** Update `data-model.md` with a Mermaid ER diagram describing **intended** logical relationships (spec §14.1–14.2), each edge grounded in notebook evidence or explicitly flagged for manual review.
+
+**Files:**
+- Modify: `analytics/exploration/notebooks/exploratory_analysis.ipynb` (only if gaps need new SQL checks)
+- Modify: `analytics/exploration/docs/data-model.md`
+
+**Prerequisite:** Read spec §14 and existing notebook outputs (sections 3–8). Do not invent statistics.
+
+### Intended taxonomy cardinalities (locked for diagram)
+
+| Edge | Intended | Join key |
+|---|---|---|
+| `nodes` ↔ `names` | **1:1** | `names.tax_id = nodes.id` |
+| `nodes` ↔ `parents` | **1:0..1** | `parents.tax_id = nodes.id` |
+| RPKM `tax_id_header` → `nodes` | **1:1** (when header present) | header = `nodes.id` |
+| RPKM `tax_id_header` → `names` | **1:1** | header = `names.tax_id` |
+| RPKM `tax_id_header` → `parents` | **1:0..1** | header = `parents.tax_id` |
+| Reference `tax_id` → RPKM header (per sample file) | **0..1** | structural: column headers unique per file |
+
+Pathway / EC edges stay permissive (0..many fan-out); do not tighten without evidence.
+
+- [ ] **Step 1: Audit evidence coverage**
+
+For each taxonomy edge above, locate notebook evidence or add a small `%%sql` / Python check. Minimum additions if missing:
+
+```sql
+-- nodes without parents (expect small count; list tax_ids)
+SELECT n.id FROM nodes n
+LEFT JOIN parents p ON n.id = p.tax_id
+WHERE p.tax_id IS NULL;
+
+-- parents duplicate tax_id (expect 0; schema declares UNIQUE)
+SELECT tax_id, COUNT(*) AS n FROM parents GROUP BY tax_id HAVING COUNT(*) > 1;
+
+-- names per tax_id (expect min=max=1 in current dump)
+SELECT MIN(c), MAX(c) FROM (SELECT tax_id, COUNT(*) AS c FROM names GROUP BY tax_id);
+```
+
+Reverse direction (reference `tax_id` → ≤1 column header per sample file) follows from **unique tax_id column headers**; document as a regression validation target only if format assumptions change (spec §14.4).
+
+- [ ] **Step 2: Add ER diagram + regression validation targets to `data-model.md`**
+
+Insert after reference tables (or replace “Logical Relationships As Found” with two subsections):
+
+```markdown
+## Logical ER Diagram (Observed-Grounded)
+
+> Describes how relationships **should** hold (spec §14). Cardinalities are annotated with notebook evidence.
+
+```mermaid
+erDiagram
+    rpkm_sample ||--|| names : "tax_id_header"
+    rpkm_sample ||--|| nodes : "tax_id_header"
+    rpkm_sample ||--o| parents : "tax_id_header"
+    rpkm_sample }o--o{ pathway_nodes : "ec_normalized"
+    nodes ||--|| names : "tax_id"
+    nodes ||--o| parents : "tax_id"
+    nodes ||--o{ parents : "rank_columns"
+    pathway_nodes ||--o{ pathway_edges : "source"
+    pathway_nodes ||--o{ pathway_edges : "target"
+    pathway_superpathways ||--o{ pathway_nodes : "pathway"
+    superpathways ||--o{ pathway_superpathways : "superpathway"
+```
+
+### Edge evidence
+
+| Edge | Intended | Observed | Enforced by schema? | Review flag |
+|---|---|---|---|---|
+| `nodes` ↔ `names` | 1:1 | §4 cardinality: min=max=1 names/tax_id; 0 orphans | FK only; no UNIQUE on `names.tax_id` | … |
+| … | … | … | … | … |
+```
+
+Rules:
+- Relationship-only Mermaid (no entity attribute blocks).
+- If evidence is missing, write **“not measured — review”** in Observed column; do not guess.
+- Call out contradictions explicitly; document acceptable exceptions (5 meta/root nodes without `parents` — spec §14.1 table).
+- Note `names.id` is UUID surrogate; joins use `tax_id`, not `names.id`.
+- Add **§ Regression validation targets** table (spec §14.4): invariants that pass today but lack full source/DDL guarantee; include *when to re-run*.
+
+- [ ] **Step 3: Reconcile “Discrepancies” section**
+
+Update the discrepancies table: remove “synonyms expected” framing; replace with schema-vs-intent gaps (e.g. `names.tax_id` not UNIQUE in DDL though dump is 1:1).
+
+- [ ] **Step 4: Execute notebook if code cells changed**
+
+```bash
+cd analytics && uv run jupyter execute exploration/notebooks/exploratory_analysis.ipynb
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add analytics/exploration/notebooks/exploratory_analysis.ipynb \
+        analytics/exploration/docs/data-model.md \
+        docs/superpowers/specs/2026-06-11-exploratory-analysis-design.md
+git commit -m "docs(analytics): add observed-grounded logical ER diagram to data model"
 ```
 
 ---
@@ -942,6 +1046,6 @@ Walk through each checkbox in the spec; all should pass.
 | §7 Notebook sections 1–8 | Tasks 6–12 |
 | §8 Immutability rules | Task 5 README |
 | §9 Git LFS | Tasks 2, 3, 4 |
-| §11 Documentation | Tasks 5, 12 |
-| §14 Join validation | Task 11 |
+| §11 Documentation | Tasks 5, 12, 14 |
+| §14 Logical model + ER diagram | Tasks 11, 14 |
 | §15 Success criteria | Task 13 |

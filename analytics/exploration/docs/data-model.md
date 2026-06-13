@@ -1,8 +1,13 @@
-# Data Model - As Found
+# Data Model
 
 > Generated from exploratory analysis. Factual claims match stored notebook outputs in `analytics/exploration/notebooks/exploratory_analysis.ipynb`.
 
-The intended logical model and cardinalities are defined in `docs/superpowers/specs/2026-06-11-exploratory-analysis-design.md`, Section 14. The diagram and edge evidence below describe **intended** relationships grounded in notebook measurements; gaps are flagged for review, not pre-judged as bugs.
+This document has two layers:
+
+1. **As-found facts** — table schemas, row counts, RPKM shape (sections below through RPKM Wide Format).
+2. **Intended logical model (observed-grounded)** — ER diagram, edge evidence, regression validation targets, and discrepancies (spec §14). Cardinalities describe how relationships **should** hold; each edge cites notebook measurements or flags a review gap.
+
+The intended logical model is also summarized in `docs/superpowers/specs/2026-06-11-exploratory-analysis-design.md`, Section 14.
 
 **Join convention:** Taxonomy joins use `tax_id`, not `names.id` (`names.id` is a UUID surrogate primary key from `write_to_tax_db.ipynb`).
 
@@ -29,9 +34,9 @@ Key fields used by the app and EDA:
 | `pathway_edges.source -> pathway_nodes.id` | Pathway graph source node | 0 orphan rows in the checked join (§6) |
 | `pathway_edges.target -> pathway_nodes.id` | Pathway graph target node | 0 orphan rows in the checked join (§6) |
 | `pathway_superpathways.superpathway -> superpathways.id` | Superpathway lookup | 0 orphan rows in the checked join (§6) |
-| `pathway_nodes.pathway -> pathway_superpathways.id` | Logical app join, not declared as SQLite FK in the design spec | Missing-link query returned 0 displayed rows (§7) |
+| `pathway_nodes.pathway -> pathway_superpathways.id` | Logical app join, not declared as SQLite FK in the design spec | Missing-link query returned 0 rows (`LIMIT 20`; not exhaustive) (§7) |
 
-Additional cardinality checks:
+Additional cardinality checks (detail also in [Edge evidence](#edge-evidence)):
 
 - `names` has exactly 1 row per `tax_id` in this dump: min 1, max 1, median 1.0, average 1.0 (§4).
 - `parents` has 2,840,134 rows; 0 duplicate `tax_id` values (§6); 5 nodes have no `parents` row — tax_ids 1, 10239, 131567, 2787823, 2787854 (§6; acceptable meta/root exceptions per spec §14.1).
@@ -126,7 +131,8 @@ Schema-vs-intent gaps and items requiring review. Not pre-judged as bugs.
 
 | Area | Intended | Observed | Review |
 |---|---|---|---|
-| `nodes` ↔ `parents` coverage | Every non-meta node has at most one `parents` row | 5 meta/root nodes lack `parents` rows (tax_ids 1, 10239, 131567, 2787823, 2787854) | Acceptable per spec §14.1; none appear as RPKM headers in test fixtures |
+| `nodes` ↔ `names` 1:1 on `tax_id` | One scientific name row per node | min=max=1 `names` row per `tax_id`; 0 orphan `names.tax_id -> nodes` | `names.tax_id` not `UNIQUE` in DDL — see regression validation targets |
+| `nodes` ↔ `parents` coverage | 1:0..1 on `tax_id`; non-meta nodes expected to have a `parents` row | 5 meta/root nodes lack `parents` rows (tax_ids 1, 10239, 131567, 2787823, 2787854) | Acceptable per spec §14.1; none appear as RPKM headers in test fixtures |
 | RPKM `EC#` → `pathway_nodes.name` coverage | 0..many pathway-node matches per normalized EC | 9,034 distinct normalized EC values → 3,258 join rows in `test_rpkm_1.tsv` (distinct matched EC count not measured) | Review unmatched normalized ECs and expected coverage |
 | Pathway node graph attachment | Pathway nodes may have 0..many edges | Dangling nodes present; pathway 1100 has 3,716 | Expected; not a schema-vs-intent gap |
 | `pathway_nodes.name` uniqueness | Not required to be unique | `1.14.14.1` appears 77 times | EC joins fan out by design |
