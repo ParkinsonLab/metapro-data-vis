@@ -28,7 +28,7 @@ Key fields used by the app and EDA:
 | Relationship | Key usage | Observed notebook result |
 |---|---|---|
 | `names.tax_id -> nodes.id` | Taxonomy name lookup | 0 orphan rows in the checked join (§6) |
-| `parents.t_kingdom -> nodes.id` | Taxonomic rank lookup sampled by EDA | 0 orphan rows in the checked join (§6) |
+| `parents.t_kingdom` … `t_species -> nodes.id` | Taxonomic rank lookup (all rank columns) | 0 orphan rows per rank column in §6 orphan-FK UNION |
 | `pathway_edges.source -> pathway_nodes.id` | Pathway graph source node | 0 orphan rows in the checked join (§6) |
 | `pathway_edges.target -> pathway_nodes.id` | Pathway graph target node | 0 orphan rows in the checked join (§6) |
 | `pathway_superpathways.superpathway -> superpathways.id` | Superpathway lookup | 0 orphan rows in the checked join (§6) |
@@ -38,7 +38,8 @@ Additional cardinality checks (detail also in [Edge evidence](#edge-evidence)):
 
 - `names` has exactly 1 row per `tax_id` in this dump: min 1, max 1, median 1.0, average 1.0 (§4).
 - `parents` has 2,840,134 rows; 0 duplicate `tax_id` values (§6); 5 nodes have no `parents` row — tax_ids 1, 10239, 131567, 2787823, 2787854 (§6; acceptable meta/root exceptions).
-- The rank completeness query found 0 `genus_without_family`, 0 `genus_without_order`, and 0 `phylum_without_kingdom` rows (§6).
+- Rank ladder completeness (§6): 0 `species_missing_upstream`, 0 `genus_missing_upstream`, 0 `family_missing_upstream`, 0 `order_missing_upstream`, 0 `class_missing_upstream`, 0 `phylum_missing_upstream`, 0 `kingdom_with_finer_but_missing_phylum` (2,840,134 `parents` rows checked).
+- Rank transitive consistency (§6): 0 `genus_snapshot_mismatches`, 0 `family_snapshot_mismatches`, 0 `order_snapshot_mismatches`, 0 `class_snapshot_mismatches`, 0 `phylum_snapshot_mismatches`.
 - Pathway graph degree is sparse and skewed: out-degree min 0, max 945, median 0.0; in-degree min 0, max 945, median 0.0 (§4).
 - Pathway edge counts per pathway range from 2 to 2,410, with median 132.0 (§4).
 - Displayed dangling-node output is led by pathway 1100 with 3,716 dangling nodes, pathway 1110 with 2,480, and pathway 1120 with 1,208 (§6).
@@ -110,7 +111,7 @@ erDiagram
 | `pathway_nodes.name` uniqueness | Not unique | Top duplicate `1.14.14.1`: 77 rows (§6) | Not enforced | — |
 | `pathway_nodes.pathway` → `pathway_superpathways.id` | Logical only | Missing-link query returned 0 rows (`LIMIT 20`; not exhaustive) (§7) | App SQL only, not SQLite FK | — |
 | `pathway_superpathways.superpathway` → `superpathways.id` | many:1 | 0 orphan rows in sampled join (§6) | Declared FK in build | — |
-| `nodes` ↔ `parents` rank columns (`t_kingdom` … `t_species` → `nodes.id`) | 0..1 per rank column when non-null | Sampled `parents.t_kingdom -> nodes`: 0 orphans (§6); rank completeness query: 0 genus_without_family, 0 genus_without_order, 0 phylum_without_kingdom (§6) | Not all rank columns exhaustively checked | Extend audit if rank joins become critical |
+| `nodes` ↔ `parents` rank columns (`t_kingdom` … `t_species` → `nodes.id`) | 0..1 per rank column when non-null | 0 orphan rows per rank column (`t_kingdom` … `t_species` → `nodes`, §6); ladder completeness: all violation counts 0 (§6); transitive consistency: 0 snapshot mismatches at genus, family, order, class, phylum (§6) | Not all rank columns declared as SQLite FKs | — |
 
 ## Regression Validation Targets
 
@@ -122,6 +123,9 @@ Invariants that hold in the current dump but are not fully guaranteed by SQLite 
 | `names.tax_id` → `nodes.id` orphan-free | Yes (0 orphans) | SQLite FK on `names.tax_id` | After DB rebuild |
 | At most one `parents` row per `tax_id` | Yes (0 duplicates) | `UNIQUE` on `parents.tax_id` in DDL | After DB rebuild |
 | Non-meta nodes have a `parents` row | Mostly (5 meta/root exceptions) | `tax_parents.csv` coverage only | `tax_parents.csv` or parents ETL changes |
+| `parents` rank ladder completeness | Yes (all violation counts 0) | `tax_parents.csv` denormalization only | `tax_parents.csv` or parents ETL changes |
+| `parents` rank column → `nodes.id` orphan-free | Yes (0 orphans per rank column) | Not all rank columns declared as SQLite FKs | After DB rebuild or parents ETL changes |
+| `parents` rank transitive consistency | Yes (0 snapshot mismatches at genus, family, order, class, phylum) | Denormalized rank snapshots in `tax_parents.csv` | `tax_parents.csv` or parents ETL changes |
 | RPKM tax_id header → 1:1 `nodes`/`names` | Yes in test fixtures (100%) | MetaPro output + reference completeness | New RPKM samples or taxonomy refresh |
 | Reference `tax_id` → ≤1 column header per sample file | Yes (unique headers) | Wide TSV format: column names unique per file | New RPKM layout or format change |
 | RPKM EC → KEGG `pathway_nodes` coverage | Partial by design | 9,034 distinct normalized ECs → 3,258 join rows in `test_rpkm_1.tsv` (§7) | MetaPro EC universe vs KEGG map scope | New RPKM samples or pathway DB refresh |
