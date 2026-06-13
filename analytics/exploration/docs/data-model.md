@@ -87,7 +87,7 @@ The most common normalized EC output displayed for `test_rpkm_1.tsv` is `None ->
 
 ## Logical ER Diagram (Observed-Grounded)
 
-Relationship-only Mermaid syntax (no entity attribute blocks). `rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`. Cardinalities on `rpkm_sample` taxonomy edges are **per tax_id column header** on the forward (header → reference) side; the `|o` on the `rpkm_sample` side means **0..1 column header per reference `tax_id` per sample file** (not globally — shared tax_ids appear in both files).
+Relationship-only Mermaid syntax (no entity attribute blocks). `rpkm_sample` stands for both `test_rpkm_1.tsv` and `test_rpkm_2.tsv`. Cardinalities on `rpkm_sample` taxonomy edges are **per tax_id column header** on the forward (header → reference) side; the `|o` on the `rpkm_sample` side means **0..1 column header per reference `tax_id` per sample file** (not globally — shared tax_ids appear in both files). The `rank_columns` edge is **per rank slot** (`t_kingdom` … `t_species`): each slot is an optional FK — **0..1** `nodes` row when non-null, **zero** when null (coarser ranks are more often populated; `t_species` is null in 931,044 / 2,840,134 rows).
 
 ```mermaid
 erDiagram
@@ -97,7 +97,7 @@ erDiagram
     rpkm_sample }o--o{ pathway_nodes : "ec_normalized"
     nodes ||--|| names : "tax_id"
     nodes ||--o| parents : "tax_id"
-    nodes ||--o{ parents : "rank_columns"
+    nodes |o--o{ parents : "rank_columns"
     pathway_nodes ||--o{ pathway_edges : "source"
     pathway_nodes ||--o{ pathway_edges : "target"
     pathway_superpathways ||--o{ pathway_nodes : "pathway"
@@ -121,7 +121,7 @@ erDiagram
 | `pathway_nodes.name` uniqueness | Not unique | Top duplicate `1.14.14.1`: 77 rows (§6) | Not enforced | — |
 | `pathway_nodes.pathway` → `pathway_superpathways.id` | Logical only | Missing-link query returned 0 rows (`LIMIT 20`; not exhaustive) (§7) | App SQL only, not SQLite FK | — |
 | `pathway_superpathways.superpathway` → `superpathways.id` | many:1 | 0 orphan rows in sampled join (§6) | Declared FK in build | — |
-| `nodes` ↔ `parents` rank columns (`t_kingdom` … `t_species` → `nodes.id`) | 0..1 per rank column when non-null | 0 orphan rows per rank column (`t_kingdom` … `t_species` → `nodes`, §6); ladder completeness: all violation counts 0 (§6); transitive consistency: 0 snapshot mismatches at genus, family, order, class, phylum (§6) | SQLite FK on each `t_*` → `nodes.id` (orphans); ladder + transitive rules not in DDL — `tax_parents.csv` / ETL only | — |
+| `nodes` ↔ `parents` rank columns (`t_kingdom` … `t_species` → `nodes.id`) | 0..1 per rank slot when non-null | Nullable rank slots common (e.g. `t_species` null in 931,044 rows; `t_genus` null in 387,848); 0 orphan rows per rank column when non-null (`t_kingdom` … `t_species` → `nodes`, §6); ladder completeness: all violation counts 0 (§6); transitive consistency: 0 snapshot mismatches at genus, family, order, class, phylum (§6) | SQLite FK on each `t_*` → `nodes.id` (orphans); ladder + transitive rules not in DDL — `tax_parents.csv` / ETL only | — |
 
 ## Regression Validation Targets
 
