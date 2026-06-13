@@ -37,7 +37,17 @@ Key fields used by the app and EDA:
 Additional cardinality checks (detail also in [Edge evidence](#edge-evidence)):
 
 - `names` has exactly 1 row per `tax_id` in this dump: min 1, max 1, median 1.0, average 1.0 (§4).
-- `parents` has 2,840,134 rows; 0 duplicate `tax_id` values (§6); 5 nodes have no `parents` row — tax_ids 1, 10239, 131567, 2787823, 2787854 (§6; acceptable meta/root exceptions).
+- `parents` has 2,840,134 rows; 0 duplicate `tax_id` values (§6); exactly 5 nodes have no `parents` row — the meta/root allowlist below (§6; 0 unexpected parentless nodes).
+- **Meta/root allowlist (no `parents` row permitted outside this set):**
+
+| tax_id | scientific_name |
+|---:|---|
+| 1 | root |
+| 10239 | Viruses |
+| 131567 | cellular organisms |
+| 2787823 | unclassified entries |
+| 2787854 | other entries |
+
 - Rank ladder completeness (§6): 0 `species_missing_upstream`, 0 `genus_missing_upstream`, 0 `family_missing_upstream`, 0 `order_missing_upstream`, 0 `class_missing_upstream`, 0 `phylum_missing_upstream`, 0 `kingdom_with_finer_but_missing_phylum` (2,840,134 `parents` rows checked).
 - Rank transitive consistency (§6): 0 `genus_snapshot_mismatches`, 0 `family_snapshot_mismatches`, 0 `order_snapshot_mismatches`, 0 `class_snapshot_mismatches`, 0 `phylum_snapshot_mismatches`.
 - Pathway graph degree is sparse and skewed: out-degree min 0, max 945, median 0.0; in-degree min 0, max 945, median 0.0 (§4).
@@ -101,7 +111,7 @@ erDiagram
 | Edge | Intended | Observed | Enforced by schema? | Review flag |
 |---|---|---|---|---|
 | `nodes` ↔ `names` (`names.tax_id = nodes.id`) | 1:1 | min=max=1 `names` row per `tax_id`; 0 orphan `names.tax_id -> nodes` (§4, §6) | FK on `names.tax_id`; no `UNIQUE` on `names.tax_id` | `names.tax_id` not `UNIQUE` in DDL — regression validation target |
-| `nodes` ↔ `parents` (`parents.tax_id = nodes.id`) | 1:0..1 | 5 nodes without `parents` (tax_ids 1, 10239, 131567, 2787823, 2787854); 0 duplicate `parents.tax_id` (§6) | `UNIQUE` on `parents.tax_id`; FK on `parents.tax_id` | Acceptable meta/root exceptions |
+| `nodes` ↔ `parents` (`parents.tax_id = nodes.id`) | 1:0..1 | Exactly 5 parentless nodes (allowlist): 1 *root*, 10239 *Viruses*, 131567 *cellular organisms*, 2787823 *unclassified entries*, 2787854 *other entries*; 0 duplicate `parents.tax_id` (§6) | `UNIQUE` on `parents.tax_id`; FK on `parents.tax_id` | Allowlist enforced in §6 regression query |
 | RPKM `tax_id_header` → `nodes` | 1:1 per header | `test_rpkm_1.tsv`: 8/8 matched; `test_rpkm_2.tsv`: 12/12 matched (§7) | MetaPro output + reference completeness | — |
 | RPKM `tax_id_header` → `names` | 1:1 per header | `test_rpkm_1.tsv`: 8/8 matched (8 distinct); `test_rpkm_2.tsv`: 12/12 matched (12 distinct) (§7) | Same as above | — |
 | RPKM `tax_id_header` → `parents` | 1:0..1 per header | `test_rpkm_1.tsv`: 8/8 matched; `test_rpkm_2.tsv`: 12/12 matched (§7) | Same as above | — |
@@ -122,7 +132,7 @@ Invariants that hold in the current dump but are not fully guaranteed by SQLite 
 | Exactly one `names` row per `tax_id` | Yes (min=max=1) | ETL filter (`scientific name` only), not `UNIQUE` on `names.tax_id` | `write_to_tax_db.ipynb` or NCBI names source changes |
 | `names.tax_id` → `nodes.id` orphan-free | Yes (0 orphans) | SQLite FK on `names.tax_id` | After DB rebuild |
 | At most one `parents` row per `tax_id` | Yes (0 duplicates) | `UNIQUE` on `parents.tax_id` in DDL | After DB rebuild |
-| Non-meta nodes have a `parents` row | Mostly (5 meta/root exceptions) | `tax_parents.csv` coverage only | `tax_parents.csv` or parents ETL changes |
+| Parentless nodes are exactly the 5 meta/root allowlist | Yes (`parentless_count=5`, `unexpected_parentless=0`, `missing_allowed=0`; see allowlist table above) | `tax_parents.csv` coverage only; §6 allowlist query | `tax_parents.csv`, parents ETL, or NCBI taxonomy refresh |
 | `parents` rank ladder completeness | Yes (all violation counts 0) | `tax_parents.csv` denormalization only | `tax_parents.csv` or parents ETL changes |
 | `parents` rank column → `nodes.id` orphan-free | Yes (0 orphans per rank column) | SQLite FK on each `t_kingdom` … `t_species` in `parents` DDL | After DB rebuild or parents ETL changes |
 | `parents` rank transitive consistency | Yes (0 snapshot mismatches at genus, family, order, class, phylum) | Denormalized rank snapshots in `tax_parents.csv` | `tax_parents.csv` or parents ETL changes |
