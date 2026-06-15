@@ -110,8 +110,8 @@ Each **relationship** in the ER diagram has **two directed rows** (one per direc
 
 | Category | Meaning |
 |---|---|
-| **By design** | **One → zero or more:** the parent side maps to an unbounded or optional set on the child side by domain intent (e.g. zero dangling pathway nodes, zero empty pathway groups, many taxa sharing a rank node). No schema rule should cap or require a minimum count. |
-| **Not enforced** | A referential or coverage rule on the **exactly-one** or **zero-or-one** side is intended logically but not declared in DDL, ETL, or file format — enforcement would be desirable but is not applied. |
+| **By design** | Optional or unbounded multiplicity is intentional domain shape; no schema rule should cap the count (e.g. zero dangling pathway nodes, shared rank ids, partial EC mapping). |
+| **Not enforced** | A referential or coverage rule is intended logically but not declared in DDL, ETL, or file format — enforcement would be desirable but is not applied. |
 | **SQLite FK** / **SQLite UNIQUE + FK** | Declared and active in the taxonomy/pathway database DDL. |
 | **ETL filter** / **ETL / source data** | Guaranteed by build-notebook logic or upstream files, not SQLite constraints alone. |
 | **App SQL** | Used in application queries only; not a database constraint. |
