@@ -5,7 +5,7 @@
 This document has two layers:
 
 1. **As-found facts** — table schemas, row counts, RPKM shape (sections below through RPKM Wide Format).
-2. **Intended logical model (observed-grounded)** — [Logical ER Diagram](#logical-er-diagram-observed-grounded), edge evidence (with review flags), and regression validation targets. Cardinalities describe how relationships **should** hold; each edge cites notebook measurements. Use the **Review flag** column for open review items — there is no separate discrepancies section.
+2. **Intended logical model (observed-grounded)** — [Logical ER Diagram](#logical-er-diagram-observed-grounded), [edge evidence](#edge-evidence) (two directed rows per relationship), and regression validation targets. Use the **Review flag** column for open review items — there is no separate discrepancies section.
 
 **Join convention:** Taxonomy joins use `tax_id`, not `names.id` (`names.id` is a UUID surrogate primary key from `write_to_tax_db.ipynb`).
 
@@ -32,7 +32,7 @@ Key fields used by the app and EDA:
 | `pathway_edges.source -> pathway_nodes.id` | Pathway graph source node | 0 orphan rows in the checked join (§6) |
 | `pathway_edges.target -> pathway_nodes.id` | Pathway graph target node | 0 orphan rows in the checked join (§6) |
 | `pathway_superpathways.superpathway -> superpathways.id` | Superpathway lookup | 0 orphan rows in the checked join (§6) |
-| `pathway_nodes.pathway -> pathway_superpathways.id` | Logical app join, not declared as SQLite FK | Missing-link query returned 0 rows (`LIMIT 20`; not exhaustive) (§7) |
+| `pathway_nodes.pathway -> pathway_superpathways.id` | Pathway group lookup | See `pathway_superpathways` → `pathway_nodes` edge evidence (§7) |
 
 Additional cardinality checks (detail also in [Edge evidence](#edge-evidence)):
 
@@ -106,22 +106,36 @@ erDiagram
 
 ### Edge evidence
 
+Each **relationship** in the ER diagram has **two directed rows** (one per direction). **Intended** states the cardinality in plain words. **Observed** opens with a consistency verdict, then cites notebook evidence. **Enforced** opens with a category (`Not enforced`, `SQLite FK`, `SQLite UNIQUE + FK`, `ETL / source data`, `App SQL`, `File format`), then detail. Scope: `rpkm_sample` taxonomy joins are per tax_id column header; reverse joins to `rpkm_sample` are per sample file.
+
 **Review flag:** `—` = no open item. Any other value is a note for human review or a regression validation target (not necessarily a defect).
 
-| Edge | Intended | Observed | Enforced by schema? | Review flag |
-|---|---|---|---|---|
-| `nodes` ↔ `names` (`names.tax_id = nodes.id`) | 1:1 | min=max=1 `names` row per `tax_id`; 0 orphan `names.tax_id -> nodes` (§4, §6) | FK on `names.tax_id`; no `UNIQUE` on `names.tax_id` | `names.tax_id` not `UNIQUE` in DDL — regression validation target |
-| `nodes` ↔ `parents` (`parents.tax_id = nodes.id`) | 1:0..1 | Exactly 5 parentless nodes (allowlist): 1 *root*, 10239 *Viruses*, 131567 *cellular organisms*, 2787823 *unclassified entries*, 2787854 *other entries*; 0 duplicate `parents.tax_id` (§6) | `UNIQUE` on `parents.tax_id`; FK on `parents.tax_id` | Allowlist enforced in §6 regression query |
-| RPKM `tax_id_header` → `nodes` | 1:1 per header | `test_rpkm_1.tsv`: 8/8 matched; `test_rpkm_2.tsv`: 12/12 matched (§7) | MetaPro output + reference completeness | — |
-| RPKM `tax_id_header` → `names` | 1:1 per header | `test_rpkm_1.tsv`: 8/8 matched (8 distinct); `test_rpkm_2.tsv`: 12/12 matched (12 distinct) (§7) | Same as above | — |
-| RPKM `tax_id_header` → `parents` | 1:0..1 per header | `test_rpkm_1.tsv`: 8/8 matched; `test_rpkm_2.tsv`: 12/12 matched (§7) | Same as above | — |
-| Reference `tax_id` → RPKM column header (per sample file) | 0..1 per file | Column headers are unique integers per file by construction; overlap measured (6 shared, 2 only in sample 1, 6 only in sample 2) (§5) | Wide TSV format (headers unique per file) | Re-validate if RPKM layout changes (regression target) |
-| RPKM row → `pathway_nodes` (normalized `EC#` = `name`) | 0..many | 9,034 distinct normalized EC values → 3,258 join rows to `pathway_nodes` in `test_rpkm_1.tsv` (§7; distinct matched EC count not measured; fan-out possible) | Not enforced | Track KEGG coverage — unmapped ECs are expected; join-row count is informational |
-| `pathway_nodes` → `pathway_edges` (`source`/`target`) | 0..many | Dangling nodes present; pathway 1100 has 3,716 dangling nodes (§6); out/in-degree max 945, median 0 (§4); 0 orphan `source` and `target` → `pathway_nodes` (§6) | FK on `source`/`target` | — |
-| `pathway_nodes.name` uniqueness | Not unique | Top duplicate `1.14.14.1`: 77 rows (§6) | Not enforced | — |
-| `pathway_nodes.pathway` → `pathway_superpathways.id` | Logical only | Missing-link query returned 0 rows (`LIMIT 20`; not exhaustive) (§7) | App SQL only, not SQLite FK | — |
-| `pathway_superpathways.superpathway` → `superpathways.id` | many:1 | 0 orphan rows in sampled join (§6) | Declared FK in build | — |
-| `nodes` ↔ `parents` rank columns (`t_kingdom` … `t_species` → `nodes.id`) | 0..1 per rank slot when non-null | Nullable rank slots common (e.g. `t_species` null in 931,044 rows; `t_genus` null in 387,848); 0 orphan rows per rank column when non-null (`t_kingdom` … `t_species` → `nodes`, §6); ladder completeness: all violation counts 0 (§6); transitive consistency: 0 snapshot mismatches at genus, family, order, class, phylum (§6) | SQLite FK on each `t_*` → `nodes.id` (orphans); ladder + transitive rules not in DDL — `tax_parents.csv` / ETL only | — |
+| Relationship | From → To | Intended | Observed | Enforced | Review flag |
+|---|---|---|---|---|---|
+| `rpkm_sample` · `tax_id_header` | `rpkm_sample` → `names` | Each tax_id column header maps to exactly one `names` row | Consistent in test fixtures. 8/8 + 12/12 headers matched (§7) | Not enforced — MetaPro output + reference dump completeness | — |
+| `rpkm_sample` · `tax_id_header` | `names` → `rpkm_sample` | Each `names` row maps to zero or one tax_id column header per sample file | Consistent; by construction. Unique integer headers per file; 6 tax_ids shared across samples (§5) | File format — wide TSV column names unique per file | Re-validate if RPKM layout changes |
+| `rpkm_sample` · `tax_id_header` | `rpkm_sample` → `nodes` | Each tax_id column header maps to exactly one `nodes` row | Consistent in test fixtures. 8/8 + 12/12 headers matched (§7) | Not enforced — same as `names` | — |
+| `rpkm_sample` · `tax_id_header` | `nodes` → `rpkm_sample` | Each `nodes` row maps to zero or one tax_id column header per sample file | Consistent; by construction. Same header-uniqueness as above (§5) | File format — wide TSV column names unique per file | Re-validate if RPKM layout changes |
+| `rpkm_sample` · `tax_id_header` | `rpkm_sample` → `parents` | Each tax_id column header maps to zero or one `parents` row | Consistent in test fixtures. 8/8 + 12/12 headers had `parents` rows (§7) | Not enforced — same as `names` | — |
+| `rpkm_sample` · `tax_id_header` | `parents` → `rpkm_sample` | Each `parents` row maps to zero or one tax_id column header per sample file | Consistent; by construction. Same header-uniqueness as above (§5) | File format — wide TSV column names unique per file | Re-validate if RPKM layout changes |
+| `rpkm_sample` · `ec_normalized` | `rpkm_sample` → `pathway_nodes` | Each RPKM row maps to zero or more `pathway_nodes` (via normalized `EC#`) | Consistent. 9,034 distinct ECs → 3,258 join rows in `test_rpkm_1.tsv` (§7) | Not enforced | Track KEGG coverage — unmapped ECs expected |
+| `rpkm_sample` · `ec_normalized` | `pathway_nodes` → `rpkm_sample` | Each `pathway_nodes` row maps to zero or more RPKM rows | Not measured. Fan-in expected (many rows per EC) | Not enforced | — |
+| `nodes` · `tax_id` | `nodes` → `names` | Each `nodes` row maps to exactly one `names` row | Consistent. min=max=1 `names` row per `tax_id` (§4) | ETL filter — `scientific name` only; no `UNIQUE` on `names.tax_id` | `names.tax_id` not `UNIQUE` in DDL — regression validation target |
+| `nodes` · `tax_id` | `names` → `nodes` | Each `names` row maps to exactly one `nodes` row | Consistent. 0 orphan `names.tax_id`→`nodes`; 0 nodes without `names` (§6) | SQLite FK — `names.tax_id` → `nodes.id` | — |
+| `nodes` · `tax_id` | `nodes` → `parents` | Each `nodes` row maps to zero or one `parents` row | Consistent. Exactly 5 parentless allowlist nodes; 0 unexpected (§6) | ETL / source data — `tax_parents.csv` coverage | Allowlist enforced in §6 regression query |
+| `nodes` · `tax_id` | `parents` → `nodes` | Each `parents` row maps to exactly one `nodes` row | Consistent. 0 duplicate `parents.tax_id`; 0 orphan `parents.tax_id`→`nodes` (§6) | SQLite UNIQUE + FK — `parents.tax_id` | — |
+| `nodes` · `rank_columns` | `parents` → `nodes` | Each rank slot (`t_kingdom` … `t_species`) maps to zero or one `nodes` row when non-null | Consistent. Nullable slots common (`t_species` null in 931,044 rows); 0 orphans when non-null (§6) | SQLite FK — each `t_*` → `nodes.id` | — |
+| `nodes` · `rank_columns` | `nodes` → `parents` | Each `nodes` row is referenced by zero or more `parents` rows per rank slot | Consistent. e.g. `t_kingdom`: min 1, max 1,322,687 `parents` rows per node, median 1,204 (§4) | Not enforced — shared rank ids across taxa | — |
+| `pathway_nodes` · `source` | `pathway_nodes` → `pathway_edges` | Each `pathway_nodes` row is source of zero or more `pathway_edges` | Consistent. Out-degree min 0, max 945, median 0 (§4); dangling nodes present (§6) | Not enforced — graph shape | — |
+| `pathway_nodes` · `source` | `pathway_edges` → `pathway_nodes` | Each `pathway_edges` row maps to exactly one source `pathway_nodes` row | Consistent. 0 orphan `source`→`pathway_nodes` (§6) | SQLite FK — `pathway_edges.source` | — |
+| `pathway_nodes` · `target` | `pathway_nodes` → `pathway_edges` | Each `pathway_nodes` row is target of zero or more `pathway_edges` | Consistent. In-degree min 0, max 945, median 0 (§4) | Not enforced — graph shape | — |
+| `pathway_nodes` · `target` | `pathway_edges` → `pathway_nodes` | Each `pathway_edges` row maps to exactly one target `pathway_nodes` row | Consistent. 0 orphan `target`→`pathway_nodes` (§6) | SQLite FK — `pathway_edges.target` | — |
+| `pathway_superpathways` · `pathway` | `pathway_superpathways` → `pathway_nodes` | Each `pathway_superpathways` row has zero or more `pathway_nodes` | Consistent. 23/193 without nodes; min 1, max 3,716, median 91.5 nodes per id (§7) | Not enforced — pathway grouping | — |
+| `pathway_superpathways` · `pathway` | `pathway_nodes` → `pathway_superpathways` | Each `pathway_nodes` row maps to exactly one `pathway_superpathways` row | Consistent. 0 orphan `pathway`→`psp` (23,864/23,864); 0 null `pathway` on nodes (§7) | App SQL — logical join; not SQLite FK | — |
+| `superpathways` · `superpathway` | `superpathways` → `pathway_superpathways` | Each `superpathways` row has zero or more `pathway_superpathways` rows | Consistent. min 2, max 31, median 14 `pathway_superpathways` per superpathway (§4) | Not enforced — grouping | — |
+| `superpathways` · `superpathway` | `pathway_superpathways` → `superpathways` | Each `pathway_superpathways` row maps to exactly one `superpathways` row | Consistent. 0 orphan `superpathway`→`superpathways` (§6); 0 superpathways without psp (§4) | SQLite FK — `pathway_superpathways.superpathway` | — |
+
+**Attribute note (not an ER edge):** `pathway_nodes.name` is not unique — top duplicate `1.14.14.1`: 77 rows (§6). **Enforced:** Not enforced.
 
 ## Regression Validation Targets
 
