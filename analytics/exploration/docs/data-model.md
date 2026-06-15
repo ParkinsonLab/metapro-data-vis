@@ -32,7 +32,7 @@ Key fields used by the app and EDA:
 | `pathway_edges.source -> pathway_nodes.id` | Pathway graph source node | 0 orphan rows in the checked join (§6) |
 | `pathway_edges.target -> pathway_nodes.id` | Pathway graph target node | 0 orphan rows in the checked join (§6) |
 | `pathway_superpathways.superpathway -> superpathways.id` | Superpathway lookup | 0 orphan rows in the checked join (§6) |
-| `pathway_nodes.pathway -> pathway_superpathways.id` | Pathway group lookup | See `pathway_superpathways` → `pathway_nodes` edge evidence (§7) |
+| `pathway_nodes.pathway -> pathway_superpathways.id` | Pathway group lookup | See `pathway_superpathways` → `pathway_nodes` edge evidence (§4) |
 
 Additional cardinality checks (detail also in [Edge evidence](#edge-evidence)):
 
@@ -141,8 +141,8 @@ Scope: `rpkm_sample` taxonomy joins are per tax_id column header; reverse joins 
 | `pathway_nodes` · `source` | `pathway_edges` → `pathway_nodes` | **1..1** · Each `pathway_edges` row maps to exactly one source `pathway_nodes` row | Consistent. 0 orphan `source`→`pathway_nodes` (§6) | SQLite FK — `pathway_edges.source` | — |
 | `pathway_nodes` · `target` | `pathway_nodes` → `pathway_edges` | **0..n** · Each `pathway_nodes` row is target of zero or more `pathway_edges` | Consistent. In-degree min 0, max 945, median 0 (§4) | By design — dangling nodes are valid graph members | — |
 | `pathway_nodes` · `target` | `pathway_edges` → `pathway_nodes` | **1..1** · Each `pathway_edges` row maps to exactly one target `pathway_nodes` row | Consistent. 0 orphan `target`→`pathway_nodes` (§6) | SQLite FK — `pathway_edges.target` | — |
-| `pathway_superpathways` · `pathway` | `pathway_superpathways` → `pathway_nodes` | **0..n** · Each `pathway_superpathways` row has zero or more `pathway_nodes` | Consistent. 23/193 without nodes; min 1, max 3,716, median 91.5 nodes per id (§7) | By design — empty pathway groups are valid | — |
-| `pathway_superpathways` · `pathway` | `pathway_nodes` → `pathway_superpathways` | **1..1** · Each `pathway_nodes` row maps to exactly one `pathway_superpathways` row | Consistent. 0 orphan `pathway`→`psp` (23,864/23,864); 0 null `pathway` on nodes (§7) | Not enforced — logical join in app SQL; no SQLite FK on `pathway_nodes.pathway` | — |
+| `pathway_superpathways` · `pathway` | `pathway_superpathways` → `pathway_nodes` | **0..n** · Each `pathway_superpathways` row has zero or more `pathway_nodes` | Consistent. 23/193 without nodes; min 1, max 3,716, median 91.5 nodes per id (§4) | By design — empty pathway groups are valid | — |
+| `pathway_superpathways` · `pathway` | `pathway_nodes` → `pathway_superpathways` | **1..1** · Each `pathway_nodes` row maps to exactly one `pathway_superpathways` row | Consistent. 0 orphan `pathway`→`psp` (23,864/23,864); 0 null `pathway` on nodes (§4) | Not enforced — logical join in app SQL; no SQLite FK on `pathway_nodes.pathway` | — |
 | `superpathways` · `superpathway` | `superpathways` → `pathway_superpathways` | **0..n** · Each `superpathways` row has zero or more `pathway_superpathways` rows | Consistent. min 2, max 31, median 14 `pathway_superpathways` per superpathway (§4) | By design — grouping cardinality is open-ended | — |
 | `superpathways` · `superpathway` | `pathway_superpathways` → `superpathways` | **1..1** · Each `pathway_superpathways` row maps to exactly one `superpathways` row | Consistent. 0 orphan `superpathway`→`superpathways` (§6); 0 superpathways without psp (§4) | SQLite FK — `pathway_superpathways.superpathway` | — |
 
