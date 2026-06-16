@@ -50,6 +50,7 @@ Additional cardinality checks (detail also in [Edge evidence](#edge-evidence)):
 
 - Rank ladder completeness (§6): 0 `species_missing_upstream`, 0 `genus_missing_upstream`, 0 `family_missing_upstream`, 0 `order_missing_upstream`, 0 `class_missing_upstream`, 0 `phylum_missing_upstream`, 0 `kingdom_with_finer_but_missing_phylum` (2,840,134 `parents` rows checked).
 - Rank transitive consistency (§6): 0 `genus_snapshot_mismatches`, 0 `family_snapshot_mismatches`, 0 `order_snapshot_mismatches`, 0 `class_snapshot_mismatches`, 0 `phylum_snapshot_mismatches`.
+- Rank placement (§6): finest filled rank × placement pivot — **2,462,842** at-rank, **377,292** sub-rank. At-rank by finest rank: kingdom 45, phylum 116,166, class 28,532, order 43,650, family 167,488, genus 477,088, species 1,629,873. Sub-rank by finest rank: kingdom 465, phylum 1,062, class 2,248, order 6,567, family 21,625, genus 66,108, species 279,217 (below-species).
 - Pathway graph degree is sparse and skewed: out-degree min 0, max 945, median 0.0; in-degree min 0, max 945, median 0.0 (§4).
 - Pathway edge counts per pathway range from 2 to 2,410, with median 132.0 (§4).
 - Displayed dangling-node output is led by pathway 1100 with 3,716 dangling nodes, pathway 1110 with 2,480, and pathway 1120 with 1,208 (§6).
