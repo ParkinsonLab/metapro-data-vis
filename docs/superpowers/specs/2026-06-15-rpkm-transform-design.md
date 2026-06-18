@@ -32,7 +32,7 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Reference taxonomy shape | `dim_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
 | Constraints | Tiered severity (error / warn / info); profile-ready for v2 | dbt test `severity:` + info singular tests; no profiles in v1 |
-| Reporting | Persist dbt artifacts via `--target-path`; minimal `run_context.json` supplement | No duplicate of timing/test data |
+| Reporting | dbt artifacts in `transform/target/`; optional `run_context.json` per sample | Conventional dbt layout; no per-run history folders |
 | Scope v1 | Analytics pipeline + CLI wrapper + tests | No API changes |
 | Scale target | ~100 tax_id columns, ~400–500K gene rows, ~1–2% nonzero cells | ~720K long rows after nonzero filter |
 
@@ -57,15 +57,12 @@ analytics/
     │   └── run_pipeline.py
     ├── data/                   # gitignored — shared reference DuckDB
     │   └── reference.duckdb
-    ├── target/                 # gitignored — default local dbt target (dev only)
-    └── runs/                   # gitignored — per-sample runtime (see §3.3)
+    ├── target/                 # gitignored — dbt artifacts (run_results.json, manifest.json)
+    └── runs/                   # gitignored — one folder per sample (see §3.3)
         └── {sample_id}/
-            ├── sample.duckdb   # mutable: latest materialized tables for this sample
-            └── {timestamp}/    # immutable: one folder per pipeline invocation
-                ├── run_context.json
-                ├── target/     # dbt --target-path
-                └── outputs/
-                    └── mart_pathway_taxonomy_long.parquet
+            ├── sample.duckdb   # materialized tables (latest build)
+            ├── run_context.json   # latest vars + overall_status (optional)
+            └── mart_pathway_taxonomy_long.parquet   # optional export from wrapper
 ```
 
 Reference Parquet continues to live at `resources/db/parquet/` (produced by `analytics/exploration/scripts/export_parquet.py`). dbt reads via `read_parquet()` sources or external sources configuration — not duplicated.
@@ -78,9 +75,9 @@ All models materialize as **DuckDB tables** inside a `.duckdb` database file unl
 |---|---|---|---|---|
 | **Reference Parquet** | `export_parquet.py` (EDA script) | `resources/db/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
 | **Reference dbt models** (`dim_tax_rank_map`, `ec_pathway_bridge`) | `dbt build` on reference (distribution / CI) | Tables in shared `transform/data/reference.duckdb` | Yes | Refreshed when Parquet changes |
-| **Upload dbt models** (`stg_rpkm_long` … `mart_*`) | `dbt build` on sample upload | Tables in per-sample `transform/runs/{sample_id}/sample.duckdb` | Yes | One DB file per sample; overwritten on re-upload |
-| **Mart export** | `run_pipeline.py` post-step | `runs/{sample_id}/{timestamp}/outputs/mart_pathway_taxonomy_long.parquet` | Yes | Immutable snapshot per run |
-| **dbt artifacts** | each `dbt build` | `runs/{sample_id}/{timestamp}/target/` | Yes | Per-run via `--target-path` |
+| **Upload dbt models** (`stg_rpkm_long` … `mart_*`) | `dbt build` on sample upload | Tables in `runs/{sample_id}/sample.duckdb` | Yes | Overwritten on re-upload or param change |
+| **Mart export** (optional) | `run_pipeline.py` post-step | `runs/{sample_id}/mart_pathway_taxonomy_long.parquet` | Yes | Overwritten; canonical query target is `sample.duckdb` |
+| **dbt artifacts** | each `dbt build` | `transform/target/` | Yes | Overwritten each run (conventional dbt location) |
 
 **Distribution vs upload:** Reference data is read-only input (Parquet → DuckDB tables once). Upload data is written into a **separate per-sample DuckDB file** so re-parameterizing `tax_rank` / `pathway_level` does not re-read the TSV and does not mutate reference tables.
 
@@ -104,14 +101,24 @@ Per-sample DuckDB files live at `analytics/transform/runs/{sample_id}/sample.duc
 
 ### 3.3 `runs/` folder structure (rationale)
 
-Two layers per sample — **mutable working state** vs **immutable run history**:
+**One folder per sample — latest state only.** No timestamp subfolders or run history in v1.
 
-| Path | Role | On re-run with new params |
+```
+runs/{sample_id}/
+  sample.duckdb                        # all upload-path dbt tables
+  run_context.json                     # vars + overall_status from last build
+  mart_pathway_taxonomy_long.parquet   # optional; wrapper export only
+```
+
+| Path | Role | On re-run |
 |---|---|---|
-| `runs/{sample_id}/sample.duckdb` | DuckDB file holding current dbt table materializations (`stg_rpkm_long`, `int_*`, `mart_*`) | **`int_tax_rollup_resolved` and `mart_*` fully replaced** (dbt `table` materialization = drop/recreate or overwrite). Holds **only the latest** `(tax_rank, pathway_level)` built. |
-| `runs/{sample_id}/{timestamp}/` | Audit trail for one pipeline invocation | **Append-only** — never overwritten. Captures vars used, dbt artifacts, and mart Parquet for that specific param combo. |
+| `sample.duckdb` | Working DuckDB for this sample | Tables replaced in place (see below) |
+| `run_context.json` | Last invocation metadata | Overwritten |
+| `mart_….parquet` | Portable export of mart | Overwritten if wrapper exports |
 
-**Not cached (v1):** Changing `tax_rank` or `pathway_level` does **not** keep previous param versions in `sample.duckdb`. Re-running replaces `int_tax_rollup_resolved` and `mart_pathway_taxonomy_long` in place. To retain an earlier param combo, rely on the timestamped Parquet export (or re-run — cheap from `int_rpkm_pathway`).
+**dbt artifacts** (`run_results.json`, `manifest.json`) live in **`transform/target/`** — the conventional project-root location. Not duplicated under `runs/`. Overwritten on each `dbt build`.
+
+**Not cached (v1):** `sample.duckdb` holds only the latest `(tax_rank, pathway_level)`. Re-run replaces tables in place; previous param versions are not retained.
 
 **What is reused vs replaced on param change:**
 
@@ -162,8 +169,8 @@ Python 3.14 + dbt-core ≥ 1.12 (Python 3.14 support merged 2026-05) + dbt-duckd
 
 **Typical operations:**
 
-- **New upload:** full pipeline from `stg_rpkm_long`; new `{timestamp}/` folder; `sample.duckdb` tables replaced.
-- **Change `tax_rank`:** `dbt build --select int_tax_rollup_resolved+` — replaces `int_tax_rollup_resolved` + mart in `sample.duckdb`; new `{timestamp}/` if using wrapper.
+- **New upload:** full pipeline from `stg_rpkm_long`; `sample.duckdb` tables replaced.
+- **Change `tax_rank`:** `dbt build --select int_tax_rollup_resolved+` — replaces `int_tax_rollup_resolved` + mart in `sample.duckdb`.
 - **Change `pathway_level` only:** `dbt build --select mart_pathway_taxonomy_long` — replaces mart only (~seconds).
 
 ## 6. Model Specifications
@@ -367,11 +374,12 @@ Using **`is_pathway_mapped`** (not `pathway_label != 'Unmapped EC'`) for pathway
 
 **`run_pipeline.py` wrapper (CI, fixtures, future API):** Thin orchestration — not a substitute for dbt logic. Responsibilities:
 
-1. Allocate `runs/{sample_id}/{timestamp}/` and pass `--target-path`
+1. Ensure `runs/{sample_id}/` exists; point dbt profile at `runs/{sample_id}/sample.duckdb`
 2. Pass `--vars` consistently (`sample_id`, `rpkm_path`, `tax_rank`, `pathway_level`)
-3. Write `run_context.json` (vars + derived `overall_status`; dbt does not persist vars)
-4. Export mart Parquet to `runs/.../outputs/`
-5. Single entrypoint for future Node subprocess / CI
+3. Run `dbt build` (artifacts land in `transform/target/`)
+4. Write `runs/{sample_id}/run_context.json` (vars + derived `overall_status` parsed from `target/run_results.json`)
+5. Optionally export mart Parquet to `runs/{sample_id}/mart_pathway_taxonomy_long.parquet`
+6. Single entrypoint for future Node subprocess / CI
 
 ```bash
 cd analytics
@@ -385,13 +393,13 @@ uv run python transform/scripts/run_pipeline.py \
 Wrapper runs:
 
 ```bash
-RUN_DIR="transform/runs/${sample_id}/${timestamp}"
 dbt build \
   --project-dir transform \
   --profiles-dir transform \
-  --target-path "$RUN_DIR/target" \
   --vars "{ rpkm_path, sample_id, tax_rank, pathway_level }"
 ```
+
+dbt writes to `transform/target/` by default (no custom `--target-path`).
 
 Re-parameterize only:
 
@@ -401,23 +409,19 @@ dbt build --select int_tax_rollup_resolved+ --vars '{ "tax_rank": "class", ... }
 
 ### 8.2 Artifacts
 
-| Artifact | Writer | Contents |
-|---|---|---|
-| `target/run_results.json` | dbt via `--target-path` | Per-node status, timing, rows affected, test outcomes |
-| `target/manifest.json` | dbt | Lineage, compiled SQL |
-| `run_context.json` | `run_pipeline.py` | `sample_id`, `rpkm_path`, `tax_rank`, `pathway_level`, timestamps, `artifact_dir`, derived `overall_status` |
-| `outputs/mart_pathway_taxonomy_long.parquet` | export step in wrapper | Final mart snapshot |
+| Artifact | Location | Writer | Contents |
+|---|---|---|---|
+| `target/run_results.json` | `transform/target/` | dbt | Per-node status, timing, test outcomes |
+| `target/manifest.json` | `transform/target/` | dbt | Lineage, compiled SQL |
+| `run_context.json` | `runs/{sample_id}/` | wrapper | vars, `overall_status`, pointer to `transform/target/` |
+| `mart_pathway_taxonomy_long.parquet` | `runs/{sample_id}/` | wrapper (optional) | Mart export; query `sample.duckdb` directly otherwise |
 
-**Run directory layout:** `target/` holds dbt-internal artifacts; `outputs/` holds pipeline deliverables (mart Parquet). Sibling directories keep dbt's `target/` convention intact while separating user-facing exports.
-
-**`overall_status` derivation:**
+**`overall_status` derivation** (from `target/run_results.json`):
 - `failed` — any error-severity test fails or model error
 - `success_with_warnings` — no errors; ≥1 warn
 - `success` — all pass
 
-Local dev may use default project-root `target/`; CI and fixture runs use per-run `--target-path`.
-
-Do **not** copy from default `target/` post-hoc.
+Artifacts are overwritten each run. No run-history retention in v1.
 
 ## 9. Python Environment
 
@@ -468,7 +472,7 @@ cd analytics && uv sync
 - [ ] Re-run with changed `tax_rank` / `pathway_level` completes in seconds without re-ingesting TSV
 - [ ] All error-severity constraints pass on test fixtures
 - [ ] Info metrics (EC coverage, exact/fallback/unclassified rates) emitted
-- [ ] Per-run artifacts persisted via `--target-path` + `run_context.json` + mart Parquet
+- [ ] `run_context.json` + optional mart Parquet under `runs/{sample_id}/`; dbt artifacts in `transform/target/`
 - [ ] README under `analytics/transform/` documents two-phase workflow and rebuild triggers
 
 ## 14. References
