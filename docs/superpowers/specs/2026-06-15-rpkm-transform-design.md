@@ -227,7 +227,7 @@ EC normalization (same as EDA / `SPEC.md`): `EC:x.y.z` → `x.y.z`; null/empty/N
 | `superpathway_name` | NULL |
 | `is_pathway_mapped` | `false` |
 
-At mart time, unmapped rows use `pathway_key = 'UNMAPPED_EC'` and `pathway_label = ec_normalized` (or `'Unmapped EC'` — pick one in implementation; label should aid debugging). There is no pathway-level fallback (an EC either maps to KEGG or it does not).
+At mart time, unmapped rows use `pathway_key = NULL`, `pathway_label = 'Unmapped EC'`, `is_pathway_mapped = false`. There is no pathway-level fallback (an EC either maps to KEGG or it does not).
 
 **Performance:** Unmapped rows do not fan out; total row count ≈ mapped fan-out + unmapped long rows. Well within DuckDB scale for test fixtures (~36% of distinct ECs unmapped per EDA §7).
 
@@ -241,26 +241,28 @@ Resolves each row to a taxon at requested rank using `dim_tax_rank_map` and `see
 
 1. **Exact:** row in `dim_tax_rank_map` where `tax_id = source_tax_id` AND `rank = tax_rank` → `tax_rank_resolved = tax_rank`.
 2. **Fallback:** among rows where `rank_order <= tax_rank_order`, pick finest available (max rank order) → `tax_rank_resolved = that rank` (coarser than requested).
-3. **Unclassified:** no qualifying row → `taxon_key = -1`, `taxon_label = 'Unclassified'`, `tax_rank_resolved = NULL`.
+3. **Unclassified:** no qualifying row → `taxon_key = NULL`, `taxon_label = 'Unclassified'`, `tax_rank_resolved = NULL`.
 
-**Deriving resolution type** (not stored — computed from columns + run var):
+**Deriving resolution type** (not stored — computed from mart columns + `tax_rank_requested`):
 
 | Condition | Meaning |
 |---|---|
-| `taxon_key = -1` | Unclassified |
+| `taxon_label = 'Unclassified'` (equivalently `taxon_key IS NULL`) | Unclassified |
 | `tax_rank_resolved = tax_rank_requested` | Exact match |
-| else (valid `taxon_key`) | Coarser fallback |
+| else (non-null `taxon_key`) | Coarser fallback |
 
 Example (your scenario, `tax_rank_requested = phylum`): taxon A resolves to Bacteroidota at phylum (exact); taxon B with unknown phylum resolves to kingdom Pseudomonadati (fallback). These are **different `(taxon_key, tax_rank_resolved)` pairs** in the mart — no extra grouping dimension needed.
 
-**Sentinels:**
+**NULL keys for gap rows** (no synthetic tax_ids or pathway ids):
 
-| Case | `taxon_key` | `pathway_key` (at mart) |
-|---|---|---|
-| Unclassified taxonomy | `-1` | (unaffected) |
-| Unmapped EC | (unaffected) | `'UNMAPPED_EC'` |
+| Case | `taxon_key` | `taxon_label` | `pathway_key` | `pathway_label` | `is_pathway_mapped` |
+|---|---|---|---|---|---|
+| Unclassified taxonomy | NULL | `'Unclassified'` | (normal) | (normal) | true or false |
+| Unmapped EC | (normal) | (normal) | NULL | `'Unmapped EC'` | `false` |
 
-**Why `-1` for Unclassified:** Explicit non-null sentinel; not a valid NCBI tax_id. Allows conditional constraints (§7) while keeping real taxa strictly keyed.
+For unmapped rows, `pathway_label` is a **fixed display string**; per-EC detail remains in `ec_normalized` (carried through from `int_rpkm_pathway`, in mart GROUP BY when `is_pathway_mapped = false`).
+
+**`tax_rank_requested`:** Not echoed on `int_tax_rollup_resolved`. The var is fixed for the entire intermediate build (model rebuilds when it changes). Echo **only on `mart_pathway_taxonomy_long`** and in `run_context.json` — avoids redundant columns on ~720K intermediate rows.
 
 Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
@@ -268,10 +270,9 @@ Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
 | Column | Notes |
 |---|---|
-| (all columns from `int_rpkm_pathway`) | |
-| `tax_rank_requested` | Echo of var |
+| (all columns from `int_rpkm_pathway`) | includes `is_pathway_mapped`, `ec_normalized` |
 | `tax_rank_resolved` | Actual rank used; NULL when Unclassified |
-| `taxon_key` | `rank_tax_id` or `-1` |
+| `taxon_key` | `rank_tax_id` or NULL |
 | `taxon_label` | From `names` join, or `'Unclassified'` |
 
 **Intentional divergence from app:** `get_parents_at_level` uses a name-based backfill heuristic and does not coarser-fallback. Pipeline behavior is explicit and documented.
@@ -280,7 +281,7 @@ Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
 Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and resolved taxon.
 
-**Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, tax_rank_requested, sample_id, pathway_level)`.
+**Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, tax_rank_requested, sample_id, pathway_level, is_pathway_mapped, ec_normalized)` — include `ec_normalized` in GROUP BY when `is_pathway_mapped = false` so unmapped EC rows stay separate.
 
 Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved)` aggregate together — regardless of whether they arrived via exact or fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
 
@@ -299,11 +300,13 @@ Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved
 |---|---|
 | `sample_id` | |
 | `pathway_level` | Requested level |
-| `pathway_key` | Id at selected level |
-| `pathway_label` | Name at selected level |
-| `tax_rank_requested` | |
-| `tax_rank_resolved` | Actual rank used (may differ under fallback) |
-| `taxon_key` | Resolved tax_id or `-1` (Unclassified) |
+| `pathway_key` | Id at selected level; NULL when unmapped |
+| `pathway_label` | Name at selected level; `'Unmapped EC'` when unmapped |
+| `is_pathway_mapped` | `true` / `false` |
+| `ec_normalized` | EC string; distinguishes unmapped rows in mart |
+| `tax_rank_requested` | Echo of var (mart only) |
+| `tax_rank_resolved` | Actual rank used (may differ under fallback); NULL when Unclassified |
+| `taxon_key` | Resolved tax_id; NULL when Unclassified |
 | `taxon_label` | |
 | `value` | `SUM(value)` |
 
@@ -318,22 +321,24 @@ Each constraint has an id, check, stage, default severity, and pass criteria. Im
 | `rpkm_no_negative_values` | All `value >= 0` | `stg_rpkm_long` | error | 0 violating rows |
 | `rpkm_tax_id_resolvable` | Every distinct `source_tax_id` in `names` | `stg_rpkm_long` | warn | 0 unmapped tax_ids |
 | `rpkm_ec_kegg_coverage` | `distinct mapped ECs / distinct ECs in sample` | `int_rpkm_pathway` | info | Always passes; emits ratio |
-| `unmapped_ec_value_rate` | `SUM(value WHERE pathway_key='UNMAPPED_EC') / SUM(value)` | mart | info | Metric only |
+| `unmapped_ec_value_rate` | `SUM(value WHERE NOT is_pathway_mapped) / SUM(value)` | mart | info | Metric only |
 | `pathway_join_fanout_rate` | Avg `int_rpkm_pathway` rows per `stg_rpkm_long` row (mapped only) | `int_rpkm_pathway` | info | Metric only |
 | `mass_conservation` | `SUM(mart.value)` ≈ `SUM(stg_rpkm_long.value)` | `mart_pathway_taxonomy_long` | warn | Relative delta ≤ 0.01% |
 | `mart_nonempty` | Mart row count > 0 | `mart_pathway_taxonomy_long` | error | count > 0 |
-| `mart_no_null_keys` | Real keys non-null (see below) | `mart_pathway_taxonomy_long` | error | 0 violating rows |
-| `mart_rollup_exact_match_rate` | `SUM(value WHERE tax_rank_resolved = tax_rank_requested AND taxon_key != -1) / SUM(value)` | mart | info | Metric only |
-| `mart_rollup_fallback_rate` | `SUM(value WHERE tax_rank_resolved != tax_rank_requested AND taxon_key != -1) / SUM(value)` | mart | info | Metric only |
-| `mart_unclassified_rate` | `SUM(value WHERE taxon_key = -1) / SUM(value)` | mart | info | Metric only in v1 |
+| `mart_classified_taxa_have_keys` | No row where `taxon_label != 'Unclassified'` AND `taxon_key IS NULL` | mart | error | 0 rows |
+| `mart_mapped_pathways_have_keys` | No row where `is_pathway_mapped = true` AND `pathway_key IS NULL` | mart | error | 0 rows |
+| `mart_value_non_null` | All rows: `value IS NOT NULL` | mart | error | 0 nulls |
+| `mart_rollup_exact_match_rate` | `SUM(value WHERE tax_rank_resolved = tax_rank_requested AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_rollup_fallback_rate` | `SUM(value WHERE tax_rank_resolved != tax_rank_requested AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_unclassified_rate` | `SUM(value WHERE taxon_label = 'Unclassified') / SUM(value)` | mart | info | Metric only in v1 |
 
-**`mart_no_null_keys` (conditional):** Applies only to **non-sentinel** rows:
+**Key constraints (replaces `mart_no_null_keys`):** NULL keys are **permitted and expected** for gap rows. Constraints enforce keys only where a real taxonomy/pathway exists:
 
-- Where `taxon_label != 'Unclassified'`: `taxon_key IS NOT NULL` and `taxon_key != -1`
-- Where `pathway_key != 'UNMAPPED_EC'`: `pathway_key IS NOT NULL`
-- All rows: `value IS NOT NULL`
+- **`mart_classified_taxa_have_keys`** — if we resolved a real taxon (`taxon_label != 'Unclassified'`), `taxon_key` must be non-null.
+- **`mart_mapped_pathways_have_keys`** — if `is_pathway_mapped = true`, `pathway_key` must be non-null.
+- Unclassified and unmapped rows are excluded by label / flag, not by synthetic sentinel ids.
 
-Sentinel rows use explicit sentinel keys (`-1`, `'UNMAPPED_EC'`) and are exempt from real-key checks. `value` is always required.
+Using **`is_pathway_mapped`** (not `pathway_label != 'Unmapped EC'`) for pathway checks avoids ambiguity if labels change. Taxonomy side uses the fixed `'Unclassified'` label.
 
 **Mass conservation definition:** Sum of mart values equals sum of all `stg_rpkm_long` values (LEFT JOIN preserves full long mass). Document exact SQL in the singular test.
 
