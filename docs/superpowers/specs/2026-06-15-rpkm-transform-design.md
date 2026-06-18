@@ -27,7 +27,8 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Cell value | Per-taxon **column** values, summed | Matches app behavior and EDA unpivot pattern; not row-level `RPKM` column |
 | Pathway level | Configurable: `superpathway` \| `pathway` \| `pathway_node`; default `pathway` | Aligns with domain terms: pathway = `pathway_superpathways` row; pathway_node = EC-on-map instance |
 | Canonical output | `mart_pathway_taxonomy_long` only | Rectangular matrix and chord matrix deferred |
-| Taxonomy rollup | Resolve via `dim_tax_rank_map` using: exact rank → coarser fallback → `Unclassified` | Lookup table + resolution algorithm; mart includes `tax_rank_resolved` and `rollup_method` |
+| Taxonomy rollup | Resolve via `dim_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived by comparing to `tax_rank_requested` |
+| EC → pathway join | **LEFT JOIN** with `UNMAPPED_EC` sentinel for KEGG-unmapped ECs | Preserves knowledge-gap mass in mart |
 | Reference taxonomy shape | `dim_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
 | Constraints | Tiered severity (error / warn / info); profile-ready for v2 | dbt test `severity:` + info singular tests; no profiles in v1 |
@@ -67,8 +68,12 @@ analytics/
     └── runs/                           # gitignored; per-run artifacts
         └── {sample_id}/{timestamp}/
             ├── run_context.json
-            ├── target/                 # dbt --target-path
-            └── mart_pathway_taxonomy_long.parquet
+            ├── target/                 # dbt --target-path (run_results.json, manifest.json, …)
+            └── outputs/
+                └── mart_pathway_taxonomy_long.parquet
+    ├── data/                           # gitignored
+    │   └── reference.duckdb            # shared reference model tables
+    └── target/                         # gitignored; default local dbt target (dev only)
 ```
 
 Reference Parquet continues to live at `resources/db/parquet/` (produced by `analytics/exploration/scripts/export_parquet.py`). dbt reads via `read_parquet()` sources or external sources configuration — not duplicated.
@@ -82,12 +87,28 @@ All models materialize as **DuckDB tables** inside a `.duckdb` database file unl
 | **Reference Parquet** | `export_parquet.py` (EDA script) | `resources/db/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
 | **Reference dbt models** (`dim_tax_rank_map`, `ec_pathway_bridge`) | `dbt build` on reference (distribution / CI) | Tables in shared `transform/data/reference.duckdb` | Yes | Refreshed when Parquet changes |
 | **Upload dbt models** (`stg_rpkm_long` … `mart_*`) | `dbt build` on sample upload | Tables in per-sample `transform/runs/{sample_id}/sample.duckdb` | Yes | One DB file per sample; overwritten on re-upload |
-| **Mart export** | `run_pipeline.py` post-step | `runs/{sample_id}/{timestamp}/mart_pathway_taxonomy_long.parquet` | Yes | Immutable snapshot per run |
+| **Mart export** | `run_pipeline.py` post-step | `runs/{sample_id}/{timestamp}/outputs/mart_pathway_taxonomy_long.parquet` | Yes | Immutable snapshot per run |
 | **dbt artifacts** | each `dbt build` | `runs/{sample_id}/{timestamp}/target/` | Yes | Per-run via `--target-path` |
 
 **Distribution vs upload:** Reference data is read-only input (Parquet → DuckDB tables once). Upload data is written into a **separate per-sample DuckDB file** so re-parameterizing `tax_rank` / `pathway_level` does not re-read the TSV and does not mutate reference tables.
 
 **Views vs tables:** Reference models and `stg_rpkm_long` → **table**. `int_*` and mart may be **table** (v1 default, for inspectability) or **view** (if rebuild latency stays sub-second in profiling — implementation choice).
+
+### 3.2 `.gitignore`
+
+All dbt/DuckDB runtime outputs are **gitignored** — only source SQL, config, seeds, and scripts are committed.
+
+```
+# analytics/transform — dbt + DuckDB runtime outputs
+analytics/transform/runs/
+analytics/transform/data/
+analytics/transform/target/
+analytics/transform/dbt_packages/
+analytics/transform/logs/
+analytics/transform/**/*.duckdb
+```
+
+Per-sample DuckDB files live at `analytics/transform/runs/{sample_id}/sample.duckdb` (also covered by `runs/`). Reference Parquet under `resources/db/parquet/` remains tracked via Git LFS (unchanged from EDA).
 
 ## 4. Approach
 
@@ -109,7 +130,7 @@ Python 3.14 + dbt-core ≥ 1.12 (Python 3.14 support merged 2026-05) + dbt-duckd
 [upload time]
   stg_rpkm_long             ← Python: wide TSV → long, EC normalize, nonzero filter
        ↓
-  int_rpkm_pathway          ← join ec_pathway_bridge; all pathway level keys attached
+  int_rpkm_pathway          ← LEFT JOIN ec_pathway_bridge; UNMAPPED_EC sentinel when unmapped
        ↓
   int_tax_rollup_resolved   ← join dim_tax_rank_map; exact / fallback / unclassified
        ↓
@@ -191,23 +212,24 @@ EC normalization (same as EDA / `SPEC.md`): `EC:x.y.z` → `x.y.z`; null/empty/N
 
 ### 6.4 `int_rpkm_pathway`
 
-`stg_rpkm_long` **INNER JOIN** `ec_pathway_bridge` ON `ec_normalized`. Unmapped ECs are excluded from this model and downstream marts (v1). Carries all three pathway keys on every row for cheap re-grouping.
+`stg_rpkm_long` **LEFT JOIN** `ec_pathway_bridge` ON `ec_normalized`. Carries all three pathway keys on matched rows for cheap re-grouping.
 
-**Unmapped ECs (v1 behavior):** Rows whose `ec_normalized` has no KEGG match are dropped here. Coverage is tracked by the `rpkm_ec_kegg_coverage` info constraint. See §6.4.1 for impact if we later allow unmapped ECs to propagate.
+**Mapped ECs:** One row per `(stg_rpkm_long row × matching bridge row)` — same fan-out as before when an EC maps to multiple pathway nodes.
 
-#### 6.4.1 Unmapped EC propagation (deferred — impact analysis)
+**Unmapped ECs:** When no bridge match, emit **one row** with pathway sentinels:
 
-If changed to **LEFT JOIN** with a sentinel pathway (e.g. `pathway_key = 'UNMAPPED_EC'`, `pathway_label = ec_normalized`):
-
-| Area | Impact |
+| Column | Unmapped value |
 |---|---|
-| **Query / mart** | Mart includes an "unmapped EC" bucket alongside real pathways; filter with `WHERE pathway_key != 'UNMAPPED_EC'` to recover v1 behavior |
-| **Constraints** | `mass_conservation` compares against full `stg_rpkm_long` sum (not join-filtered); `rpkm_ec_kegg_coverage` unchanged; new info metric: `unmapped_ec_value_rate` |
-| **Performance** | More rows in `int_*` and mart (~36% of distinct ECs unmapped in test fixture per EDA §7); still fine at DuckDB scale |
-| **Pathway level var** | No fallback logic needed — unmapped ECs have no pathway/superpathway by definition; sentinel is not a coarser pathway level |
-| **Optional pattern** | Separate `mart_unmapped_ec_long` (group by EC × taxon only) keeps main mart pathway-only; avoids sentinel in pathway dimension |
+| `pathway_node_id` | NULL |
+| `pathway_id` | NULL |
+| `pathway_name` | NULL |
+| `superpathway_id` | NULL |
+| `superpathway_name` | NULL |
+| `is_pathway_mapped` | `false` |
 
-Recommendation for v1: keep INNER JOIN; add `mart_unmapped_ec_long` in v1.1 if gap visualization is needed without polluting the pathway mart.
+At mart time, unmapped rows use `pathway_key = 'UNMAPPED_EC'` and `pathway_label = ec_normalized` (or `'Unmapped EC'` — pick one in implementation; label should aid debugging). There is no pathway-level fallback (an EC either maps to KEGG or it does not).
+
+**Performance:** Unmapped rows do not fan out; total row count ≈ mapped fan-out + unmapped long rows. Well within DuckDB scale for test fixtures (~36% of distinct ECs unmapped per EDA §7).
 
 ### 6.5 `int_tax_rollup_resolved`
 
@@ -217,11 +239,28 @@ Resolves each row to a taxon at requested rank using `dim_tax_rank_map` and `see
 
 **Resolution algorithm** (for var `tax_rank`):
 
-1. **Exact:** row in `dim_tax_rank_map` where `tax_id = source_tax_id` AND `rank = tax_rank` → `rollup_method = 'exact'`, `tax_rank_resolved = tax_rank`.
-2. **Fallback:** among rows where `rank_order <= tax_rank_order`, pick finest available (max rank order) → `rollup_method = 'fallback'`, `tax_rank_resolved = that rank`.
-3. **Unclassified:** no qualifying row → `rollup_method = 'unclassified'`, `taxon_key = -1`, `taxon_label = 'Unclassified'`.
+1. **Exact:** row in `dim_tax_rank_map` where `tax_id = source_tax_id` AND `rank = tax_rank` → `tax_rank_resolved = tax_rank`.
+2. **Fallback:** among rows where `rank_order <= tax_rank_order`, pick finest available (max rank order) → `tax_rank_resolved = that rank` (coarser than requested).
+3. **Unclassified:** no qualifying row → `taxon_key = -1`, `taxon_label = 'Unclassified'`, `tax_rank_resolved = NULL`.
 
-**Why `taxon_key = -1` instead of NULL:** Sentinels keep `mart_no_null_keys` satisfied, make GROUP BY / joins explicit, and avoid NULL-handling ambiguity in downstream consumers. `-1` is not a valid NCBI tax_id. Alternative: allow NULL when `rollup_method = 'unclassified'` and relax the constraint — semantically cleaner but weaker for keyed exports.
+**Deriving resolution type** (not stored — computed from columns + run var):
+
+| Condition | Meaning |
+|---|---|
+| `taxon_key = -1` | Unclassified |
+| `tax_rank_resolved = tax_rank_requested` | Exact match |
+| else (valid `taxon_key`) | Coarser fallback |
+
+Example (your scenario, `tax_rank_requested = phylum`): taxon A resolves to Bacteroidota at phylum (exact); taxon B with unknown phylum resolves to kingdom Pseudomonadati (fallback). These are **different `(taxon_key, tax_rank_resolved)` pairs** in the mart — no extra grouping dimension needed.
+
+**Sentinels:**
+
+| Case | `taxon_key` | `pathway_key` (at mart) |
+|---|---|---|
+| Unclassified taxonomy | `-1` | (unaffected) |
+| Unmapped EC | (unaffected) | `'UNMAPPED_EC'` |
+
+**Why `-1` for Unclassified:** Explicit non-null sentinel; not a valid NCBI tax_id. Allows conditional constraints (§7) while keeping real taxa strictly keyed.
 
 Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
@@ -231,16 +270,19 @@ Fallback only walks **coarser** ranks (never genus when phylum was requested).
 |---|---|
 | (all columns from `int_rpkm_pathway`) | |
 | `tax_rank_requested` | Echo of var |
-| `tax_rank_resolved` | Actual rank used |
-| `taxon_key` | `rank_tax_id` or sentinel `-1` |
+| `tax_rank_resolved` | Actual rank used; NULL when Unclassified |
+| `taxon_key` | `rank_tax_id` or `-1` |
 | `taxon_label` | From `names` join, or `'Unclassified'` |
-| `rollup_method` | `exact` \| `fallback` \| `unclassified` |
 
 **Intentional divergence from app:** `get_parents_at_level` uses a name-based backfill heuristic and does not coarser-fallback. Pipeline behavior is explicit and documented.
 
 ### 6.6 `mart_pathway_taxonomy_long`
 
 Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and resolved taxon.
+
+**Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, tax_rank_requested, sample_id, pathway_level)`.
+
+Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved)` aggregate together — regardless of whether they arrived via exact or fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
 
 **Vars:**
 
@@ -261,14 +303,9 @@ Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and
 | `pathway_label` | Name at selected level |
 | `tax_rank_requested` | |
 | `tax_rank_resolved` | Actual rank used (may differ under fallback) |
-| `taxon_key` | |
+| `taxon_key` | Resolved tax_id or `-1` (Unclassified) |
 | `taxon_label` | |
-| `rollup_method` | Taxonomy resolution method for this row (see note) |
 | `value` | `SUM(value)` |
-
-**Note on `rollup_method` in the mart (taxonomy only):** This column reflects **taxonomy** resolution (exact / fallback / unclassified), not EC→pathway mapping. There is no pathway-level fallback — an EC either maps to KEGG pathway(s) or it does not (§6.4).
-
-When aggregating to `(pathway_key, taxon_key, …)`, different source tax_id rows can resolve to the same taxon via different methods (e.g. one species via exact phylum, another via fallback to kingdom). **Group by `rollup_method` as well** so the mart emits separate rows per `(pathway, taxon, rollup_method)` rather than collapsing methods.
 
 ## 7. Constraints
 
@@ -280,16 +317,25 @@ Each constraint has an id, check, stage, default severity, and pass criteria. Im
 | `rpkm_tax_columns_present` | ≥1 tax_id column detected | `stg_rpkm_long` | error | tax_column_count ≥ 1 |
 | `rpkm_no_negative_values` | All `value >= 0` | `stg_rpkm_long` | error | 0 violating rows |
 | `rpkm_tax_id_resolvable` | Every distinct `source_tax_id` in `names` | `stg_rpkm_long` | warn | 0 unmapped tax_ids |
-| `rpkm_ec_kegg_coverage` | `distinct matched ECs / distinct ECs in sample` | `int_rpkm_pathway` | info | Always passes; emits ratio |
-| `pathway_join_fanout_rate` | Avg `int_rpkm_pathway` rows per `stg_rpkm_long` row | `int_rpkm_pathway` | info | Metric only |
-| `mass_conservation` | `SUM(mart.value)` ≈ `SUM(int_rpkm_pathway.value)` after accounting for pathway-level dedup | `mart_pathway_taxonomy_long` | warn | Relative delta ≤ 0.01% |
+| `rpkm_ec_kegg_coverage` | `distinct mapped ECs / distinct ECs in sample` | `int_rpkm_pathway` | info | Always passes; emits ratio |
+| `unmapped_ec_value_rate` | `SUM(value WHERE pathway_key='UNMAPPED_EC') / SUM(value)` | mart | info | Metric only |
+| `pathway_join_fanout_rate` | Avg `int_rpkm_pathway` rows per `stg_rpkm_long` row (mapped only) | `int_rpkm_pathway` | info | Metric only |
+| `mass_conservation` | `SUM(mart.value)` ≈ `SUM(stg_rpkm_long.value)` | `mart_pathway_taxonomy_long` | warn | Relative delta ≤ 0.01% |
 | `mart_nonempty` | Mart row count > 0 | `mart_pathway_taxonomy_long` | error | count > 0 |
-| `mart_no_null_keys` | `pathway_key`, `taxon_key`, `value` non-null | `mart_pathway_taxonomy_long` | error | 0 nulls |
-| `mart_rollup_exact_match_rate` | `SUM(value WHERE rollup_method='exact') / SUM(value)` | mart | info | Metric only |
-| `mart_rollup_fallback_rate` | `SUM(value WHERE rollup_method='fallback') / SUM(value)` | mart | info | Metric only |
-| `mart_unclassified_rate` | `SUM(value WHERE rollup_method='unclassified') / SUM(value)` | mart | info | Metric only in v1 (no warn threshold until fixtures establish baseline) |
+| `mart_no_null_keys` | Real keys non-null (see below) | `mart_pathway_taxonomy_long` | error | 0 violating rows |
+| `mart_rollup_exact_match_rate` | `SUM(value WHERE tax_rank_resolved = tax_rank_requested AND taxon_key != -1) / SUM(value)` | mart | info | Metric only |
+| `mart_rollup_fallback_rate` | `SUM(value WHERE tax_rank_resolved != tax_rank_requested AND taxon_key != -1) / SUM(value)` | mart | info | Metric only |
+| `mart_unclassified_rate` | `SUM(value WHERE taxon_key = -1) / SUM(value)` | mart | info | Metric only in v1 |
 
-**Mass conservation definition:** Sum of mart values equals sum of input long values that successfully joined to at least one pathway at the selected pathway level (after EC-pathway dedup). Document exact SQL in the singular test.
+**`mart_no_null_keys` (conditional):** Applies only to **non-sentinel** rows:
+
+- Where `taxon_label != 'Unclassified'`: `taxon_key IS NOT NULL` and `taxon_key != -1`
+- Where `pathway_key != 'UNMAPPED_EC'`: `pathway_key IS NOT NULL`
+- All rows: `value IS NOT NULL`
+
+Sentinel rows use explicit sentinel keys (`-1`, `'UNMAPPED_EC'`) and are exempt from real-key checks. `value` is always required.
+
+**Mass conservation definition:** Sum of mart values equals sum of all `stg_rpkm_long` values (LEFT JOIN preserves full long mass). Document exact SQL in the singular test.
 
 **v2 (deferred):** named constraint profiles (`strict` / `permissive`) overriding default severities.
 
@@ -304,7 +350,7 @@ Each constraint has an id, check, stage, default severity, and pass criteria. Im
 1. Allocate `runs/{sample_id}/{timestamp}/` and pass `--target-path`
 2. Pass `--vars` consistently (`sample_id`, `rpkm_path`, `tax_rank`, `pathway_level`)
 3. Write `run_context.json` (vars + derived `overall_status`; dbt does not persist vars)
-4. Export `mart_pathway_taxonomy_long.parquet` from the sample DuckDB file
+4. Export mart Parquet to `runs/.../outputs/`
 5. Single entrypoint for future Node subprocess / CI
 
 ```bash
@@ -340,7 +386,9 @@ dbt build --select int_tax_rollup_resolved+ --vars '{ "tax_rank": "class", ... }
 | `target/run_results.json` | dbt via `--target-path` | Per-node status, timing, rows affected, test outcomes |
 | `target/manifest.json` | dbt | Lineage, compiled SQL |
 | `run_context.json` | `run_pipeline.py` | `sample_id`, `rpkm_path`, `tax_rank`, `pathway_level`, timestamps, `artifact_dir`, derived `overall_status` |
-| `mart_pathway_taxonomy_long.parquet` | export step in wrapper | Final mart snapshot |
+| `outputs/mart_pathway_taxonomy_long.parquet` | export step in wrapper | Final mart snapshot |
+
+**Run directory layout:** `target/` holds dbt-internal artifacts; `outputs/` holds pipeline deliverables (mart Parquet). Sibling directories keep dbt's `target/` convention intact while separating user-facing exports.
 
 **`overall_status` derivation:**
 - `failed` — any error-severity test fails or model error
