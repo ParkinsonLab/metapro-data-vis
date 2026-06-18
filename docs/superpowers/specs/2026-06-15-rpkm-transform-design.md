@@ -27,7 +27,7 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Cell value | Per-taxon **column** values, summed | Matches app behavior and EDA unpivot pattern; not row-level `RPKM` column |
 | Pathway level | Configurable: `superpathway` \| `pathway` \| `pathway_node`; default `pathway` | Aligns with domain terms: pathway = `pathway_superpathways` row; pathway_node = EC-on-map instance |
 | Canonical output | `mart_pathway_taxonomy_long` only | Rectangular matrix and chord matrix deferred |
-| Taxonomy rollup | Resolve via `dim_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived by comparing to `tax_rank_requested` |
+| Taxonomy rollup | Resolve via `dim_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived via `tax_rank` var / `run_context.json` |
 | EC → pathway join | **LEFT JOIN**; NULL `pathway_key` when unmapped (`is_pathway_mapped = false`) | Preserves knowledge-gap mass in mart |
 | Reference taxonomy shape | `dim_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
@@ -265,15 +265,15 @@ Resolves each row to a taxon at requested rank using `dim_tax_rank_map` and `see
 2. **Fallback:** among rows where `rank_order <= tax_rank_order`, pick finest available (max rank order) → `tax_rank_resolved = that rank` (coarser than requested).
 3. **Unclassified:** no qualifying row → `taxon_key = NULL`, `taxon_label = 'Unclassified'`, `tax_rank_resolved = NULL`.
 
-**Deriving resolution type** (not stored — computed from mart columns + `tax_rank_requested`):
+**Deriving resolution type** (not stored on mart — use `tax_rank` dbt var or `run_context.json`):
 
 | Condition | Meaning |
 |---|---|
 | `taxon_label = 'Unclassified'` (equivalently `taxon_key IS NULL`) | Unclassified |
-| `tax_rank_resolved = tax_rank_requested` | Exact match |
+| `tax_rank_resolved = {{ var('tax_rank') }}` | Exact match |
 | else (non-null `taxon_key`) | Coarser fallback |
 
-Example (your scenario, `tax_rank_requested = phylum`): taxon A resolves to Bacteroidota at phylum (exact); taxon B with unknown phylum resolves to kingdom Pseudomonadati (fallback). These are **different `(taxon_key, tax_rank_resolved)` pairs** in the mart — no extra grouping dimension needed.
+Example (requested rank = phylum via var): taxon A resolves to Bacteroidota at phylum (exact); taxon B with unknown phylum resolves to kingdom Pseudomonadati (fallback). These are **different `(taxon_key, tax_rank_resolved)` pairs** in the mart — no extra grouping dimension needed.
 
 **NULL keys for gap rows** (no synthetic tax_ids or pathway ids):
 
@@ -284,7 +284,7 @@ Example (your scenario, `tax_rank_requested = phylum`): taxon A resolves to Bact
 
 For unmapped rows, `pathway_label` is a **fixed display string**; per-EC detail remains in `ec_normalized` (carried through from `int_rpkm_pathway`, in mart GROUP BY when `is_pathway_mapped = false`).
 
-**`tax_rank_requested`:** Not echoed on `int_tax_rollup_resolved`. The var is fixed for the entire intermediate build (model rebuilds when it changes). Echo **only on `mart_pathway_taxonomy_long`** and in `run_context.json` — avoids redundant columns on ~720K intermediate rows.
+**Run-level params (`tax_rank`, `pathway_level`):** Not echoed on mart or `int_tax_rollup_resolved` rows. Stored in dbt vars during build and in `runs/{sample_id}/run_context.json` after build. Constraints and info metrics reference `{{ var('tax_rank') }}` directly.
 
 Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
@@ -303,7 +303,7 @@ Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
 Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and resolved taxon.
 
-**Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, tax_rank_requested, sample_id, pathway_level, is_pathway_mapped, ec_normalized)` — include `ec_normalized` in GROUP BY when `is_pathway_mapped = false` so unmapped EC rows stay separate.
+**Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, sample_id, pathway_level, is_pathway_mapped, ec_normalized)` — include `ec_normalized` in GROUP BY when `is_pathway_mapped = false` so unmapped EC rows stay separate.
 
 Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved)` aggregate together — regardless of whether they arrived via exact or fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
 
@@ -326,7 +326,6 @@ Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved
 | `pathway_label` | Name at selected level; `'Unmapped EC'` when unmapped |
 | `is_pathway_mapped` | `true` / `false` |
 | `ec_normalized` | EC string; distinguishes unmapped rows in mart |
-| `tax_rank_requested` | Echo of var (mart only) |
 | `tax_rank_resolved` | Actual rank used (may differ under fallback); NULL when Unclassified |
 | `taxon_key` | Resolved tax_id; NULL when Unclassified |
 | `taxon_label` | |
@@ -350,8 +349,8 @@ Each constraint has an id, check, stage, default severity, and pass criteria. Im
 | `mart_classified_taxa_have_keys` | No row where `taxon_label != 'Unclassified'` AND `taxon_key IS NULL` | mart | error | 0 rows |
 | `mart_mapped_pathways_have_keys` | No row where `is_pathway_mapped = true` AND `pathway_key IS NULL` | mart | error | 0 rows |
 | `mart_value_non_null` | All rows: `value IS NOT NULL` | mart | error | 0 nulls |
-| `mart_rollup_exact_match_rate` | `SUM(value WHERE tax_rank_resolved = tax_rank_requested AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
-| `mart_rollup_fallback_rate` | `SUM(value WHERE tax_rank_resolved != tax_rank_requested AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_rollup_exact_match_rate` | `SUM(value WHERE tax_rank_resolved = var('tax_rank') AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_rollup_fallback_rate` | `SUM(value WHERE tax_rank_resolved != var('tax_rank') AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
 | `mart_unclassified_rate` | `SUM(value WHERE taxon_label = 'Unclassified') / SUM(value)` | mart | info | Metric only in v1 |
 
 **Key constraints (replaces `mart_no_null_keys`):** NULL keys are **permitted and expected** for gap rows. Constraints enforce keys only where a real taxonomy/pathway exists:
@@ -413,7 +412,7 @@ dbt build --select int_tax_rollup_resolved+ --vars '{ "tax_rank": "class", ... }
 |---|---|---|---|
 | `target/run_results.json` | `transform/target/` | dbt | Per-node status, timing, test outcomes |
 | `target/manifest.json` | `transform/target/` | dbt | Lineage, compiled SQL |
-| `run_context.json` | `runs/{sample_id}/` | wrapper | vars, `overall_status`, pointer to `transform/target/` |
+| `run_context.json` | `runs/{sample_id}/` | wrapper | `tax_rank`, `pathway_level`, `sample_id`, `rpkm_path`, `overall_status`, pointer to `transform/target/` |
 | `mart_pathway_taxonomy_long.parquet` | `runs/{sample_id}/` | wrapper (optional) | Mart export; query `sample.duckdb` directly otherwise |
 
 **`overall_status` derivation** (from `target/run_results.json`):
