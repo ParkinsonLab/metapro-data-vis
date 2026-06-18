@@ -28,7 +28,7 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Pathway level | Configurable: `superpathway` \| `pathway` \| `pathway_node`; default `pathway` | Aligns with domain terms: pathway = `pathway_superpathways` row; pathway_node = EC-on-map instance |
 | Canonical output | `mart_pathway_taxonomy_long` only | Rectangular matrix and chord matrix deferred |
 | Taxonomy rollup | Resolve via `dim_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived by comparing to `tax_rank_requested` |
-| EC → pathway join | **LEFT JOIN** with `UNMAPPED_EC` sentinel for KEGG-unmapped ECs | Preserves knowledge-gap mass in mart |
+| EC → pathway join | **LEFT JOIN**; NULL `pathway_key` when unmapped (`is_pathway_mapped = false`) | Preserves knowledge-gap mass in mart |
 | Reference taxonomy shape | `dim_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
 | Constraints | Tiered severity (error / warn / info); profile-ready for v2 | dbt test `severity:` + info singular tests; no profiles in v1 |
@@ -40,40 +40,32 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 
 ```
 analytics/
-├── pyproject.toml              # add dbt-core, dbt-duckdb
+├── pyproject.toml
 ├── exploration/                # unchanged (EDA)
 └── transform/
     ├── dbt_project.yml
     ├── profiles.yml
-    ├── packages.yml            # if needed
     ├── models/
     │   ├── reference/
-    │   │   ├── dim_tax_rank_map.sql
-    │   │   └── ec_pathway_bridge.sql
     │   ├── staging/
-    │   │   └── stg_rpkm_long.py        # dbt Python model
     │   ├── intermediate/
-    │   │   ├── int_rpkm_pathway.sql
-    │   │   └── int_tax_rollup_resolved.sql
     │   └── marts/
-    │       └── mart_pathway_taxonomy_long.sql
     ├── seeds/
-    │   └── rank_order.csv              # kingdom…species ordering
     ├── tests/
-    │   └── singular/                   # info metrics, mass conservation
     ├── macros/
-    │   └── rank_order.sql
     ├── scripts/
-    │   └── run_pipeline.py             # CLI: dbt build + run_context + parquet export
-    └── runs/                           # gitignored; per-run artifacts
-        └── {sample_id}/{timestamp}/
-            ├── run_context.json
-            ├── target/                 # dbt --target-path (run_results.json, manifest.json, …)
-            └── outputs/
-                └── mart_pathway_taxonomy_long.parquet
-    ├── data/                           # gitignored
-    │   └── reference.duckdb            # shared reference model tables
-    └── target/                         # gitignored; default local dbt target (dev only)
+    │   └── run_pipeline.py
+    ├── data/                   # gitignored — shared reference DuckDB
+    │   └── reference.duckdb
+    ├── target/                 # gitignored — default local dbt target (dev only)
+    └── runs/                   # gitignored — per-sample runtime (see §3.3)
+        └── {sample_id}/
+            ├── sample.duckdb   # mutable: latest materialized tables for this sample
+            └── {timestamp}/    # immutable: one folder per pipeline invocation
+                ├── run_context.json
+                ├── target/     # dbt --target-path
+                └── outputs/
+                    └── mart_pathway_taxonomy_long.parquet
 ```
 
 Reference Parquet continues to live at `resources/db/parquet/` (produced by `analytics/exploration/scripts/export_parquet.py`). dbt reads via `read_parquet()` sources or external sources configuration — not duplicated.
@@ -109,6 +101,28 @@ analytics/transform/**/*.duckdb
 ```
 
 Per-sample DuckDB files live at `analytics/transform/runs/{sample_id}/sample.duckdb` (also covered by `runs/`). Reference Parquet under `resources/db/parquet/` remains tracked via Git LFS (unchanged from EDA).
+
+### 3.3 `runs/` folder structure (rationale)
+
+Two layers per sample — **mutable working state** vs **immutable run history**:
+
+| Path | Role | On re-run with new params |
+|---|---|---|
+| `runs/{sample_id}/sample.duckdb` | DuckDB file holding current dbt table materializations (`stg_rpkm_long`, `int_*`, `mart_*`) | **`int_tax_rollup_resolved` and `mart_*` fully replaced** (dbt `table` materialization = drop/recreate or overwrite). Holds **only the latest** `(tax_rank, pathway_level)` built. |
+| `runs/{sample_id}/{timestamp}/` | Audit trail for one pipeline invocation | **Append-only** — never overwritten. Captures vars used, dbt artifacts, and mart Parquet for that specific param combo. |
+
+**Not cached (v1):** Changing `tax_rank` or `pathway_level` does **not** keep previous param versions in `sample.duckdb`. Re-running replaces `int_tax_rollup_resolved` and `mart_pathway_taxonomy_long` in place. To retain an earlier param combo, rely on the timestamped Parquet export (or re-run — cheap from `int_rpkm_pathway`).
+
+**What is reused vs replaced on param change:**
+
+| Model | `tax_rank` change | `pathway_level` change only |
+|---|---|---|
+| `stg_rpkm_long` | unchanged | unchanged |
+| `int_rpkm_pathway` | unchanged | unchanged |
+| `int_tax_rollup_resolved` | **full replace** | unchanged |
+| `mart_pathway_taxonomy_long` | **full replace** | **full replace** |
+
+**v2 (deferred):** optional param-keyed cache (e.g. `mart_pathway_taxonomy_long__phylum__pathway` table or partition) if users flip ranks frequently and need simultaneous access without re-run.
 
 ## 4. Approach
 
@@ -148,8 +162,9 @@ Python 3.14 + dbt-core ≥ 1.12 (Python 3.14 support merged 2026-05) + dbt-duckd
 
 **Typical operations:**
 
-- **New upload:** full pipeline from `stg_rpkm_long`.
-- **Change `tax_rank` or `pathway_level`:** `dbt build --select int_tax_rollup_resolved+` (~seconds).
+- **New upload:** full pipeline from `stg_rpkm_long`; new `{timestamp}/` folder; `sample.duckdb` tables replaced.
+- **Change `tax_rank`:** `dbt build --select int_tax_rollup_resolved+` — replaces `int_tax_rollup_resolved` + mart in `sample.duckdb`; new `{timestamp}/` if using wrapper.
+- **Change `pathway_level` only:** `dbt build --select mart_pathway_taxonomy_long` — replaces mart only (~seconds).
 
 ## 6. Model Specifications
 
