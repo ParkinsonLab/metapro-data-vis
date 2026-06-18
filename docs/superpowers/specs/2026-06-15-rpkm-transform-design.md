@@ -27,7 +27,7 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Cell value | Per-taxon **column** values, summed | Matches app behavior and EDA unpivot pattern; not row-level `RPKM` column |
 | Pathway level | Configurable: `superpathway` \| `pathway` \| `pathway_node`; default `pathway` | Aligns with domain terms: pathway = `pathway_superpathways` row; pathway_node = EC-on-map instance |
 | Canonical output | `mart_pathway_taxonomy_long` only | Rectangular matrix and chord matrix deferred |
-| Taxonomy rollup | `dim_tax_rank_map` + exact-rank match, then coarser fallback, then `Unclassified` | Explicit, auditable; includes `tax_rank_resolved` and `rollup_method` on mart |
+| Taxonomy rollup | Resolve via `dim_tax_rank_map` using: exact rank → coarser fallback → `Unclassified` | Lookup table + resolution algorithm; mart includes `tax_rank_resolved` and `rollup_method` |
 | Reference taxonomy shape | `dim_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
 | Constraints | Tiered severity (error / warn / info); profile-ready for v2 | dbt test `severity:` + info singular tests; no profiles in v1 |
@@ -72,6 +72,22 @@ analytics/
 ```
 
 Reference Parquet continues to live at `resources/db/parquet/` (produced by `analytics/exploration/scripts/export_parquet.py`). dbt reads via `read_parquet()` sources or external sources configuration — not duplicated.
+
+## 3.1 Storage Format & Persistence
+
+All models materialize as **DuckDB tables** inside a `.duckdb` database file unless noted otherwise. Parquet is used for **inputs** (reference) and **explicit exports** (mart snapshot per run).
+
+| Layer | When built | Storage | Persisted to disk? | Lifetime |
+|---|---|---|---|---|
+| **Reference Parquet** | `export_parquet.py` (EDA script) | `resources/db/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
+| **Reference dbt models** (`dim_tax_rank_map`, `ec_pathway_bridge`) | `dbt build` on reference (distribution / CI) | Tables in shared `transform/data/reference.duckdb` | Yes | Refreshed when Parquet changes |
+| **Upload dbt models** (`stg_rpkm_long` … `mart_*`) | `dbt build` on sample upload | Tables in per-sample `transform/runs/{sample_id}/sample.duckdb` | Yes | One DB file per sample; overwritten on re-upload |
+| **Mart export** | `run_pipeline.py` post-step | `runs/{sample_id}/{timestamp}/mart_pathway_taxonomy_long.parquet` | Yes | Immutable snapshot per run |
+| **dbt artifacts** | each `dbt build` | `runs/{sample_id}/{timestamp}/target/` | Yes | Per-run via `--target-path` |
+
+**Distribution vs upload:** Reference data is read-only input (Parquet → DuckDB tables once). Upload data is written into a **separate per-sample DuckDB file** so re-parameterizing `tax_rank` / `pathway_level` does not re-read the TSV and does not mutate reference tables.
+
+**Views vs tables:** Reference models and `stg_rpkm_long` → **table**. `int_*` and mart may be **table** (v1 default, for inspectability) or **view** (if rebuild latency stays sub-second in profiling — implementation choice).
 
 ## 4. Approach
 
@@ -175,7 +191,23 @@ EC normalization (same as EDA / `SPEC.md`): `EC:x.y.z` → `x.y.z`; null/empty/N
 
 ### 6.4 `int_rpkm_pathway`
 
-`stg_rpkm_long` INNER JOIN `ec_pathway_bridge` ON `ec_normalized`. Unmapped ECs drop out (tracked by info constraint). Carries all three pathway keys on every row for cheap re-grouping.
+`stg_rpkm_long` **INNER JOIN** `ec_pathway_bridge` ON `ec_normalized`. Unmapped ECs are excluded from this model and downstream marts (v1). Carries all three pathway keys on every row for cheap re-grouping.
+
+**Unmapped ECs (v1 behavior):** Rows whose `ec_normalized` has no KEGG match are dropped here. Coverage is tracked by the `rpkm_ec_kegg_coverage` info constraint. See §6.4.1 for impact if we later allow unmapped ECs to propagate.
+
+#### 6.4.1 Unmapped EC propagation (deferred — impact analysis)
+
+If changed to **LEFT JOIN** with a sentinel pathway (e.g. `pathway_key = 'UNMAPPED_EC'`, `pathway_label = ec_normalized`):
+
+| Area | Impact |
+|---|---|
+| **Query / mart** | Mart includes an "unmapped EC" bucket alongside real pathways; filter with `WHERE pathway_key != 'UNMAPPED_EC'` to recover v1 behavior |
+| **Constraints** | `mass_conservation` compares against full `stg_rpkm_long` sum (not join-filtered); `rpkm_ec_kegg_coverage` unchanged; new info metric: `unmapped_ec_value_rate` |
+| **Performance** | More rows in `int_*` and mart (~36% of distinct ECs unmapped in test fixture per EDA §7); still fine at DuckDB scale |
+| **Pathway level var** | No fallback logic needed — unmapped ECs have no pathway/superpathway by definition; sentinel is not a coarser pathway level |
+| **Optional pattern** | Separate `mart_unmapped_ec_long` (group by EC × taxon only) keeps main mart pathway-only; avoids sentinel in pathway dimension |
+
+Recommendation for v1: keep INNER JOIN; add `mart_unmapped_ec_long` in v1.1 if gap visualization is needed without polluting the pathway mart.
 
 ### 6.5 `int_tax_rollup_resolved`
 
@@ -188,6 +220,8 @@ Resolves each row to a taxon at requested rank using `dim_tax_rank_map` and `see
 1. **Exact:** row in `dim_tax_rank_map` where `tax_id = source_tax_id` AND `rank = tax_rank` → `rollup_method = 'exact'`, `tax_rank_resolved = tax_rank`.
 2. **Fallback:** among rows where `rank_order <= tax_rank_order`, pick finest available (max rank order) → `rollup_method = 'fallback'`, `tax_rank_resolved = that rank`.
 3. **Unclassified:** no qualifying row → `rollup_method = 'unclassified'`, `taxon_key = -1`, `taxon_label = 'Unclassified'`.
+
+**Why `taxon_key = -1` instead of NULL:** Sentinels keep `mart_no_null_keys` satisfied, make GROUP BY / joins explicit, and avoid NULL-handling ambiguity in downstream consumers. `-1` is not a valid NCBI tax_id. Alternative: allow NULL when `rollup_method = 'unclassified'` and relax the constraint — semantically cleaner but weaker for keyed exports.
 
 Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
@@ -229,10 +263,12 @@ Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and
 | `tax_rank_resolved` | Actual rank used (may differ under fallback) |
 | `taxon_key` | |
 | `taxon_label` | |
-| `rollup_method` | Dominant method if grouped (see note) |
+| `rollup_method` | Taxonomy resolution method for this row (see note) |
 | `value` | `SUM(value)` |
 
-**Note on grouped `rollup_method`:** when aggregating, if a `(pathway, taxon)` group mixes methods, set `rollup_method` to the method contributing the largest share of `value`, or emit separate rows per `(pathway, taxon, rollup_method)` — **implementation choice: separate rows per rollup_method** to avoid information loss.
+**Note on `rollup_method` in the mart (taxonomy only):** This column reflects **taxonomy** resolution (exact / fallback / unclassified), not EC→pathway mapping. There is no pathway-level fallback — an EC either maps to KEGG pathway(s) or it does not (§6.4).
+
+When aggregating to `(pathway_key, taxon_key, …)`, different source tax_id rows can resolve to the same taxon via different methods (e.g. one species via exact phylum, another via fallback to kingdom). **Group by `rollup_method` as well** so the mart emits separate rows per `(pathway, taxon, rollup_method)` rather than collapsing methods.
 
 ## 7. Constraints
 
@@ -260,6 +296,16 @@ Each constraint has an id, check, stage, default severity, and pass criteria. Im
 ## 8. CLI & Run Artifacts
 
 ### 8.1 Invocation
+
+**Direct dbt (local dev):** Running `dbt build` with `--vars` is sufficient for development and debugging.
+
+**`run_pipeline.py` wrapper (CI, fixtures, future API):** Thin orchestration — not a substitute for dbt logic. Responsibilities:
+
+1. Allocate `runs/{sample_id}/{timestamp}/` and pass `--target-path`
+2. Pass `--vars` consistently (`sample_id`, `rpkm_path`, `tax_rank`, `pathway_level`)
+3. Write `run_context.json` (vars + derived `overall_status`; dbt does not persist vars)
+4. Export `mart_pathway_taxonomy_long.parquet` from the sample DuckDB file
+5. Single entrypoint for future Node subprocess / CI
 
 ```bash
 cd analytics
