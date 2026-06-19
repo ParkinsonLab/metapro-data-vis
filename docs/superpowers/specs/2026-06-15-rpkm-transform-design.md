@@ -1,6 +1,6 @@
 # RPKM → Pathway × Taxonomy Transform Pipeline — Design Spec
 
-> **Status:** Draft (2026-06-15)  
+> **Status:** Draft (2026-06-15, revised toolchain + reference layout)  
 > **Goal:** Build a dbt + DuckDB pipeline in `analytics/transform/` that ingests a wide RPKM/FPKM sample file and produces a long-form pathway × taxonomy matrix with summed per-taxon column values, configurable taxonomy rank and pathway level, tiered constraint checks, and persisted run artifacts. API integration and chord-matrix derivation are explicitly out of scope for v1.
 
 ## 1. Context
@@ -13,7 +13,7 @@ Exploratory analysis (`analytics/exploration/`, branch `exploration/eda`) valida
 
 | Phase | When | Data |
 |---|---|---|
-| **Distribution** | App install / software distribution | Reference DB Parquet: `names`, `nodes`, `parents`, `pathway_*`, `superpathways` |
+| **Distribution** | App install / software distribution | Raw reference Parquet (`resources/db/parquet/`); derived bridge Parquet (`analytics/transform/reference/parquet/`) |
 | **Runtime** | User uploads RPKM/FPKM | Sample TSV only |
 
 Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to the Node app, pre-compute intermediates for snappy UI, derive `chord_matrix` in the API layer from `mart_pathway_taxonomy_long`.
@@ -27,12 +27,13 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Cell value | Per-taxon **column** values, summed | Matches app behavior and EDA unpivot pattern; not row-level `RPKM` column |
 | Pathway level | Configurable: `superpathway` \| `pathway` \| `pathway_node`; default `pathway` | Aligns with domain terms: pathway = `pathway_superpathways` row; pathway_node = EC-on-map instance |
 | Canonical output | `mart_pathway_taxonomy_long` only | Rectangular matrix and chord matrix deferred |
-| Taxonomy rollup | Resolve via `dim_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived via `tax_rank` var / `run_context.json` |
+| Taxonomy rollup | Resolve via `bridge_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived via `tax_rank` var / `run_context.json` |
 | EC → pathway join | **LEFT JOIN**; NULL `pathway_key` when unmapped (`is_pathway_mapped = false`) | Preserves knowledge-gap mass in mart |
-| Reference taxonomy shape | `dim_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
+| Reference taxonomy shape | `bridge_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
+| Reference bridges | `bridge_tax_rank_map`, `bridge_ec_pathway`; built at distribution → `reference/parquet/` | Pre-computed joins; upload reads derived Parquet only |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
 | Constraints | Tiered severity (error / warn / info); profile-ready for v2 | dbt test `severity:` + info singular tests; no profiles in v1 |
-| Reporting | dbt artifacts in `transform/target/`; optional `run_context.json` per sample | Conventional dbt layout; no per-run history folders |
+| Reporting | dbt artifacts in `transform/target/`; `run_context.json` when using wrapper | Conventional dbt layout; no per-run history |
 | Scope v1 | Analytics pipeline + CLI wrapper + tests | No API changes |
 | Scale target | ~100 tax_id columns, ~400–500K gene rows, ~1–2% nonzero cells | ~720K long rows after nonzero filter |
 
@@ -54,38 +55,57 @@ analytics/
     ├── tests/
     ├── macros/
     ├── scripts/
-    │   └── run_pipeline.py
-    ├── data/                   # gitignored — shared reference DuckDB
-    │   └── reference.duckdb
+    │   ├── run_pipeline.py
+    │   └── build_reference.py   # distribution: dbt tag:reference + export to reference/parquet/
+    ├── reference/
+    │   └── parquet/             # versioned — derived bridge tables (Git LFS)
+    │       ├── bridge_tax_rank_map.parquet
+    │       └── bridge_ec_pathway.parquet
+    ├── data/                   # gitignored — optional staging DB during distribution build
     ├── target/                 # gitignored — dbt artifacts (run_results.json, manifest.json)
     └── runs/                   # gitignored — one folder per sample (see §3.3)
         └── {sample_id}/
             ├── sample.duckdb   # materialized tables (latest build)
-            ├── run_context.json   # latest vars + overall_status (optional)
+            ├── run_context.json   # written by wrapper (latest vars + overall_status)
             └── mart_pathway_taxonomy_long.parquet   # optional export from wrapper
 ```
 
-Reference Parquet continues to live at `resources/db/parquet/` (produced by `analytics/exploration/scripts/export_parquet.py`). dbt reads via `read_parquet()` sources or external sources configuration — not duplicated.
+**Two reference Parquet layers (different provenance):**
+
+| Layer | Produced by | Location |
+|---|---|---|
+| **Raw** table exports | `export_parquet.py` from `taxonomy.db` | `resources/db/parquet/*.parquet` |
+| **Derived** bridge tables | `build_reference.py` / `dbt build --select tag:reference` | `analytics/transform/reference/parquet/*.parquet` |
+
+Raw Parquet is input to distribution-time dbt reference models only. Upload reads **derived** bridge Parquet — not raw tables, not recomputed UNPIVOT/joins.
 
 ## 3.1 Storage Format & Persistence
 
-All models materialize as **DuckDB tables** inside a `.duckdb` database file unless noted otherwise. Parquet is used for **inputs** (reference) and **explicit exports** (mart snapshot per run).
+Upload-path models materialize as **DuckDB tables** inside `sample.duckdb` unless noted otherwise. Reference bridge models at upload are **views**. Parquet is used for reference inputs/exports and optional mart snapshots.
 
 | Layer | When built | Storage | Persisted to disk? | Lifetime |
 |---|---|---|---|---|
-| **Reference Parquet** | `export_parquet.py` (EDA script) | `resources/db/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
-| **Reference dbt models** (`dim_tax_rank_map`, `ec_pathway_bridge`) | `dbt build` on reference (distribution / CI) | Tables in shared `transform/data/reference.duckdb` | Yes | Refreshed when Parquet changes |
+| **Raw reference Parquet** | `export_parquet.py` | `resources/db/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
+| **Derived bridge Parquet** | `build_reference.py` at distribution | `analytics/transform/reference/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
+| **Reference dbt models** (`bridge_tax_rank_map`, `bridge_ec_pathway`) | Distribution builds tables; upload reads derived Parquet | **Views** over derived Parquet in `sample.duckdb` (see §3.4) | View DDL in `sample.duckdb` | Refreshed when derived Parquet changes |
 | **Upload dbt models** (`stg_rpkm_long` … `mart_*`) | `dbt build` on sample upload | Tables in `runs/{sample_id}/sample.duckdb` | Yes | Overwritten on re-upload or param change |
 | **Mart export** (optional) | `run_pipeline.py` post-step | `runs/{sample_id}/mart_pathway_taxonomy_long.parquet` | Yes | Overwritten; canonical query target is `sample.duckdb` |
 | **dbt artifacts** | each `dbt build` | `transform/target/` | Yes | Overwritten each run (conventional dbt location) |
 
-**Distribution vs upload:** Reference data is read-only input (Parquet → DuckDB tables once). Upload data is written into a **separate per-sample DuckDB file** so re-parameterizing `tax_rank` / `pathway_level` does not re-read the TSV and does not mutate reference tables.
+**Distribution vs upload:** Raw Parquet → dbt reference SQL → derived bridge Parquet (once, at distribution). Upload loads sample TSV into a **separate per-sample DuckDB file** and joins pre-built bridges via thin views — no reference recomputation on the upload path.
 
-**Views vs tables:** Reference models and `stg_rpkm_long` → **table**. `int_*` and mart may be **table** (v1 default, for inspectability) or **view** (if rebuild latency stays sub-second in profiling — implementation choice).
+**Materialization by phase:**
+
+| Phase | Reference models | Upload models |
+|---|---|---|
+| **Distribution** | **table** (staging DB) → export to `reference/parquet/` | — |
+| **Upload** | **view** over derived Parquet in `sample.duckdb` | **table** (`stg_rpkm_long`, `int_*`, mart) |
+
+`int_*` and mart may be **view** instead of table if rebuild latency stays sub-second in profiling — implementation choice.
 
 ### 3.2 `.gitignore`
 
-All dbt/DuckDB runtime outputs are **gitignored** — only source SQL, config, seeds, and scripts are committed.
+All dbt/DuckDB **runtime** outputs are **gitignored** — source SQL, config, seeds, scripts, and **`reference/parquet/`** (derived bridges) are committed.
 
 ```
 # analytics/transform — dbt + DuckDB runtime outputs
@@ -97,7 +117,7 @@ analytics/transform/logs/
 analytics/transform/**/*.duckdb
 ```
 
-Per-sample DuckDB files live at `analytics/transform/runs/{sample_id}/sample.duckdb` (also covered by `runs/`). Reference Parquet under `resources/db/parquet/` remains tracked via Git LFS (unchanged from EDA).
+**Not gitignored:** `analytics/transform/reference/parquet/` (derived bridge Parquet, Git LFS) and `resources/db/parquet/` (raw exports, Git LFS).
 
 ### 3.3 `runs/` folder structure (rationale)
 
@@ -124,12 +144,63 @@ runs/{sample_id}/
 
 | Model | `tax_rank` change | `pathway_level` change only |
 |---|---|---|
-| `stg_rpkm_long` | unchanged | unchanged |
-| `int_rpkm_pathway` | unchanged | unchanged |
+| `stg_rpkm_long`, `int_rpkm_by_ec_tax` | unchanged | unchanged |
+| `int_rpkm_pathway` | unchanged | **full replace** (fan-out dedup is level-specific) |
 | `int_tax_rollup_resolved` | **full replace** | unchanged |
 | `mart_pathway_taxonomy_long` | **full replace** | **full replace** |
 
-**v2 (deferred):** optional param-keyed cache (e.g. `mart_pathway_taxonomy_long__phylum__pathway` table or partition) if users flip ranks frequently and need simultaneous access without re-run.
+**v2 (deferred):** optional param-keyed cache if users need simultaneous access to multiple `(tax_rank, pathway_level)` combos without re-run.
+
+### 3.4 Reference data access
+
+Reference bridge models must be queryable from upload-path models without cross-database `ref()` issues and **without recomputing** UNPIVOT/joins at upload.
+
+**v1 pattern: pre-built derived Parquet + upload views**
+
+```
+Distribution                          Upload
+────────────                          ──────
+export_parquet.py                     stg_rpkm_long → … → mart
+  → resources/db/parquet/ (raw)
+dbt build --select tag:reference
+  → tables in staging DB
+build_reference.py
+  → reference/parquet/bridge_*.parquet   ref('bridge_ec_pathway') etc.
+                                        → views scan derived Parquet
+```
+
+**Distribution (`build_reference.py`):**
+1. `dbt build --select tag:reference` — reference SQL reads **raw** Parquet from `resources/db/parquet/`; materializes **tables** in a staging DB (`data/reference.duckdb`, gitignored).
+2. `COPY … TO 'reference/parquet/bridge_tax_rank_map.parquet'` (and `bridge_ec_pathway.parquet`).
+3. Commit / ship derived Parquet via Git LFS.
+
+**Upload:** Reference models are **views** in `sample.duckdb` over **derived** Parquet:
+
+```sql
+-- models/reference/bridge_ec_pathway.sql (upload profile, materialized: view)
+SELECT * FROM read_parquet('{{ var("reference_parquet_dir") }}/bridge_ec_pathway.parquet')
+```
+
+Upload command is **`dbt build --select stg_rpkm_long+` only** — no `tag:reference`. Wrapper fails fast if derived Parquet files are missing (dev fallback: run `build_reference.py` first).
+
+**Implementation note:** Distribution and upload use different dbt **targets** (or profiles) for the same model names — distribution target materializes **tables** from raw Parquet (`raw_parquet_dir`); upload target materializes **views** over derived Parquet (`reference_parquet_dir`). `build_reference.py` runs the distribution target then exports tables to `reference/parquet/`.
+
+| Approach | Pros | Cons |
+|---|---|---|
+| **Derived Parquet + upload views (selected)** | Pre-computed at distribution; fast upload joins; single `sample.duckdb`; `ref()` works natively | Distribution export step; two Parquet roots to document |
+| **ATTACH staging `reference.duckdb` READ_ONLY** | Pre-built tables; no Parquet export | Cross-DB config; harder to ship/version |
+| **Views over raw Parquet at upload** | No export step | Recomputes UNPIVOT/joins on every upload — rejected |
+
+**dbt vars (paths):**
+
+| Var | Points to | Used when |
+|---|---|---|
+| `raw_parquet_dir` | `resources/db/parquet/` | Distribution (`tag:reference` SQL) |
+| `reference_parquet_dir` | `analytics/transform/reference/parquet/` | Upload (reference views) |
+
+Upload/run vars (`rpkm_path`, `sample_id`, `tax_rank`, `pathway_level`) — see §6.7.
+
+**Between-sample delta (future):** attach `runs/A/sample.duckdb` and `runs/B/sample.duckdb`; join marts on `(pathway_key, taxon_key)`. Reference layout does not affect delta.
 
 ## 4. Approach
 
@@ -139,45 +210,71 @@ Rejected alternatives:
 - **Hybrid CLI pre-step + dbt** — split orchestration, broken lineage at ingest.
 - **Pure SQL with codegen UNPIVOT** — fragile per-sample column lists.
 
-Python 3.14 + dbt-core ≥ 1.12 (Python 3.14 support merged 2026-05) + dbt-duckdb.
+Python 3.14 (repo pin) + **dbt-core 1.12.0b1** (beta; Python 3.14 support) + dbt-duckdb. See §9.
 
 ## 5. Model Graph & Rebuild Triggers
 
 ```
-[reference / distribution time]
-  dim_tax_rank_map          ← parents parquet unpivot + self-rows
-  ec_pathway_bridge         ← pathway_nodes ⋈ pathway_superpathways ⋈ superpathways
+[distribution — build once, ship derived Parquet]
+  bridge_tax_rank_map       ← raw parents parquet; export → reference/parquet/
+  bridge_ec_pathway           ← raw pathway_* parquet; export → reference/parquet/
 
-[upload time]
+[upload — views over derived Parquet in sample.duckdb]
+  bridge_tax_rank_map         ← read_parquet(reference/parquet/…)
+  bridge_ec_pathway           ← read_parquet(reference/parquet/…)
+
+[upload — sample tables]
   stg_rpkm_long             ← Python: wide TSV → long, EC normalize, nonzero filter
        ↓
-  int_rpkm_pathway          ← LEFT JOIN ec_pathway_bridge; UNMAPPED_EC sentinel when unmapped
+  int_rpkm_by_ec_tax        ← SUM(value) GROUP BY (ec_normalized, source_tax_id)
        ↓
-  int_tax_rollup_resolved   ← join dim_tax_rank_map; exact / fallback / unclassified
+  int_rpkm_pathway          ← LEFT JOIN bridge_ec_pathway; dedupe fan-out per row at selected level
+       ↓
+  int_tax_rollup_resolved   ← join bridge_tax_rank_map; exact / fallback / unclassified
        ↓
   mart_pathway_taxonomy_long ← GROUP BY pathway level + taxon; SUM(value)
 ```
 
+### 5.1 Abundance aggregation semantics (app parity)
+
+Two distinct steps — do not conflate:
+
+1. **Gene aggregation (`int_rpkm_by_ec_tax`):** Multiple genes with the same `(ec_normalized, source_tax_id)` have their `value` **summed before** the pathway join. Matches the app iterating gene rows and accumulating into the same `(EC, taxon)` bucket.
+
+2. **Fan-out dedup (`int_rpkm_pathway` → mart):** After the join, each aggregated row may match multiple `pathway_node` rows. **Per aggregated row**, count `value` at most **once per `pathway_key` at the selected level** (matches app `reduce_to_dict` Set dedup). At `pathway_node` level, do not dedup across nodes — intentional multi-count.
+
+| `pathway_level` | Fan-out dedup |
+|---|---|
+| `superpathway` | one count per `(int_rpkm_by_ec_tax row, superpathway_id)` |
+| `pathway` | one count per `(row, pathway_id)` |
+| `pathway_node` | no dedup — one row per node |
+
+**`mass_conservation`:** `SUM(mart.value)` ≈ `SUM(stg_rpkm_long.value)` after gene aggregation and pathway-level dedup (not raw fan-out row count).
+
 | Model | Rebuilt when | Not rebuilt when |
 |---|---|---|
-| `dim_tax_rank_map` | Reference Parquet refresh | RPKM upload; `tax_rank` / `pathway_level` change |
-| `ec_pathway_bridge` | Reference Parquet refresh | RPKM upload; param changes |
+| `bridge_tax_rank_map`, `bridge_ec_pathway` (derived Parquet) | Raw Parquet refresh; reference SQL change; `build_reference.py` re-run | Sample upload; param changes |
+| `bridge_*` (upload views) | Derived Parquet refresh; first upload per sample | Param changes; re-upload if views persist |
 | `stg_rpkm_long` | New/changed RPKM file | `tax_rank` / `pathway_level` change |
-| `int_rpkm_pathway` | `stg_rpkm_long` or reference models rebuild | `pathway_level` change |
+| `int_rpkm_by_ec_tax` | `stg_rpkm_long` rebuilds | `tax_rank` / `pathway_level` change |
+| `int_rpkm_pathway` | `int_rpkm_by_ec_tax` rebuilds; `pathway_level` var change | `tax_rank` change alone |
 | `int_tax_rollup_resolved` | Upstream rebuild or `tax_rank` var change | `pathway_level` change alone |
-| `mart_pathway_taxonomy_long` | Upstream rebuild or `tax_rank` / `pathway_level` var change | — |
+| `mart_pathway_taxonomy_long` | Upstream rebuild or `pathway_level` var change; also `tax_rank` via upstream | — |
 
 **Typical operations:**
 
-- **New upload:** full pipeline from `stg_rpkm_long`; `sample.duckdb` tables replaced.
-- **Change `tax_rank`:** `dbt build --select int_tax_rollup_resolved+` — replaces `int_tax_rollup_resolved` + mart in `sample.duckdb`.
-- **Change `pathway_level` only:** `dbt build --select mart_pathway_taxonomy_long` — replaces mart only (~seconds).
+- **Distribution / reference refresh:** `uv run python transform/scripts/build_reference.py` (runs `dbt build --select tag:reference` + Parquet export).
+- **New upload:** `dbt build --select stg_rpkm_long+` (or wrapper equivalent — **no** `tag:reference`).
+- **Change `tax_rank`:** `dbt build --select int_tax_rollup_resolved+`.
+- **Change `pathway_level` only:** `dbt build --select int_rpkm_pathway+` (pathway dedup is level-specific) or `mart_pathway_taxonomy_long+`.
+
+**dbt `--select` syntax:** `stg_rpkm_long+` means the model `stg_rpkm_long` **and all downstream** dependencies.
 
 ## 6. Model Specifications
 
-### 6.1 `dim_tax_rank_map` (reference)
+### 6.1 `bridge_tax_rank_map` (reference, `tag:reference`)
 
-Derived from wide `parents` Parquet. Does not modify upstream Parquet.
+Derived from wide `parents` raw Parquet (`raw_parquet_dir`). Does not modify upstream Parquet. Exported to `reference/parquet/bridge_tax_rank_map.parquet` at distribution.
 
 **Build steps:**
 1. UNPIVOT non-null `t_kingdom` … `t_species` → `(tax_id, rank_tax_id, rank)`.
@@ -193,7 +290,9 @@ Derived from wide `parents` Parquet. Does not modify upstream Parquet.
 
 Join taxonomy on `tax_id`, never `names.id` (UUID surrogate).
 
-### 6.2 `ec_pathway_bridge` (reference)
+### 6.2 `bridge_ec_pathway` (reference, `tag:reference`)
+
+Derived from raw `pathway_*` / `superpathways` Parquet. Exported to `reference/parquet/bridge_ec_pathway.parquet` at distribution.
 
 **Columns:**
 
@@ -206,7 +305,11 @@ Join taxonomy on `tax_id`, never `names.id` (UUID surrogate).
 | `superpathway_id` | VARCHAR | FK to `superpathways.id` |
 | `superpathway_name` | VARCHAR | Display |
 
-One row per `(ec_normalized, pathway_node_id)`. When aggregating at `pathway` or `superpathway`, group by id (not name). Matches app `reduce_to_dict` dedup semantics.
+One row per `(ec_normalized, pathway_node_id)`. **Join key:** `ec_normalized = normalize(pathway_nodes.name)` on both RPKM and bridge sides (same rules as §6.3).
+
+When aggregating at `pathway` or `superpathway`, dedup to one count per distinct id at that level (§5.1). Matches app `reduce_to_dict`.
+
+**`pathway_nodes.type` filter:** deferred post-EDA (not v1). EC numbers are enzyme commission identifiers and should not match non-enzyme node names in practice; app also joins without type filter.
 
 EC normalization (same as EDA / `SPEC.md`): `EC:x.y.z` → `x.y.z`; null/empty/None → `0.0.0.0`.
 
@@ -222,6 +325,8 @@ EC normalization (same as EDA / `SPEC.md`): `EC:x.y.z` → `x.y.z`; null/empty/N
 5. Filter `value > 0` (do not materialize zero cells).
 6. Coerce invalid numeric cells to skip/null with warn metric.
 
+**Source `Unclassified` column:** `Unclassified` is a fixed KEY_COL (not a tax_id column). Its abundance is **excluded** from unpivot and the pipeline — distinct from rollup `'Unclassified'` taxon label (§6.6). Documented analytical gap for v1; not required for app parity.
+
 **Output columns:**
 
 | Column | Notes |
@@ -232,11 +337,17 @@ EC normalization (same as EDA / `SPEC.md`): `EC:x.y.z` → `x.y.z`; null/empty/N
 | `source_tax_id` | RPKM column header |
 | `value` | Per-taxon column value |
 
-### 6.4 `int_rpkm_pathway`
+### 6.4 `int_rpkm_by_ec_tax`
 
-`stg_rpkm_long` **LEFT JOIN** `ec_pathway_bridge` ON `ec_normalized`. Carries all three pathway keys on matched rows for cheap re-grouping.
+`GROUP BY (sample_id, ec_normalized, source_tax_id)` → `SUM(value)`.
 
-**Mapped ECs:** One row per `(stg_rpkm_long row × matching bridge row)` — same fan-out as before when an EC maps to multiple pathway nodes.
+Collapses multiple genes sharing the same EC and tax_id column before pathway join. Drops `gene_id` — no longer needed after aggregation.
+
+### 6.5 `int_rpkm_pathway`
+
+`int_rpkm_by_ec_tax` **LEFT JOIN** `bridge_ec_pathway` ON `ec_normalized`. Apply **fan-out dedup** (§5.1) before downstream models.
+
+**Mapped ECs:** After fan-out dedup (§5.1), at most one counted row per `(int_rpkm_by_ec_tax row, pathway_key at selected level)` for mapped ECs. Before dedup, one aggregated row may match many `pathway_node` rows.
 
 **Unmapped ECs:** When no bridge match, emit **one row** with pathway sentinels:
 
@@ -251,17 +362,17 @@ EC normalization (same as EDA / `SPEC.md`): `EC:x.y.z` → `x.y.z`; null/empty/N
 
 At mart time, unmapped rows use `pathway_key = NULL`, `pathway_label = 'Unmapped EC'`, `is_pathway_mapped = false`. There is no pathway-level fallback (an EC either maps to KEGG or it does not).
 
-**Performance:** Unmapped rows do not fan out; total row count ≈ mapped fan-out + unmapped long rows. Well within DuckDB scale for test fixtures (~36% of distinct ECs unmapped per EDA §7).
+**Performance:** Gene aggregation reduces row count before join. `pathway_join_fanout_rate` (§7) monitors fan-out multiplier — early warning if dedup is skipped.
 
-### 6.5 `int_tax_rollup_resolved`
+### 6.6 `int_tax_rollup_resolved`
 
-Resolves each row to a taxon at requested rank using `dim_tax_rank_map` and `seeds/rank_order.csv`.
+Resolves each row to a taxon at requested rank using `bridge_tax_rank_map` and `seeds/rank_order.csv`.
 
 **Rank order (coarse → fine):** kingdom, phylum, class, order, family, genus, species.
 
 **Resolution algorithm** (for var `tax_rank`):
 
-1. **Exact:** row in `dim_tax_rank_map` where `tax_id = source_tax_id` AND `rank = tax_rank` → `tax_rank_resolved = tax_rank`.
+1. **Exact:** row in `bridge_tax_rank_map` where `tax_id = source_tax_id` AND `rank = tax_rank` → `tax_rank_resolved = tax_rank`.
 2. **Fallback:** among rows where `rank_order <= tax_rank_order`, pick finest available (max rank order) → `tax_rank_resolved = that rank` (coarser than requested).
 3. **Unclassified:** no qualifying row → `taxon_key = NULL`, `taxon_label = 'Unclassified'`, `tax_rank_resolved = NULL`.
 
@@ -299,7 +410,7 @@ Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
 **Intentional divergence from app:** `get_parents_at_level` uses a name-based backfill heuristic and does not coarser-fallback. Pipeline behavior is explicit and documented.
 
-### 6.6 `mart_pathway_taxonomy_long`
+### 6.7 `mart_pathway_taxonomy_long`
 
 Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and resolved taxon.
 
@@ -307,7 +418,7 @@ Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and
 
 Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved)` aggregate together — regardless of whether they arrived via exact or fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
 
-**Vars:**
+**Vars (upload / full pipeline):**
 
 | Var | Allowed values | Default |
 |---|---|---|
@@ -315,6 +426,9 @@ Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved
 | `sample_id` | string | required |
 | `tax_rank` | kingdom … species | `phylum` |
 | `pathway_level` | superpathway, pathway, pathway_node | `pathway` |
+| `reference_parquet_dir` | path to derived bridge Parquet | `analytics/transform/reference/parquet/` |
+
+Path vars for distribution builds — see §3.4 (`raw_parquet_dir`).
 
 **Output columns:**
 
@@ -333,18 +447,18 @@ Different source tax_ids that resolve to the same `(taxon_key, tax_rank_resolved
 
 ## 7. Constraints
 
-Each constraint has an id, check, stage, default severity, and pass criteria. Implemented as dbt tests (`severity: error|warn`) or singular tests (info metrics).
+Each constraint has an id, check, stage, default severity, and pass criteria. **Pre-flight checks** (`rpkm_file_readable`) run in Python / wrapper before dbt — not dbt tests.
 
 | ID | Check | Model / stage | Severity | Pass when |
 |---|---|---|---|---|
-| `rpkm_file_readable` | TSV parses; all KEY_COLS present; ≥1 tax column | pre-`stg_rpkm_long` (Python) | error | No exception; valid shape |
+| `rpkm_file_readable` | TSV parses; all KEY_COLS present; ≥1 tax column | **pre-flight** (Python / wrapper) | error | No exception; valid shape |
 | `rpkm_tax_columns_present` | ≥1 tax_id column detected | `stg_rpkm_long` | error | tax_column_count ≥ 1 |
 | `rpkm_no_negative_values` | All `value >= 0` | `stg_rpkm_long` | error | 0 violating rows |
 | `rpkm_tax_id_resolvable` | Every distinct `source_tax_id` in `names` | `stg_rpkm_long` | warn | 0 unmapped tax_ids |
 | `rpkm_ec_kegg_coverage` | `distinct mapped ECs / distinct ECs in sample` | `int_rpkm_pathway` | info | Always passes; emits ratio |
 | `unmapped_ec_value_rate` | `SUM(value WHERE NOT is_pathway_mapped) / SUM(value)` | mart | info | Metric only |
-| `pathway_join_fanout_rate` | Avg `int_rpkm_pathway` rows per `stg_rpkm_long` row (mapped only) | `int_rpkm_pathway` | info | Metric only |
-| `mass_conservation` | `SUM(mart.value)` ≈ `SUM(stg_rpkm_long.value)` | `mart_pathway_taxonomy_long` | warn | Relative delta ≤ 0.01% |
+| `pathway_join_fanout_rate` | Avg bridge matches per `int_rpkm_by_ec_tax` row before dedup (mapped only) | `int_rpkm_pathway` | info | Metric only; high values imply mass-conservation risk if dedup skipped |
+| `mass_conservation` | `SUM(mart.value)` ≈ `SUM(stg_rpkm_long.value)` after gene agg + pathway dedup | mart | warn | Relative delta ≤ 0.01% |
 | `mart_nonempty` | Mart row count > 0 | `mart_pathway_taxonomy_long` | error | count > 0 |
 | `mart_classified_taxa_have_keys` | No row where `taxon_label != 'Unclassified'` AND `taxon_key IS NULL` | mart | error | 0 rows |
 | `mart_mapped_pathways_have_keys` | No row where `is_pathway_mapped = true` AND `pathway_key IS NULL` | mart | error | 0 rows |
@@ -361,11 +475,27 @@ Each constraint has an id, check, stage, default severity, and pass criteria. Im
 
 Using **`is_pathway_mapped`** (not `pathway_label != 'Unmapped EC'`) for pathway checks avoids ambiguity if labels change. Taxonomy side uses the fixed `'Unclassified'` label.
 
-**Mass conservation definition:** Sum of mart values equals sum of all `stg_rpkm_long` values (LEFT JOIN preserves full long mass). Document exact SQL in the singular test.
+**Mass conservation definition:** `SUM(mart.value)` equals `SUM(stg_rpkm_long.value)` — gene aggregation is lossless; pathway fan-out dedup ensures no inflation at `pathway`/`superpathway` levels. Document exact SQL in the singular test.
+
+**Sample path safety:** `sample_id` is an opaque label for `runs/{sample_id}/`. **Path sanitization is the upload/API layer's responsibility** (v1 CLI uses trusted fixture names).
 
 **v2 (deferred):** named constraint profiles (`strict` / `permissive`) overriding default severities.
 
 ## 8. CLI & Run Artifacts
+
+### 8.0 Distribution — reference build
+
+```bash
+cd analytics
+uv run python transform/scripts/build_reference.py
+```
+
+Steps:
+1. Verify raw Parquet exists under `resources/db/parquet/` (run `export_parquet.py` if missing).
+2. `dbt build --select tag:reference` against staging DB (`data/reference.duckdb`).
+3. Export `bridge_tax_rank_map` and `bridge_ec_pathway` to `reference/parquet/`.
+
+Run at distribution, after raw Parquet refresh, and in CI to validate reference SQL. Derived Parquet is committed (Git LFS) and shipped with releases.
 
 ### 8.1 Invocation
 
@@ -374,11 +504,12 @@ Using **`is_pathway_mapped`** (not `pathway_label != 'Unmapped EC'`) for pathway
 **`run_pipeline.py` wrapper (CI, fixtures, future API):** Thin orchestration — not a substitute for dbt logic. Responsibilities:
 
 1. Ensure `runs/{sample_id}/` exists; point dbt profile at `runs/{sample_id}/sample.duckdb`
-2. Pass `--vars` consistently (`sample_id`, `rpkm_path`, `tax_rank`, `pathway_level`)
-3. Run `dbt build` (artifacts land in `transform/target/`)
-4. Write `runs/{sample_id}/run_context.json` (vars + derived `overall_status` parsed from `target/run_results.json`)
-5. Optionally export mart Parquet to `runs/{sample_id}/mart_pathway_taxonomy_long.parquet`
-6. Single entrypoint for future Node subprocess / CI
+2. Verify derived bridge Parquet exists under `reference/parquet/` (fail with actionable message if not)
+3. Pass `--vars` consistently (`sample_id`, `rpkm_path`, `tax_rank`, `pathway_level`, `reference_parquet_dir`)
+4. Run `dbt build --select stg_rpkm_long+` (upload path only — reference views materialized from derived Parquet)
+5. Write `runs/{sample_id}/run_context.json` (vars + derived `overall_status` parsed from `target/run_results.json`)
+6. Optionally export mart Parquet to `runs/{sample_id}/mart_pathway_taxonomy_long.parquet`
+7. Single entrypoint for future Node subprocess / CI
 
 ```bash
 cd analytics
@@ -392,10 +523,10 @@ uv run python transform/scripts/run_pipeline.py \
 Wrapper runs:
 
 ```bash
-dbt build \
+dbt build --select stg_rpkm_long+ \
   --project-dir transform \
   --profiles-dir transform \
-  --vars "{ rpkm_path, sample_id, tax_rank, pathway_level }"
+  --vars "{ rpkm_path, sample_id, tax_rank, pathway_level, reference_parquet_dir }"
 ```
 
 dbt writes to `transform/target/` by default (no custom `--target-path`).
@@ -410,6 +541,7 @@ dbt build --select int_tax_rollup_resolved+ --vars '{ "tax_rank": "class", ... }
 
 | Artifact | Location | Writer | Contents |
 |---|---|---|---|
+| `bridge_*.parquet` | `transform/reference/parquet/` | `build_reference.py` | Derived reference bridges; versioned, shipped |
 | `target/run_results.json` | `transform/target/` | dbt | Per-node status, timing, test outcomes |
 | `target/manifest.json` | `transform/target/` | dbt | Lineage, compiled SQL |
 | `run_context.json` | `runs/{sample_id}/` | wrapper | `tax_rank`, `pathway_level`, `sample_id`, `rpkm_path`, `overall_status`, pointer to `transform/target/` |
@@ -424,15 +556,41 @@ Artifacts are overwritten each run. No run-history retention in v1.
 
 ## 9. Python Environment
 
-Add to `analytics/pyproject.toml`:
+Stay on **Python 3.14** (repo pin). Pin in `analytics/pyproject.toml`:
 
-- `dbt-core` (≥ 1.12)
-- `dbt-duckdb` (≥ 1.10)
+```toml
+dependencies = [
+    "dbt-core==1.12.0b1",
+    "dbt-duckdb>=1.10.1",
+    "mashumaro>=3.17,<3.18",  # explicit — uv may otherwise resolve 3.14 transitively
+    # duckdb, jupyter, etc. from exploration
+]
 
-Existing: `duckdb`, `jupyter`, etc. from exploration.
+[tool.uv]
+prerelease = "allow"
+```
+
+**Why 1.12 beta:** Python 3.14 support landed in dbt-core **1.12.0-b1** ([changelog](https://github.com/dbt-labs/dbt-core/blob/v1.12.0b1/CHANGELOG.md), [issue #12098](https://github.com/dbt-labs/dbt-core/issues/12098)). Stable 1.11.x does **not** support 3.14. Upgrade to 1.12 stable when released; until then pin the beta.
+
+**Why explicit `mashumaro`:** dbt 1.12 allows `mashumaro>=3.9,<3.18`, but other transitive deps can pin **3.14**, which still crashes on Python 3.14. Pin **3.17+** explicitly in `pyproject.toml`.
+
+### 9.1 Toolchain verification gate
+
+**First implementation task:** `uv sync && dbt --version` must succeed on Python 3.14 before building models.
+
+**Verified 2026-06-15 on Python 3.14.2:**
+
+| Package | Version | Result |
+|---|---|---|
+| `dbt-core` | 1.11.11 (stable) | **Fails** — `mashumaro.exceptions.UnserializableField` at import |
+| `dbt-core` | 2.0.0a2 | **Fails** — same error (wrong release line; not the 1.12 beta) |
+| `dbt-core` | **1.12.0b1** + `mashumaro` 3.17+ | **Works** — `dbt --version` succeeds; `dbt-duckdb` 1.10.1 compatible |
+
+The failure mode on unsupported combos is an import-time mashumaro error (`Field "schema" … in JSONObjectSchema is not serializable`), before any dbt command runs. Fixing mashumaro alone on 1.11.x is insufficient — use **dbt-core 1.12.0b1** plus explicit **mashumaro 3.17+**.
 
 ```bash
-cd analytics && uv sync
+cd analytics && uv sync && uv run dbt --version
+# Expected: Core 1.12.0-b1; Plugins: duckdb 1.10.x
 ```
 
 ## 10. Validation Strategy
@@ -440,7 +598,7 @@ cd analytics && uv sync
 | Layer | Approach |
 |---|---|
 | Unit | Python ingest on synthetic wide TSV snippets; rank map from known `parents` subset |
-| Integration | `dbt build` on `test_rpkm_1.tsv` and `test_rpkm_2.tsv`; assert mart shape and constraint metrics |
+| Integration | `build_reference.py` then `dbt build --select stg_rpkm_long+` on test fixtures; assert mart shape and constraint metrics |
 | Regression | Compare mart totals to EDA notebook cross-domain join aggregates (§7) within tolerance |
 | CI (deferred) | Run pipeline on test fixtures; fail on error-severity constraints |
 
@@ -465,14 +623,14 @@ cd analytics && uv sync
 ## 13. Success Criteria
 
 - [ ] Worktree `feature/rpkm-transform` with dbt project under `analytics/transform/`
-- [ ] `uv sync` installs dbt dependencies on Python 3.14
-- [ ] Reference models build from existing Parquet without DB rebuild
-- [ ] Pipeline produces `mart_pathway_taxonomy_long` for `test_rpkm_1.tsv` at default vars
+- [ ] Toolchain gate passes: `uv sync && uv run dbt --version` → Core **1.12.0-b1** on Python 3.14 (§9.1)
+- [ ] `build_reference.py` produces derived bridge Parquet from raw reference Parquet
+- [ ] Upload pipeline produces `mart_pathway_taxonomy_long` for `test_rpkm_1.tsv` at default vars **without** running `tag:reference`
 - [ ] Re-run with changed `tax_rank` / `pathway_level` completes in seconds without re-ingesting TSV
 - [ ] All error-severity constraints pass on test fixtures
 - [ ] Info metrics (EC coverage, exact/fallback/unclassified rates) emitted
 - [ ] `run_context.json` + optional mart Parquet under `runs/{sample_id}/`; dbt artifacts in `transform/target/`
-- [ ] README under `analytics/transform/` documents two-phase workflow and rebuild triggers
+- [ ] README under `analytics/transform/` documents distribution (`build_reference.py`) vs upload workflow and rebuild triggers
 
 ## 14. References
 
@@ -480,3 +638,4 @@ cd analytics && uv sync
 - `docs/superpowers/specs/2026-06-11-exploratory-analysis-design.md` — EDA design; `analytics/transform/` anticipated here
 - `src/server/parse.ts`, `src/server/db_functions.ts` — current app aggregation semantics (parity target for totals, not identical rollup edge cases)
 - `SPEC.md` — RPKM wide format, KEY_COLS, EC normalization
+- [Upgrading to v1.12](https://docs.getdbt.com/docs/dbt-versions/core-upgrade/upgrading-to-v1.12) — dbt Python 3.14 support (1.12 beta)
