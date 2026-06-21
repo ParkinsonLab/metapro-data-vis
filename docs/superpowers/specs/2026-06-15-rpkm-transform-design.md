@@ -555,19 +555,22 @@ Each constraint has an id, check, stage, default severity, and pass criteria. **
 | ID | Check | Model / stage | Severity | Pass when |
 |---|---|---|---|---|
 | `rpkm_file_readable` | TSV parses; all KEY_COLS present; ≥1 tax column | **pre-flight** (Python / wrapper) | error | No exception; valid shape |
-| `rpkm_tax_columns_present` | ≥1 tax_id column detected | `stg_rpkm_long` | error | tax_column_count ≥ 1 |
+| `rpkm_tax_columns_present` | ≥1 tax_id column detected | `stg_rpkm_long` | error | `tax_column_count ≥ 1` |
 | `rpkm_no_negative_values` | All `value >= 0` | `stg_rpkm_long` | error | 0 violating rows |
-| `rpkm_tax_id_resolvable` | Every distinct `source_tax_id` in `names` | `stg_rpkm_long` | warn | 0 unmapped tax_ids |
-| `rpkm_ec_kegg_coverage` | `distinct mapped ECs / distinct ECs in sample` (mapped = `pathway_key IS NOT NULL`) | `int_rpkm_pathway` | info | Always passes; emits ratio |
+| `rpkm_tax_id_resolvable` | Every distinct `source_tax_id` present in `bridge_tax_rollup` | `stg_rpkm_long` | warn | 0 unmapped tax_ids |
+| `bridge_tax_rollup_ranks_complete` | `bridge_tax_rollup` has exactly 7 distinct `requested_rank` values | `bridge_tax_rollup` (source test) | error | count = 7 |
+| `bridge_ec_pathway_no_zero_ec` | No row where `ec_normalized = '0.0.0.0'` | `bridge_ec_pathway` (source test) | error | 0 rows |
+| `int_rpkm_pathway_levels_complete` | `int_rpkm_pathway` has exactly 3 distinct `pathway_level` values | `int_rpkm_pathway` | error | count = 3 |
+| `rpkm_ec_kegg_coverage` | `COUNT(DISTINCT ec_normalized WHERE pathway_key IS NOT NULL AND pathway_level = 'pathway_node') / COUNT(DISTINCT ec_normalized)` | `int_rpkm_pathway` | info | Always passes; emits ratio. Use `pathway_node` branch to avoid multi-counting from UNION ALL |
+| `pathway_join_fanout_rate` | `COUNT(*) FILTER (pathway_level = 'pathway_node' AND pathway_key IS NOT NULL) / COUNT(DISTINCT (ec_normalized, source_tax_id) WHERE pathway_key IS NOT NULL)` | `int_rpkm_pathway` | info | Metric only; avg pathway_node hits per matched ec-tax row; >1 expected for ECs in multiple maps |
 | `unmapped_ec_value_rate` | `SUM(value WHERE pathway_key IS NULL) / SUM(value)` | mart | info | Metric only |
-| `pathway_join_fanout_rate` | Avg bridge matches per `int_rpkm_by_ec_tax` row before dedup (mapped only) | `int_rpkm_pathway` | info | Metric only; high values imply mass-conservation risk if dedup skipped |
-| `mass_conservation` | **Under review (H2)** — see §5.1; current `SUM(mart) ≈ SUM(stg)` claim is incorrect; replace before implementation | mart | warn | TBD |
-| `mart_nonempty` | Mart row count > 0 | `mart_pathway_taxonomy_long` | error | count > 0 |
+| `unmapped_mass_conservation` | `SUM(mart.value WHERE pathway_key IS NULL)` ≈ `SUM(int_rpkm_by_ec_tax.value WHERE ec_normalized NOT IN bridge_ec_pathway)` — tax rollup consolidates but does not inflate the unmapped subset | mart vs `int_rpkm_by_ec_tax` | warn | Relative delta ≤ 0.01% |
+| `mart_nonempty` | Mart row count > 0 | mart | error | count > 0 |
 | `mart_classified_taxa_have_keys` | No row where `resolved_tax_label != 'Unclassified'` AND `resolved_tax_id IS NULL` | mart | error | 0 rows |
 | `mart_mapped_pathways_have_keys` | No row where `pathway_label != 'Unmapped EC'` AND `pathway_key IS NULL` | mart | error | 0 rows |
 | `mart_value_non_null` | All rows: `value IS NOT NULL` | mart | error | 0 nulls |
-| `mart_rollup_exact_match_rate` | `SUM(value WHERE resolved_tax_rank = var('tax_rank') AND resolved_tax_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
-| `mart_rollup_fallback_rate` | `SUM(value WHERE resolved_tax_rank != var('tax_rank') AND resolved_tax_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_rollup_exact_match_rate` | `SUM(value WHERE resolved_tax_rank = requested_rank AND resolved_tax_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_rollup_fallback_rate` | `SUM(value WHERE resolved_tax_rank != requested_rank AND resolved_tax_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
 | `mart_unclassified_rate` | `SUM(value WHERE resolved_tax_label = 'Unclassified') / SUM(value)` | mart | info | Metric only in v1 |
 
 **Key constraints (replaces `mart_no_null_keys`):** NULL keys are **permitted and expected** for gap rows. Constraints enforce keys only where a real taxonomy/pathway exists:
@@ -576,7 +579,13 @@ Each constraint has an id, check, stage, default severity, and pass criteria. **
 - **`mart_mapped_pathways_have_keys`** — if `pathway_label != 'Unmapped EC'` (i.e. a real pathway name), `pathway_key` must be non-null. Equivalent to `pathway_key IS NULL → pathway_label = 'Unmapped EC'`.
 - Unclassified and unmapped rows are identified by NULL key + fixed label, not by a boolean flag.
 
-**Mass conservation definition (under review — H2):** `SUM(mart.value) ≈ SUM(stg_rpkm_long.value)` is incorrect as a global invariant — mapped ECs that belong to multiple distinct pathways/superpathways are intentionally counted once per pathway, so `SUM(mart)` exceeds `SUM(stg)`. The correct invariants are: (a) exact conservation on the unmapped subset, and (b) per-cell value preservation within each pathway bucket. Full definition deferred to H2 resolution before implementation.
+**Mass conservation (H2 resolved):** There is no single global `SUM(mart) ≈ SUM(stg)` invariant. Instead two separate invariants apply:
+
+- **Unmapped conservation** (`unmapped_mass_conservation`, warn): the unmapped subset is never inflated. Tax rollup only consolidates `source_tax_id` values that share the same ancestor at the requested rank — no row is duplicated. Therefore `SUM(mart WHERE pathway_key IS NULL)` must equal `SUM(int_rpkm_by_ec_tax WHERE ec_normalized NOT IN bridge_ec_pathway)` within ≤0.01%. This is an achievable, testable invariant.
+
+- **Intentional mapped inflation** (info, not a test): mapped ECs appear once per distinct `pathway_key` at the selected level. `SUM(mart WHERE pathway_key IS NOT NULL)` intentionally exceeds the matched portion of `SUM(stg)` by a factor equal to the average number of distinct pathway keys per EC — matching the app's behaviour. `pathway_join_fanout_rate` quantifies this multiplier.
+
+`SUM(mart.value) ≈ SUM(stg_rpkm_long.value)` as a global claim is **incorrect** and must never be used.
 
 **Sample path safety:** `sample_id` is an opaque label for `runs/{sample_id}/`. **Path sanitization is the upload/API layer's responsibility** (v1 CLI uses trusted fixture names).
 
