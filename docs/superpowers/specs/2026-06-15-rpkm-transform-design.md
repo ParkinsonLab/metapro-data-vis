@@ -27,7 +27,7 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Cell value | Per-taxon **column** values, summed | Matches app behavior and EDA unpivot pattern; not row-level `RPKM` column |
 | Pathway level | Configurable: `superpathway` \| `pathway` \| `pathway_node`; default `pathway` | Aligns with domain terms: pathway = `pathway_superpathways` row; pathway_node = EC-on-map instance |
 | Canonical output | `mart_pathway_taxonomy_long` only | Rectangular matrix and chord matrix deferred |
-| Taxonomy rollup | Resolve via `bridge_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived via `tax_rank` var / `run_context.json` |
+| Taxonomy rollup | Resolve via `bridge_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `resolved_tax_rank`; exact vs fallback derived via `tax_rank` var / `run_context.json` |
 | EC → pathway join | **LEFT JOIN**; `pathway_key IS NULL` when unmapped | Preserves knowledge-gap mass in mart; no boolean flag needed |
 | Reference taxonomy shape | `bridge_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
 | Reference bridges | `bridge_tax_rank_map`, `bridge_ec_pathway`; built at distribution by `build_reference.py` → `reference/parquet/`; consumed at upload as dbt external sources | Pre-computed joins; no dbt build step at upload; no dual-profile complexity |
@@ -214,7 +214,7 @@ Upload command is **`dbt build --select stg_rpkm_long+` only**. Wrapper fails fa
 
 Upload/run vars (`rpkm_path`, `sample_id`, `tax_rank`, `pathway_level`) — see §6.7.
 
-**Between-sample delta (future):** attach `runs/A/sample.duckdb` and `runs/B/sample.duckdb`; join marts on `(pathway_key, tax_id_resolved)`. Reference layout does not affect delta.
+**Between-sample delta (future):** attach `runs/A/sample.duckdb` and `runs/B/sample.duckdb`; join marts on `(pathway_key, resolved_tax_id)`. Reference layout does not affect delta.
 
 ## 4. Approach
 
@@ -338,10 +338,10 @@ Encodes the **pre-resolved taxonomy rollup** for every `(tax_id, requested_rank)
 
 **Build logic (`build_reference.py`):**
 1. For each `(tax_id, requested_rank)` pair (cross `bridge_tax_rank_map` with the 7 ranks):
-   - **Exact:** row exists where `rank = requested_rank` → `tax_id_resolved = rank_tax_id`, `tax_rank_resolved = requested_rank`.
-   - **Fallback:** no exact row; take finest rank coarser than `requested_rank` (lowest rank_order ≤ requested) → `tax_id_resolved = rank_tax_id`, `tax_rank_resolved = that rank`.
-   - **Unclassified:** no qualifying row → `tax_id_resolved = NULL`, `tax_rank_resolved = NULL`.
-2. Join `names` on `tax_id_resolved` for `tax_label_resolved`; set `'Unclassified'` when `tax_id_resolved IS NULL`.
+   - **Exact:** row exists where `rank = requested_rank` → `resolved_tax_id = rank_tax_id`, `resolved_tax_rank = requested_rank`.
+   - **Fallback:** no exact row; take finest rank coarser than `requested_rank` (lowest rank_order ≤ requested) → `resolved_tax_id = rank_tax_id`, `resolved_tax_rank = that rank`.
+   - **Unclassified:** no qualifying row → `resolved_tax_id = NULL`, `resolved_tax_rank = NULL`.
+2. Join `names` on `resolved_tax_id` for `resolved_tax_label`; set `'Unclassified'` when `resolved_tax_id IS NULL`.
 
 **Output schema:**
 
@@ -349,9 +349,9 @@ Encodes the **pre-resolved taxonomy rollup** for every `(tax_id, requested_rank)
 |---|---|---|
 | `source_tax_id` | BIGINT | RPKM column header — the taxon being looked up; join key to `int_rpkm_pathway.source_tax_id` |
 | `requested_rank` | VARCHAR | The rank requested (`var('tax_rank')`); one of 7 ranks |
-| `tax_id_resolved` | BIGINT | Resolved **ancestor** tax_id at `tax_rank_resolved`; distinct from `source_tax_id` which is the original sample taxon; NULL when Unclassified |
-| `tax_rank_resolved` | VARCHAR | Actual rank used (may be coarser than `requested_rank` under fallback); NULL when Unclassified |
-| `tax_label_resolved` | VARCHAR | Scientific name of `tax_id_resolved`; `'Unclassified'` when `tax_id_resolved` is null |
+| `resolved_tax_id` | BIGINT | Resolved **ancestor** tax_id at `resolved_tax_rank`; distinct from `source_tax_id` which is the original sample taxon; NULL when Unclassified |
+| `resolved_tax_rank` | VARCHAR | Actual rank used (may be coarser than `requested_rank` under fallback); NULL when Unclassified |
+| `resolved_tax_label` | VARCHAR | Scientific name of `resolved_tax_id`; `'Unclassified'` when `resolved_tax_id` is null |
 
 ### 6.4 `stg_rpkm_long` (Python model)
 
@@ -457,7 +457,7 @@ LEFT JOIN {{ source('reference', 'bridge_ec_pathway') }} b
 Joins `int_rpkm_pathway` with `{{ source('reference', 'bridge_tax_rollup') }}` on `source_tax_id`. All 7 `requested_rank` values are joined and stored — no resolution logic in upload SQL. The mart filters to the specific `requested_rank = var('tax_rank')`.
 
 ```sql
-SELECT p.*, t.requested_rank, t.tax_id_resolved, t.tax_rank_resolved, t.tax_label_resolved
+SELECT p.*, t.requested_rank, t.resolved_tax_id, t.resolved_tax_rank, t.resolved_tax_label
 FROM int_rpkm_pathway p
 LEFT JOIN {{ source('reference', 'bridge_tax_rollup') }} t
        ON p.source_tax_id = t.source_tax_id
@@ -465,11 +465,11 @@ LEFT JOIN {{ source('reference', 'bridge_tax_rollup') }} t
 
 Each row from `int_rpkm_pathway` (which already covers all 3 `pathway_level` values) expands to up to 7 rows — one per `requested_rank`. Total: 3 pathway levels × 7 tax ranks × base rows.
 
-**Unclassified rows:** `source_tax_id` values absent from `bridge_tax_rollup` (or resolving to NULL) yield `tax_id_resolved = NULL`, `tax_label_resolved = 'Unclassified'`, `tax_rank_resolved = NULL`. Left join ensures these rows are preserved.
+**Unclassified rows:** `source_tax_id` values absent from `bridge_tax_rollup` (or resolving to NULL) yield `resolved_tax_id = NULL`, `resolved_tax_label = 'Unclassified'`, `resolved_tax_rank = NULL`. Left join ensures these rows are preserved.
 
 **NULL keys for gap rows:**
 
-| Case | `tax_id_resolved` | `tax_label_resolved` | `pathway_key` | `pathway_label` |
+| Case | `resolved_tax_id` | `resolved_tax_label` | `pathway_key` | `pathway_label` |
 |---|---|---|---|---|
 | Unclassified taxonomy | NULL | `'Unclassified'` | (normal) | (normal) |
 | Unmapped EC | (normal) | (normal) | NULL | NULL → mart renders `'Unmapped EC'` |
@@ -478,11 +478,11 @@ Each row from `int_rpkm_pathway` (which already covers all 3 `pathway_level` val
 
 | Condition | Meaning |
 |---|---|
-| `tax_id_resolved IS NULL` | Unclassified |
-| `tax_rank_resolved = requested_rank` | Exact match |
-| `tax_id_resolved IS NOT NULL` AND `tax_rank_resolved != requested_rank` | Coarser fallback |
+| `resolved_tax_id IS NULL` | Unclassified |
+| `resolved_tax_rank = requested_rank` | Exact match |
+| `resolved_tax_id IS NOT NULL` AND `resolved_tax_rank != requested_rank` | Coarser fallback |
 
-Example: taxon A with `requested_rank = 'phylum'` resolves to Bacteroidota (exact); taxon B resolves to kingdom Pseudomonadati (fallback). Different `(tax_id_resolved, tax_rank_resolved)` pairs — no extra grouping dimension needed.
+Example: taxon A with `requested_rank = 'phylum'` resolves to Bacteroidota (exact); taxon B resolves to kingdom Pseudomonadati (fallback). Different `(resolved_tax_id, resolved_tax_rank)` pairs — no extra grouping dimension needed.
 
 **Output columns:**
 
@@ -496,9 +496,9 @@ Example: taxon A with `requested_rank = 'phylum'` resolves to Bacteroidota (exac
 | `pathway_key` | VARCHAR | Pathway ID at level; NULL when unmapped |
 | `pathway_label` | VARCHAR | Pathway name; NULL when unmapped or `pathway_node` |
 | `requested_rank` | VARCHAR | Rank requested; mart filters to `var('tax_rank')` |
-| `tax_id_resolved` | BIGINT | Resolved ancestor tax_id at `tax_rank_resolved`; distinct from `source_tax_id`; NULL when Unclassified |
-| `tax_rank_resolved` | VARCHAR | Actual rank used (may be coarser than `requested_rank`); NULL when Unclassified |
-| `tax_label_resolved` | VARCHAR | Scientific name of `tax_id_resolved`; `'Unclassified'` when null |
+| `resolved_tax_id` | BIGINT | Resolved ancestor tax_id at `resolved_tax_rank`; distinct from `source_tax_id`; NULL when Unclassified |
+| `resolved_tax_rank` | VARCHAR | Actual rank used (may be coarser than `requested_rank`); NULL when Unclassified |
+| `resolved_tax_label` | VARCHAR | Scientific name of `resolved_tax_id`; `'Unclassified'` when null |
 
 **Intentional divergence from app:** `get_parents_at_level` uses a name-based backfill heuristic and does not coarser-fallback. Pipeline behavior is explicit and documented. `seeds/rank_order.csv` is used only in `build_reference.py` (to order fallback selection), not at upload time.
 
@@ -506,7 +506,7 @@ Example: taxon A with `requested_rank = 'phylum'` resolves to Bacteroidota (exac
 
 Filters `int_tax_rollup_resolved` to `WHERE pathway_level = '{{ var("pathway_level") }}' AND requested_rank = '{{ var("tax_rank") }}'`, then groups by pathway + resolved taxon.
 
-**Mart GROUP BY:** `(pathway_key, pathway_label, tax_id_resolved, tax_label_resolved, tax_rank_resolved, sample_id, pathway_level, CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END)`.
+**Mart GROUP BY:** `(pathway_key, pathway_label, resolved_tax_id, resolved_tax_label, resolved_tax_rank, sample_id, pathway_level, CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END)`.
 
 (`requested_rank` is excluded — it is constant after the WHERE filter and not output.)
 
@@ -518,7 +518,7 @@ The `CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END` express
 
 This matches the app's cross-EC superpathway aggregation for mapped ECs.
 
-Different source tax_ids that resolve to the same `(tax_id_resolved, tax_rank_resolved)` aggregate together — regardless of whether they arrived via exact or fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
+Different source tax_ids that resolve to the same `(resolved_tax_id, resolved_tax_rank)` aggregate together — regardless of whether they arrived via exact or fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
 
 **Vars (upload / full pipeline):**
 
@@ -541,9 +541,9 @@ Path vars for distribution builds — see §3.4 (`raw_parquet_dir`).
 | `pathway_key` | VARCHAR | ID at selected level; NULL when unmapped |
 | `pathway_label` | VARCHAR | Name at selected level; `'Unmapped EC'` when unmapped |
 | `ec_normalized` | VARCHAR | NULL for mapped rows; EC string for unmapped rows (see GROUP BY note) |
-| `tax_rank_resolved` | VARCHAR | Actual rank used (may differ under fallback); NULL when Unclassified |
-| `tax_id_resolved` | BIGINT | Resolved tax_id; NULL when Unclassified |
-| `tax_label_resolved` | VARCHAR | Scientific name; `'Unclassified'` when null |
+| `resolved_tax_rank` | VARCHAR | Actual rank used (may differ under fallback); NULL when Unclassified |
+| `resolved_tax_id` | BIGINT | Resolved tax_id; NULL when Unclassified |
+| `resolved_tax_label` | VARCHAR | Scientific name; `'Unclassified'` when null |
 | `value` | DOUBLE | `SUM(value)` |
 
 `requested_rank` (= `var('tax_rank')`) is not a mart output column — it is constant for all mart rows and stored in `run_context.json`.
@@ -563,16 +563,16 @@ Each constraint has an id, check, stage, default severity, and pass criteria. **
 | `pathway_join_fanout_rate` | Avg bridge matches per `int_rpkm_by_ec_tax` row before dedup (mapped only) | `int_rpkm_pathway` | info | Metric only; high values imply mass-conservation risk if dedup skipped |
 | `mass_conservation` | **Under review (H2)** — see §5.1; current `SUM(mart) ≈ SUM(stg)` claim is incorrect; replace before implementation | mart | warn | TBD |
 | `mart_nonempty` | Mart row count > 0 | `mart_pathway_taxonomy_long` | error | count > 0 |
-| `mart_classified_taxa_have_keys` | No row where `tax_label_resolved != 'Unclassified'` AND `tax_id_resolved IS NULL` | mart | error | 0 rows |
+| `mart_classified_taxa_have_keys` | No row where `resolved_tax_label != 'Unclassified'` AND `resolved_tax_id IS NULL` | mart | error | 0 rows |
 | `mart_mapped_pathways_have_keys` | No row where `pathway_label != 'Unmapped EC'` AND `pathway_key IS NULL` | mart | error | 0 rows |
 | `mart_value_non_null` | All rows: `value IS NOT NULL` | mart | error | 0 nulls |
-| `mart_rollup_exact_match_rate` | `SUM(value WHERE tax_rank_resolved = var('tax_rank') AND tax_label_resolved != 'Unclassified') / SUM(value)` | mart | info | Metric only |
-| `mart_rollup_fallback_rate` | `SUM(value WHERE tax_rank_resolved != var('tax_rank') AND tax_label_resolved != 'Unclassified') / SUM(value)` | mart | info | Metric only |
-| `mart_unclassified_rate` | `SUM(value WHERE tax_label_resolved = 'Unclassified') / SUM(value)` | mart | info | Metric only in v1 |
+| `mart_rollup_exact_match_rate` | `SUM(value WHERE resolved_tax_rank = var('tax_rank') AND resolved_tax_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_rollup_fallback_rate` | `SUM(value WHERE resolved_tax_rank != var('tax_rank') AND resolved_tax_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
+| `mart_unclassified_rate` | `SUM(value WHERE resolved_tax_label = 'Unclassified') / SUM(value)` | mart | info | Metric only in v1 |
 
 **Key constraints (replaces `mart_no_null_keys`):** NULL keys are **permitted and expected** for gap rows. Constraints enforce keys only where a real taxonomy/pathway exists:
 
-- **`mart_classified_taxa_have_keys`** — if we resolved a real taxon (`tax_label_resolved != 'Unclassified'`), `tax_id_resolved` must be non-null.
+- **`mart_classified_taxa_have_keys`** — if we resolved a real taxon (`resolved_tax_label != 'Unclassified'`), `resolved_tax_id` must be non-null.
 - **`mart_mapped_pathways_have_keys`** — if `pathway_label != 'Unmapped EC'` (i.e. a real pathway name), `pathway_key` must be non-null. Equivalent to `pathway_key IS NULL → pathway_label = 'Unmapped EC'`.
 - Unclassified and unmapped rows are identified by NULL key + fixed label, not by a boolean flag.
 
