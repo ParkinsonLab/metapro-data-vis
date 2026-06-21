@@ -21,7 +21,25 @@ Parquet reference tables are exported from SQLite and loaded by the notebook as 
 | `pathway_nodes` | 23,864 | `id VARCHAR`, `name VARCHAR`, `type VARCHAR`, `x BIGINT`, `y BIGINT`, `pathway BIGINT` |
 | `pathway_edges` | 46,726 | `id VARCHAR`, `source VARCHAR`, `target VARCHAR`, `pathway BIGINT` |
 | `pathway_superpathways` | 193 | `id BIGINT`, `name VARCHAR`, `superpathway VARCHAR` |
-| `superpathways` | 13 | `id VARCHAR`, `name VARCHAR` |
+| `superpathways` | 13 | `id VARCHAR` (`uuid4()` surrogate), `name VARCHAR` |
+
+**Superpathways (13 rows; names from KEGG BRITE `br08901` section B via `make_superpathway_db.ipynb`; full name list in §3):** Each row’s `id` is `str(uuid4())` at build time — a local surrogate primary key, not a KEGG identifier. Values change if the pathway DB is rebuilt; join on `id` within a dump, or on `name` for human-readable reference.
+
+| name |
+|---|
+| Amino acid metabolism |
+| Biosynthesis of other secondary metabolites |
+| Carbohydrate metabolism |
+| Chemical structure transformation maps |
+| Energy metabolism |
+| Global and overview maps |
+| Glycan biosynthesis and metabolism |
+| Lipid metabolism |
+| Metabolism of cofactors and vitamins |
+| Metabolism of other amino acids |
+| Metabolism of terpenoids and polyketides |
+| Nucleotide metabolism |
+| Xenobiotics biodegradation and metabolism |
 
 Key fields used by the app and EDA:
 
