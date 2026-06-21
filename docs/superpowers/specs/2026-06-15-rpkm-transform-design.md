@@ -1,6 +1,6 @@
 # RPKM → Pathway × Taxonomy Transform Pipeline — Design Spec
 
-> **Status:** Draft (2026-06-15, revised toolchain + reference layout; 2026-06-21, bridges as dbt sources + EDA-confirmed bridge filter + output schemas)  
+> **Status:** Draft (2026-06-15, revised toolchain + reference layout; 2026-06-21, bridges as dbt sources + EDA-confirmed bridge filter + output schemas + int_rpkm_pathway UNION ALL all-levels design)  
 > **Goal:** Build a dbt + DuckDB pipeline in `analytics/transform/` that ingests a wide RPKM/FPKM sample file and produces a long-form pathway × taxonomy matrix with summed per-taxon column values, configurable taxonomy rank and pathway level, tiered constraint checks, and persisted run artifacts. API integration and chord-matrix derivation are explicitly out of scope for v1.
 
 ## 1. Context
@@ -28,7 +28,7 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Pathway level | Configurable: `superpathway` \| `pathway` \| `pathway_node`; default `pathway` | Aligns with domain terms: pathway = `pathway_superpathways` row; pathway_node = EC-on-map instance |
 | Canonical output | `mart_pathway_taxonomy_long` only | Rectangular matrix and chord matrix deferred |
 | Taxonomy rollup | Resolve via `bridge_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `tax_rank_resolved`; exact vs fallback derived via `tax_rank` var / `run_context.json` |
-| EC → pathway join | **LEFT JOIN**; NULL `pathway_key` when unmapped (`is_pathway_mapped = false`) | Preserves knowledge-gap mass in mart |
+| EC → pathway join | **LEFT JOIN**; `pathway_key IS NULL` when unmapped | Preserves knowledge-gap mass in mart; no boolean flag needed |
 | Reference taxonomy shape | `bridge_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
 | Reference bridges | `bridge_tax_rank_map`, `bridge_ec_pathway`; built at distribution by `build_reference.py` → `reference/parquet/`; consumed at upload as dbt external sources | Pre-computed joins; no dbt build step at upload; no dual-profile complexity |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
@@ -243,7 +243,7 @@ Python 3.14 (repo pin) + **dbt-core 1.12.0b1** (beta; Python 3.14 support) + dbt
        ↓
   int_rpkm_by_ec_tax        ← SUM(value) GROUP BY (ec_normalized, source_tax_id)
        ↓
-  int_rpkm_pathway          ← LEFT JOIN source bridge_ec_pathway; level-specific dedup
+  int_rpkm_pathway          ← LEFT JOIN source bridge_ec_pathway; UNION ALL three levels, dedup per level
        ↓
   int_tax_rollup_resolved   ← join source bridge_tax_rank_map; exact / fallback / unclassified
        ↓
@@ -256,13 +256,15 @@ Two distinct steps — do not conflate:
 
 1. **Gene aggregation (`int_rpkm_by_ec_tax`):** Multiple genes with the same `(ec_normalized, source_tax_id)` have their `value` **summed before** the pathway join. Matches the app iterating gene rows and accumulating into the same `(EC, taxon)` bucket.
 
-2. **Fan-out dedup (`int_rpkm_pathway` → mart):** After the join, each aggregated row may match multiple `pathway_node` rows. **Per aggregated row**, count `value` at most **once per `pathway_key` at the selected level** (matches app `reduce_to_dict` Set dedup). At `pathway_node` level, do not dedup across nodes — intentional multi-count.
+2. **Fan-out dedup (`int_rpkm_pathway`):** After the join, each aggregated row may match multiple `pathway_node` rows. `int_rpkm_pathway` materialises **all three levels** via UNION ALL, applying `SELECT DISTINCT` per branch. Per aggregated row, each distinct `pathway_key` at a given level is counted at most once. At `pathway_node` level no dedup is needed — one row per node is intentional.
 
-| `pathway_level` | Fan-out dedup |
+| `pathway_level` branch | Dedup key |
 |---|---|
-| `superpathway` | one count per `(int_rpkm_by_ec_tax row, superpathway_id)` |
-| `pathway` | one count per `(row, pathway_id)` |
+| `superpathway` | `(sample_id, ec_normalized, source_tax_id, value, superpathway_id)` |
+| `pathway` | `(sample_id, ec_normalized, source_tax_id, value, pathway_id)` |
 | `pathway_node` | no dedup — one row per node |
+
+All three branches share the same fixed output schema `(sample_id, ec_normalized, source_tax_id, value, pathway_level, pathway_key, pathway_label)`. Downstream models filter on `pathway_level = var('pathway_level')`.
 
 **`mass_conservation` (under review — H2):** The definition of `mass_conservation` is deferred; `SUM(mart.value) ≈ SUM(stg_rpkm_long.value)` is likely incorrect because mapped ECs legitimately appear in multiple distinct pathways/superpathways, so `SUM(mart)` intentionally exceeds `SUM(stg)` when an EC spans >1 pathway. Correct invariants (per-subset conservation + app-parity reconciliation) will be defined before implementation.
 
@@ -271,16 +273,16 @@ Two distinct steps — do not conflate:
 | `bridge_*` (derived Parquet) | Raw Parquet refresh; `build_reference.py` SQL change; explicit re-run | Sample upload; param changes — sources are scanned live, no stale state |
 | `stg_rpkm_long` | New/changed RPKM file | `tax_rank` / `pathway_level` change |
 | `int_rpkm_by_ec_tax` | `stg_rpkm_long` rebuilds | `tax_rank` / `pathway_level` change |
-| `int_rpkm_pathway` | `int_rpkm_by_ec_tax` rebuilds; `pathway_level` var change | `tax_rank` change alone |
-| `int_tax_rollup_resolved` | Upstream rebuild or `tax_rank` var change | `pathway_level` change alone |
-| `mart_pathway_taxonomy_long` | Upstream rebuild or `pathway_level` var change; also `tax_rank` via upstream | — |
+| `int_rpkm_pathway` | `int_rpkm_by_ec_tax` rebuilds | **neither** `tax_rank` nor `pathway_level` — all three levels pre-computed |
+| `int_tax_rollup_resolved` | Upstream rebuild or `tax_rank` var change | `pathway_level` change |
+| `mart_pathway_taxonomy_long` | Upstream rebuild, `tax_rank` via upstream, or `pathway_level` change (WHERE filter) | — |
 
 **Typical operations:**
 
 - **Distribution / reference refresh:** `uv run python transform/scripts/build_reference.py` (pure DuckDB SQL — reads raw Parquet, writes derived bridge Parquet to `reference/parquet/`).
 - **New upload:** `dbt build --select stg_rpkm_long+` (or wrapper equivalent).
 - **Change `tax_rank`:** `dbt build --select int_tax_rollup_resolved+`.
-- **Change `pathway_level` only:** `dbt build --select int_rpkm_pathway+` (pathway dedup is level-specific) or `mart_pathway_taxonomy_long+`.
+- **Change `pathway_level` only:** `dbt build --select mart_pathway_taxonomy_long` (only the mart's WHERE filter changes; `int_rpkm_pathway` already contains all levels).
 
 **dbt `--select` syntax:** `stg_rpkm_long+` means the model `stg_rpkm_long` **and all downstream** dependencies.
 
@@ -372,27 +374,51 @@ Collapses multiple genes sharing the same EC and tax_id column before pathway jo
 
 ### 6.5 `int_rpkm_pathway`
 
-`int_rpkm_by_ec_tax` **LEFT JOIN** `{{ source('reference', 'bridge_ec_pathway') }}` ON `ec_normalized`. Apply **level-specific fan-out dedup** (§5.1) before downstream models.
+`int_rpkm_by_ec_tax` LEFT JOIN `{{ source('reference', 'bridge_ec_pathway') }}` ON `ec_normalized`, materialised as **three UNION ALL branches** — one per `pathway_level`. Each branch applies `SELECT DISTINCT` over its level-specific key set. The output has a **fixed schema regardless of any dbt var**.
 
-**`is_pathway_mapped` (derived column):** Computed as `(pathway_node_id IS NOT NULL)` immediately after the LEFT JOIN, before any level-specific column dropping. This is a convenience alias — it carries no information beyond the NULL status of the bridge join.
+**Structure:**
 
-**Dedup correctness hinge — level-specific column dropping:** Dedup uses `SELECT DISTINCT` over the level-appropriate key set. Finer-grain IDs **must be dropped** before DISTINCT, otherwise two pathway nodes in the same superpathway (different `pathway_id`) would not collapse.
+```sql
+-- superpathway branch
+SELECT DISTINCT
+    base.sample_id, base.ec_normalized, base.source_tax_id, base.value,
+    'superpathway'                         AS pathway_level,
+    CAST(b.superpathway_id AS VARCHAR)     AS pathway_key,
+    b.superpathway_name                    AS pathway_label
+FROM int_rpkm_by_ec_tax base
+LEFT JOIN {{ source('reference', 'bridge_ec_pathway') }} b
+       ON base.ec_normalized = b.ec_normalized
 
-| `pathway_level` | Columns kept | Columns dropped before DISTINCT |
-|---|---|---|
-| `superpathway` | `sample_id`, `ec_normalized`, `source_tax_id`, `value`, `is_pathway_mapped`, `superpathway_id`, `superpathway_name` | `pathway_node_id`, `pathway_id`, `pathway_name` |
-| `pathway` | all above + `pathway_id`, `pathway_name` | `pathway_node_id` |
-| `pathway_node` | all columns — no dedup | — |
+UNION ALL
 
-**Mapped ECs:** After dedup, at most one counted row per `(ec_normalized, source_tax_id, pathway_key_at_level)` per `sample_id`.
+-- pathway branch
+SELECT DISTINCT
+    base.sample_id, base.ec_normalized, base.source_tax_id, base.value,
+    'pathway'                              AS pathway_level,
+    CAST(b.pathway_id AS VARCHAR)          AS pathway_key,
+    b.pathway_name                         AS pathway_label
+FROM int_rpkm_by_ec_tax base
+LEFT JOIN {{ source('reference', 'bridge_ec_pathway') }} b
+       ON base.ec_normalized = b.ec_normalized
 
-**Unmapped ECs:** When no bridge match, LEFT JOIN produces one row with all pathway columns NULL. `is_pathway_mapped = false`.
+UNION ALL
 
-At mart time, unmapped rows use `pathway_key = NULL`, `pathway_label = 'Unmapped EC'`. There is no pathway-level fallback (an EC either maps to KEGG or it does not).
+-- pathway_node branch (no dedup — one row per node is intentional)
+SELECT DISTINCT
+    base.sample_id, base.ec_normalized, base.source_tax_id, base.value,
+    'pathway_node'                         AS pathway_level,
+    b.pathway_node_id                      AS pathway_key,
+    NULL                                   AS pathway_label
+FROM int_rpkm_by_ec_tax base
+LEFT JOIN {{ source('reference', 'bridge_ec_pathway') }} b
+       ON base.ec_normalized = b.ec_normalized
+```
 
-**Output columns by `pathway_level`:**
+**Dedup mechanics:** The DISTINCT in each branch operates over exactly `(sample_id, ec_normalized, source_tax_id, value, pathway_level, pathway_key, pathway_label)`. Finer-grain IDs are never present in the branch output, so they cannot prevent collapse — no explicit column-dropping logic needed.
 
-*Always present:*
+**Unmapped ECs:** The LEFT JOIN produces NULL for all bridge columns. Each branch emits one row with `pathway_key = NULL` and `pathway_label = NULL`. An unmapped EC therefore appears **once per `pathway_level`** in the output — intentional, since downstream always filters to a single level and needs a row to preserve the unmapped mass at that level. `pathway_key IS NULL` identifies unmapped rows.
+
+**Output columns (fixed, all branches):**
 
 | Column | Type | Notes |
 |---|---|---|
@@ -400,24 +426,11 @@ At mart time, unmapped rows use `pathway_key = NULL`, `pathway_label = 'Unmapped
 | `ec_normalized` | VARCHAR | |
 | `source_tax_id` | BIGINT | |
 | `value` | DOUBLE | From `int_rpkm_by_ec_tax` |
-| `is_pathway_mapped` | BOOLEAN | `pathway_node_id IS NOT NULL` before column drop |
-| `superpathway_id` | VARCHAR | NULL when unmapped |
-| `superpathway_name` | VARCHAR | NULL when unmapped |
+| `pathway_level` | VARCHAR | `'superpathway'`, `'pathway'`, or `'pathway_node'` |
+| `pathway_key` | VARCHAR | ID at level (CAST to VARCHAR); NULL when unmapped |
+| `pathway_label` | VARCHAR | Name at level; NULL when unmapped or `pathway_node` |
 
-*Present at `pathway` and `pathway_node` only (dropped at `superpathway`):*
-
-| Column | Type | Notes |
-|---|---|---|
-| `pathway_id` | BIGINT | NULL when unmapped |
-| `pathway_name` | VARCHAR | NULL when unmapped |
-
-*Present at `pathway_node` only (dropped at `pathway` and `superpathway`):*
-
-| Column | Type | Notes |
-|---|---|---|
-| `pathway_node_id` | VARCHAR | NULL when unmapped |
-
-**Performance:** Gene aggregation reduces row count before join. `pathway_join_fanout_rate` (§7) monitors fan-out multiplier — early warning if dedup is skipped.
+**Performance:** Gene aggregation before join reduces input size. `pathway_join_fanout_rate` (§7) measures average bridge matches per `int_rpkm_by_ec_tax` row (mapped only) before dedup.
 
 ### 6.6 `int_tax_rollup_resolved`
 
@@ -443,12 +456,12 @@ Example (requested rank = phylum via var): taxon A resolves to Bacteroidota at p
 
 **NULL keys for gap rows** (no synthetic tax_ids or pathway ids):
 
-| Case | `taxon_key` | `taxon_label` | `pathway_key` | `pathway_label` | `is_pathway_mapped` |
-|---|---|---|---|---|---|
-| Unclassified taxonomy | NULL | `'Unclassified'` | (normal) | (normal) | true or false |
-| Unmapped EC | (normal) | (normal) | NULL | `'Unmapped EC'` | `false` |
+| Case | `taxon_key` | `taxon_label` | `pathway_key` | `pathway_label` |
+|---|---|---|---|---|
+| Unclassified taxonomy | NULL | `'Unclassified'` | (normal) | (normal) |
+| Unmapped EC | (normal) | (normal) | NULL | NULL → mart renders `'Unmapped EC'` |
 
-For unmapped rows, `pathway_label` is a **fixed display string**; per-EC detail remains in `ec_normalized` (carried through from `int_rpkm_pathway`, in mart GROUP BY when `is_pathway_mapped = false`).
+For unmapped rows, `pathway_key IS NULL` is the signal; per-EC detail remains in `ec_normalized` (carried through, in mart GROUP BY when `pathway_key IS NULL`).
 
 **Run-level params (`tax_rank`, `pathway_level`):** Not echoed on mart or `int_tax_rollup_resolved` rows. Stored in dbt vars during build and in `runs/{sample_id}/run_context.json` after build. Constraints and info metrics reference `{{ var('tax_rank') }}` directly.
 
@@ -456,7 +469,7 @@ Fallback only walks **coarser** ranks (never genus when phylum was requested).
 
 **Output columns (per input row):**
 
-All columns from `int_rpkm_pathway` (varies by `pathway_level` — see §6.5), plus:
+All columns from `int_rpkm_pathway` (fixed schema — see §6.5), plus:
 
 | Column | Type | Notes |
 |---|---|---|
@@ -468,13 +481,15 @@ All columns from `int_rpkm_pathway` (varies by `pathway_level` — see §6.5), p
 
 ### 6.7 `mart_pathway_taxonomy_long`
 
-Groups `int_tax_rollup_resolved` by pathway level (from var `pathway_level`) and resolved taxon.
+Filters `int_tax_rollup_resolved` to `WHERE pathway_level = '{{ var("pathway_level") }}'`, then groups by pathway + resolved taxon.
 
-**Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, sample_id, pathway_level, is_pathway_mapped, CASE WHEN is_pathway_mapped THEN NULL ELSE ec_normalized END)`.
+**Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, sample_id, pathway_level, CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END)`.
 
-The `CASE WHEN is_pathway_mapped THEN NULL ELSE ec_normalized END` expression (aliased as `ec_normalized` in the SELECT) ensures:
+The `CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END` expression (aliased as `ec_normalized` in the SELECT) ensures:
 - **Mapped rows** collapse across all ECs sharing the same pathway + taxon (`ec_normalized = NULL` in mart).
 - **Unmapped rows** remain per-EC (`ec_normalized = <value>` in mart).
+
+`pathway_label` for unmapped rows is `COALESCE(pathway_label, 'Unmapped EC')` — the NULL from the bridge becomes the display sentinel here, not in the intermediate.
 
 This matches the app's cross-EC superpathway aggregation for mapped ECs.
 
@@ -497,10 +512,9 @@ Path vars for distribution builds — see §3.4 (`raw_parquet_dir`).
 | Column | Type | Notes |
 |---|---|---|
 | `sample_id` | VARCHAR | |
-| `pathway_level` | VARCHAR | Requested level from dbt var |
-| `pathway_key` | VARCHAR | ID at selected level (cast to VARCHAR); NULL when unmapped |
+| `pathway_level` | VARCHAR | Selected level from dbt var |
+| `pathway_key` | VARCHAR | ID at selected level; NULL when unmapped |
 | `pathway_label` | VARCHAR | Name at selected level; `'Unmapped EC'` when unmapped |
-| `is_pathway_mapped` | BOOLEAN | `true` / `false` |
 | `ec_normalized` | VARCHAR | NULL for mapped rows; EC string for unmapped rows (see GROUP BY note) |
 | `tax_rank_resolved` | VARCHAR | Actual rank used (may differ under fallback); NULL when Unclassified |
 | `taxon_key` | BIGINT | Resolved tax_id; NULL when Unclassified |
@@ -517,13 +531,13 @@ Each constraint has an id, check, stage, default severity, and pass criteria. **
 | `rpkm_tax_columns_present` | ≥1 tax_id column detected | `stg_rpkm_long` | error | tax_column_count ≥ 1 |
 | `rpkm_no_negative_values` | All `value >= 0` | `stg_rpkm_long` | error | 0 violating rows |
 | `rpkm_tax_id_resolvable` | Every distinct `source_tax_id` in `names` | `stg_rpkm_long` | warn | 0 unmapped tax_ids |
-| `rpkm_ec_kegg_coverage` | `distinct mapped ECs / distinct ECs in sample` | `int_rpkm_pathway` | info | Always passes; emits ratio |
-| `unmapped_ec_value_rate` | `SUM(value WHERE NOT is_pathway_mapped) / SUM(value)` | mart | info | Metric only |
+| `rpkm_ec_kegg_coverage` | `distinct mapped ECs / distinct ECs in sample` (mapped = `pathway_key IS NOT NULL`) | `int_rpkm_pathway` | info | Always passes; emits ratio |
+| `unmapped_ec_value_rate` | `SUM(value WHERE pathway_key IS NULL) / SUM(value)` | mart | info | Metric only |
 | `pathway_join_fanout_rate` | Avg bridge matches per `int_rpkm_by_ec_tax` row before dedup (mapped only) | `int_rpkm_pathway` | info | Metric only; high values imply mass-conservation risk if dedup skipped |
 | `mass_conservation` | **Under review (H2)** — see §5.1; current `SUM(mart) ≈ SUM(stg)` claim is incorrect; replace before implementation | mart | warn | TBD |
 | `mart_nonempty` | Mart row count > 0 | `mart_pathway_taxonomy_long` | error | count > 0 |
 | `mart_classified_taxa_have_keys` | No row where `taxon_label != 'Unclassified'` AND `taxon_key IS NULL` | mart | error | 0 rows |
-| `mart_mapped_pathways_have_keys` | No row where `is_pathway_mapped = true` AND `pathway_key IS NULL` | mart | error | 0 rows |
+| `mart_mapped_pathways_have_keys` | No row where `pathway_label != 'Unmapped EC'` AND `pathway_key IS NULL` | mart | error | 0 rows |
 | `mart_value_non_null` | All rows: `value IS NOT NULL` | mart | error | 0 nulls |
 | `mart_rollup_exact_match_rate` | `SUM(value WHERE tax_rank_resolved = var('tax_rank') AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
 | `mart_rollup_fallback_rate` | `SUM(value WHERE tax_rank_resolved != var('tax_rank') AND taxon_label != 'Unclassified') / SUM(value)` | mart | info | Metric only |
@@ -532,10 +546,8 @@ Each constraint has an id, check, stage, default severity, and pass criteria. **
 **Key constraints (replaces `mart_no_null_keys`):** NULL keys are **permitted and expected** for gap rows. Constraints enforce keys only where a real taxonomy/pathway exists:
 
 - **`mart_classified_taxa_have_keys`** — if we resolved a real taxon (`taxon_label != 'Unclassified'`), `taxon_key` must be non-null.
-- **`mart_mapped_pathways_have_keys`** — if `is_pathway_mapped = true`, `pathway_key` must be non-null.
-- Unclassified and unmapped rows are excluded by label / flag, not by synthetic sentinel ids.
-
-Using **`is_pathway_mapped`** (not `pathway_label != 'Unmapped EC'`) for pathway checks avoids ambiguity if labels change. Taxonomy side uses the fixed `'Unclassified'` label.
+- **`mart_mapped_pathways_have_keys`** — if `pathway_label != 'Unmapped EC'` (i.e. a real pathway name), `pathway_key` must be non-null. Equivalent to `pathway_key IS NULL → pathway_label = 'Unmapped EC'`.
+- Unclassified and unmapped rows are identified by NULL key + fixed label, not by a boolean flag.
 
 **Mass conservation definition (under review — H2):** `SUM(mart.value) ≈ SUM(stg_rpkm_long.value)` is incorrect as a global invariant — mapped ECs that belong to multiple distinct pathways/superpathways are intentionally counted once per pathway, so `SUM(mart)` exceeds `SUM(stg)`. The correct invariants are: (a) exact conservation on the unmapped subset, and (b) per-cell value preservation within each pathway bucket. Full definition deferred to H2 resolution before implementation.
 
