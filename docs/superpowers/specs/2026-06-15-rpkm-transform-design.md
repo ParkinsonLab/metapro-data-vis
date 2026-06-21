@@ -1,6 +1,6 @@
 # RPKM → Pathway × Taxonomy Transform Pipeline — Design Spec
 
-> **Status:** Draft (2026-06-15, revised toolchain + reference layout; 2026-06-21, bridges as dbt sources + EDA-confirmed bridge filter + output schemas + int_rpkm_pathway UNION ALL all-levels design)  
+> **Status:** Draft (2026-06-15, revised toolchain + reference layout; 2026-06-21, bridges as dbt sources + EDA-confirmed bridge filter + output schemas + int_rpkm_pathway UNION ALL all-levels + bridge_tax_rollup pre-resolved rollup)  
 > **Goal:** Build a dbt + DuckDB pipeline in `analytics/transform/` that ingests a wide RPKM/FPKM sample file and produces a long-form pathway × taxonomy matrix with summed per-taxon column values, configurable taxonomy rank and pathway level, tiered constraint checks, and persisted run artifacts. API integration and chord-matrix derivation are explicitly out of scope for v1.
 
 ## 1. Context
@@ -47,7 +47,7 @@ analytics/
     ├── dbt_project.yml
     ├── profiles.yml
     ├── models/
-    │   ├── sources.yml          # bridge_tax_rank_map, bridge_ec_pathway as external sources
+    │   ├── sources.yml          # bridge_ec_pathway, bridge_tax_rollup as external sources
     │   ├── staging/
     │   ├── intermediate/
     │   └── marts/
@@ -59,8 +59,8 @@ analytics/
     │   └── build_reference.py   # distribution: pure DuckDB SQL → reference/parquet/
     ├── reference/
     │   └── parquet/             # versioned — derived bridge tables (Git LFS)
-    │       ├── bridge_tax_rank_map.parquet
-    │       └── bridge_ec_pathway.parquet
+    │       ├── bridge_ec_pathway.parquet
+    │       └── bridge_tax_rollup.parquet
     ├── data/                   # gitignored — optional staging DB during distribution build
     ├── target/                 # gitignored — dbt artifacts (run_results.json, manifest.json)
     └── runs/                   # gitignored — one folder per sample (see §3.3)
@@ -180,15 +180,15 @@ Pure Python + DuckDB — **no dbt invocation** at this step.
 sources:
   - name: reference
     tables:
-      - name: bridge_tax_rank_map
-        meta:
-          external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_tax_rank_map.parquet')"
       - name: bridge_ec_pathway
         meta:
           external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_ec_pathway.parquet')"
+      - name: bridge_tax_rollup
+        meta:
+          external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_tax_rollup.parquet')"
 ```
 
-Upload models reference bridges as `{{ source('reference', 'bridge_ec_pathway') }}` — dbt-duckdb compiles this to the `read_parquet(...)` call at query time. No build step, no views, no DDL in `sample.duckdb`.
+Upload models reference bridges as `{{ source('reference', 'bridge_ec_pathway') }}` and `{{ source('reference', 'bridge_tax_rollup') }}` — dbt-duckdb compiles these to `read_parquet(...)` calls at query time. No build step, no views, no DDL in `sample.duckdb`.
 
 Upload command is **`dbt build --select stg_rpkm_long+` only**. Wrapper fails fast if derived Parquet files are missing (dev fallback: run `build_reference.py` first).
 
@@ -235,8 +235,8 @@ Python 3.14 (repo pin) + **dbt-core 1.12.0b1** (beta; Python 3.14 support) + dbt
     raw pathway_* parquet     → reference/parquet/bridge_ec_pathway.parquet
 
 [upload — dbt external sources (read_parquet at query time, no build)]
-  source('reference', 'bridge_tax_rank_map')   ← reference/parquet/bridge_tax_rank_map.parquet
   source('reference', 'bridge_ec_pathway')     ← reference/parquet/bridge_ec_pathway.parquet
+  source('reference', 'bridge_tax_rollup')     ← reference/parquet/bridge_tax_rollup.parquet
 
 [upload — sample tables]
   stg_rpkm_long             ← Python: wide TSV → long, EC normalize, nonzero filter
@@ -245,9 +245,9 @@ Python 3.14 (repo pin) + **dbt-core 1.12.0b1** (beta; Python 3.14 support) + dbt
        ↓
   int_rpkm_pathway          ← LEFT JOIN source bridge_ec_pathway; UNION ALL three levels, dedup per level
        ↓
-  int_tax_rollup_resolved   ← join source bridge_tax_rank_map; exact / fallback / unclassified
+  int_tax_rollup_resolved   ← LEFT JOIN source bridge_tax_rollup; all 7 ranks pre-resolved
        ↓
-  mart_pathway_taxonomy_long ← GROUP BY pathway level + taxon; SUM(value)
+  mart_pathway_taxonomy_long ← WHERE pathway_level + requested_rank; GROUP BY; SUM(value)
 ```
 
 ### 5.1 Abundance aggregation semantics (app parity)
@@ -273,38 +273,35 @@ All three branches share the same fixed output schema `(sample_id, ec_normalized
 | `bridge_*` (derived Parquet) | Raw Parquet refresh; `build_reference.py` SQL change; explicit re-run | Sample upload; param changes — sources are scanned live, no stale state |
 | `stg_rpkm_long` | New/changed RPKM file | `tax_rank` / `pathway_level` change |
 | `int_rpkm_by_ec_tax` | `stg_rpkm_long` rebuilds | `tax_rank` / `pathway_level` change |
-| `int_rpkm_pathway` | `int_rpkm_by_ec_tax` rebuilds | **neither** `tax_rank` nor `pathway_level` — all three levels pre-computed |
-| `int_tax_rollup_resolved` | Upstream rebuild or `tax_rank` var change | `pathway_level` change |
-| `mart_pathway_taxonomy_long` | Upstream rebuild, `tax_rank` via upstream, or `pathway_level` change (WHERE filter) | — |
+| `int_rpkm_pathway` | `int_rpkm_by_ec_tax` rebuilds | **neither** param — all three levels pre-computed |
+| `int_tax_rollup_resolved` | `int_rpkm_pathway` rebuilds | **neither** param — all 7 ranks pre-joined |
+| `mart_pathway_taxonomy_long` | Upstream rebuild **or** either param change (WHERE filter only) | — |
 
 **Typical operations:**
 
 - **Distribution / reference refresh:** `uv run python transform/scripts/build_reference.py` (pure DuckDB SQL — reads raw Parquet, writes derived bridge Parquet to `reference/parquet/`).
 - **New upload:** `dbt build --select stg_rpkm_long+` (or wrapper equivalent).
-- **Change `tax_rank`:** `dbt build --select int_tax_rollup_resolved+`.
-- **Change `pathway_level` only:** `dbt build --select mart_pathway_taxonomy_long` (only the mart's WHERE filter changes; `int_rpkm_pathway` already contains all levels).
+- **Change `tax_rank` or `pathway_level`:** `dbt build --select mart_pathway_taxonomy_long` — both intermediates are pre-computed for all param combinations; only the mart's WHERE filter changes.
 
 **dbt `--select` syntax:** `stg_rpkm_long+` means the model `stg_rpkm_long` **and all downstream** dependencies.
 
 ## 6. Model Specifications
 
-### 6.1 `bridge_tax_rank_map` (dbt source)
+### 6.1 `bridge_tax_rank_map` (distribution-internal)
 
-Built by `build_reference.py` (DuckDB SQL) from raw `parents` Parquet (`raw_parquet_dir`). Output written to `reference/parquet/bridge_tax_rank_map.parquet`. Consumed at upload via `{{ source('reference', 'bridge_tax_rank_map') }}`.
+Built by `build_reference.py` (DuckDB SQL) from raw `parents` Parquet. **Not shipped as a dbt source** — used as an in-memory intermediate within `build_reference.py` to produce `bridge_tax_rollup` (§6.3). Optionally persisted to `reference/parquet/bridge_tax_rank_map.parquet` for debugging.
 
-**Build logic (`build_reference.py`):**
+**Build logic:**
 1. UNPIVOT non-null `t_kingdom` … `t_species` → `(tax_id, rank_tax_id, rank)`.
-2. Add self-rows: for taxa whose finest filled rank equals `rank`, ensure `(tax_id, tax_id, rank)` exists when missing from step 1. Finest rank derived inline from wide columns (same ladder logic as EDA §6); no separate `dim_taxonomy` model.
+2. Add self-rows: for taxa whose finest filled rank equals `rank`, ensure `(tax_id, tax_id, rank)` exists when missing from step 1. Finest rank derived inline from wide columns (same ladder logic as EDA §6).
 
-**Output schema:**
+**Schema:**
 
 | Column | Type | Notes |
 |---|---|---|
 | `tax_id` | BIGINT | Source taxon |
-| `rank_tax_id` | BIGINT | Tax_id at `rank` (self when at-rank) |
+| `rank_tax_id` | BIGINT | Ancestor tax_id at `rank` (self when at-rank) |
 | `rank` | VARCHAR | `kingdom`, `phylum`, `class`, `order`, `family`, `genus`, `species` |
-
-Join taxonomy on `tax_id`, never `names.id` (UUID surrogate).
 
 ### 6.2 `bridge_ec_pathway` (dbt source)
 
@@ -333,7 +330,30 @@ When aggregating at `pathway` or `superpathway`, dedup to one count per distinct
 
 **No `ec:` prefix stripping in bridge SQL:** `pathway_nodes.name` values are already clean `N.N.N.N` in the DB (KGML parser strips the `ec:` prefix at build time). No normalization needed on the bridge side — names match RPKM `ec_normalized` directly.
 
-### 6.3 `stg_rpkm_long` (Python model)
+### 6.3 `bridge_tax_rollup` (dbt source)
+
+Built by `build_reference.py` (DuckDB SQL) from `bridge_tax_rank_map` (§6.1) + raw `names` Parquet. Output written to `reference/parquet/bridge_tax_rollup.parquet`. Consumed at upload via `{{ source('reference', 'bridge_tax_rollup') }}`.
+
+Encodes the **pre-resolved taxonomy rollup** for every `(tax_id, requested_rank)` combination across all 2.8M taxa × 7 ranks (~20M rows). The exact/fallback/unclassified resolution algorithm runs once at distribution — no resolution logic in upload SQL.
+
+**Build logic (`build_reference.py`):**
+1. For each `(tax_id, requested_rank)` pair (cross `bridge_tax_rank_map` with the 7 ranks):
+   - **Exact:** row exists where `rank = requested_rank` → `taxon_key = rank_tax_id`, `tax_rank_resolved = requested_rank`.
+   - **Fallback:** no exact row; take finest rank coarser than `requested_rank` (lowest rank_order ≤ requested) → `taxon_key = rank_tax_id`, `tax_rank_resolved = that rank`.
+   - **Unclassified:** no qualifying row → `taxon_key = NULL`, `tax_rank_resolved = NULL`.
+2. Join `names` on `taxon_key` for `taxon_label`; set `'Unclassified'` when `taxon_key IS NULL`.
+
+**Output schema:**
+
+| Column | Type | Notes |
+|---|---|---|
+| `source_tax_id` | BIGINT | RPKM column header (join key to `int_rpkm_pathway`) |
+| `requested_rank` | VARCHAR | One of 7 ranks; filters to `var('tax_rank')` in mart |
+| `taxon_key` | BIGINT | Resolved ancestor tax_id; NULL when Unclassified |
+| `tax_rank_resolved` | VARCHAR | Actual rank used (may be coarser than `requested_rank`); NULL when Unclassified |
+| `taxon_label` | VARCHAR | Scientific name; `'Unclassified'` when null |
+
+### 6.4 `stg_rpkm_long` (Python model)
 
 **Input:** dbt var `rpkm_path` (absolute or repo-relative path to wide TSV).
 
@@ -357,7 +377,7 @@ When aggregating at `pathway` or `superpathway`, dedup to one count per distinct
 | `source_tax_id` | BIGINT | RPKM column header (integer tax_id) |
 | `value` | DOUBLE | Per-taxon column value (nonzero only) |
 
-### 6.4 `int_rpkm_by_ec_tax`
+### 6.5 `int_rpkm_by_ec_tax`
 
 `GROUP BY (sample_id, ec_normalized, source_tax_id)` → `SUM(value)`.
 
@@ -372,7 +392,7 @@ Collapses multiple genes sharing the same EC and tax_id column before pathway jo
 | `source_tax_id` | BIGINT | RPKM column header (tax_id) |
 | `value` | DOUBLE | `SUM(value)` across genes with same EC + taxon |
 
-### 6.5 `int_rpkm_pathway`
+### 6.6 `int_rpkm_pathway`
 
 `int_rpkm_by_ec_tax` LEFT JOIN `{{ source('reference', 'bridge_ec_pathway') }}` ON `ec_normalized`, materialised as **three UNION ALL branches** — one per `pathway_level`. Each branch applies `SELECT DISTINCT` over its level-specific key set. The output has a **fixed schema regardless of any dbt var**.
 
@@ -432,58 +452,57 @@ LEFT JOIN {{ source('reference', 'bridge_ec_pathway') }} b
 
 **Performance:** Gene aggregation before join reduces input size. `pathway_join_fanout_rate` (§7) measures average bridge matches per `int_rpkm_by_ec_tax` row (mapped only) before dedup.
 
-### 6.6 `int_tax_rollup_resolved`
+### 6.7 `int_tax_rollup_resolved`
 
-Resolves each row to a taxon at requested rank using `bridge_tax_rank_map` and `seeds/rank_order.csv`.
+Joins `int_rpkm_pathway` with `{{ source('reference', 'bridge_tax_rollup') }}` on `source_tax_id`. All 7 `requested_rank` values are joined and stored — no resolution logic in upload SQL. The mart filters to the specific `requested_rank = var('tax_rank')`.
 
-**Rank order (coarse → fine):** kingdom, phylum, class, order, family, genus, species.
+```sql
+SELECT p.*, t.requested_rank, t.taxon_key, t.tax_rank_resolved, t.taxon_label
+FROM int_rpkm_pathway p
+LEFT JOIN {{ source('reference', 'bridge_tax_rollup') }} t
+       ON p.source_tax_id = t.source_tax_id
+```
 
-**Resolution algorithm** (for var `tax_rank`):
+Each row from `int_rpkm_pathway` (which already covers all 3 `pathway_level` values) expands to up to 7 rows — one per `requested_rank`. Total: 3 pathway levels × 7 tax ranks × base rows.
 
-1. **Exact:** row in `bridge_tax_rank_map` where `tax_id = source_tax_id` AND `rank = tax_rank` → `tax_rank_resolved = tax_rank`.
-2. **Fallback:** among rows where `rank_order <= tax_rank_order`, pick finest available (max rank order) → `tax_rank_resolved = that rank` (coarser than requested).
-3. **Unclassified:** no qualifying row → `taxon_key = NULL`, `taxon_label = 'Unclassified'`, `tax_rank_resolved = NULL`.
+**Unclassified rows:** `source_tax_id` values absent from `bridge_tax_rollup` (or resolving to NULL) yield `taxon_key = NULL`, `taxon_label = 'Unclassified'`, `tax_rank_resolved = NULL`. Left join ensures these rows are preserved.
 
-**Deriving resolution type** (not stored on mart — use `tax_rank` dbt var or `run_context.json`):
-
-| Condition | Meaning |
-|---|---|
-| `taxon_label = 'Unclassified'` (equivalently `taxon_key IS NULL`) | Unclassified |
-| `tax_rank_resolved = {{ var('tax_rank') }}` | Exact match |
-| else (non-null `taxon_key`) | Coarser fallback |
-
-Example (requested rank = phylum via var): taxon A resolves to Bacteroidota at phylum (exact); taxon B with unknown phylum resolves to kingdom Pseudomonadati (fallback). These are **different `(taxon_key, tax_rank_resolved)` pairs** in the mart — no extra grouping dimension needed.
-
-**NULL keys for gap rows** (no synthetic tax_ids or pathway ids):
+**NULL keys for gap rows:**
 
 | Case | `taxon_key` | `taxon_label` | `pathway_key` | `pathway_label` |
 |---|---|---|---|---|
 | Unclassified taxonomy | NULL | `'Unclassified'` | (normal) | (normal) |
 | Unmapped EC | (normal) | (normal) | NULL | NULL → mart renders `'Unmapped EC'` |
 
-For unmapped rows, `pathway_key IS NULL` is the signal; per-EC detail remains in `ec_normalized` (carried through, in mart GROUP BY when `pathway_key IS NULL`).
+**Deriving resolution type** from output (for diagnostics / constraints):
 
-**Run-level params (`tax_rank`, `pathway_level`):** Not echoed on mart or `int_tax_rollup_resolved` rows. Stored in dbt vars during build and in `runs/{sample_id}/run_context.json` after build. Constraints and info metrics reference `{{ var('tax_rank') }}` directly.
+| Condition | Meaning |
+|---|---|
+| `taxon_key IS NULL` | Unclassified |
+| `tax_rank_resolved = requested_rank` | Exact match |
+| `taxon_key IS NOT NULL` AND `tax_rank_resolved != requested_rank` | Coarser fallback |
 
-Fallback only walks **coarser** ranks (never genus when phylum was requested).
+Example: taxon A with `requested_rank = 'phylum'` resolves to Bacteroidota (exact); taxon B resolves to kingdom Pseudomonadati (fallback). Different `(taxon_key, tax_rank_resolved)` pairs — no extra grouping dimension needed.
 
-**Output columns (per input row):**
-
-All columns from `int_rpkm_pathway` (fixed schema — see §6.5), plus:
+**Output columns:**
 
 | Column | Type | Notes |
 |---|---|---|
-| `tax_rank_resolved` | VARCHAR | Actual rank used; NULL when Unclassified |
-| `taxon_key` | BIGINT | `rank_tax_id` from bridge; NULL when Unclassified |
-| `taxon_label` | VARCHAR | Scientific name from `names`; `'Unclassified'` when null |
+| (all columns from §6.6 `int_rpkm_pathway`) | — | Fixed schema: `sample_id`, `ec_normalized`, `source_tax_id`, `value`, `pathway_level`, `pathway_key`, `pathway_label` |
+| `requested_rank` | VARCHAR | One of 7 ranks; mart filters to `var('tax_rank')` |
+| `taxon_key` | BIGINT | Resolved ancestor tax_id; NULL when Unclassified |
+| `tax_rank_resolved` | VARCHAR | Actual rank used (may be coarser); NULL when Unclassified |
+| `taxon_label` | VARCHAR | Scientific name; `'Unclassified'` when null |
 
-**Intentional divergence from app:** `get_parents_at_level` uses a name-based backfill heuristic and does not coarser-fallback. Pipeline behavior is explicit and documented.
+**Intentional divergence from app:** `get_parents_at_level` uses a name-based backfill heuristic and does not coarser-fallback. Pipeline behavior is explicit and documented. `seeds/rank_order.csv` is used only in `build_reference.py` (to order fallback selection), not at upload time.
 
-### 6.7 `mart_pathway_taxonomy_long`
+### 6.8 `mart_pathway_taxonomy_long`
 
-Filters `int_tax_rollup_resolved` to `WHERE pathway_level = '{{ var("pathway_level") }}'`, then groups by pathway + resolved taxon.
+Filters `int_tax_rollup_resolved` to `WHERE pathway_level = '{{ var("pathway_level") }}' AND requested_rank = '{{ var("tax_rank") }}'`, then groups by pathway + resolved taxon.
 
 **Mart GROUP BY:** `(pathway_key, pathway_label, taxon_key, taxon_label, tax_rank_resolved, sample_id, pathway_level, CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END)`.
+
+(`requested_rank` is excluded — it is constant after the WHERE filter and not output.)
 
 The `CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END` expression (aliased as `ec_normalized` in the SELECT) ensures:
 - **Mapped rows** collapse across all ECs sharing the same pathway + taxon (`ec_normalized = NULL` in mart).
@@ -520,6 +539,8 @@ Path vars for distribution builds — see §3.4 (`raw_parquet_dir`).
 | `taxon_key` | BIGINT | Resolved tax_id; NULL when Unclassified |
 | `taxon_label` | VARCHAR | Scientific name; `'Unclassified'` when null |
 | `value` | DOUBLE | `SUM(value)` |
+
+`requested_rank` (= `var('tax_rank')`) is not a mart output column — it is constant for all mart rows and stored in `run_context.json`.
 
 ## 7. Constraints
 
@@ -567,10 +588,11 @@ uv run python transform/scripts/build_reference.py
 Steps:
 1. Verify raw Parquet exists under `resources/db/parquet/` (run `export_parquet.py` if missing).
 2. Connect DuckDB in-memory; attach raw Parquet via `read_parquet(raw_parquet_dir/…)`.
-3. Execute bridge SQL directly (UNPIVOT / join logic per §6.1–6.2); write results:
-   - `COPY … TO 'reference/parquet/bridge_tax_rank_map.parquet' (FORMAT PARQUET)`
-   - `COPY … TO 'reference/parquet/bridge_ec_pathway.parquet' (FORMAT PARQUET)`
-4. Assert output: no `ec_normalized = '0.0.0.0'` in bridge_ec_pathway; row counts > 0.
+3. Compute `bridge_tax_rank_map` as an in-memory table (§6.1 UNPIVOT + self-rows).
+4. Execute bridge SQL; write results:
+   - `bridge_ec_pathway` (§6.2): filter EC-dotted names, join pathway hierarchy → `COPY … TO 'reference/parquet/bridge_ec_pathway.parquet'`
+   - `bridge_tax_rollup` (§6.3): cross `bridge_tax_rank_map` with 7 ranks, resolve exact/fallback/unclassified, join `names` → `COPY … TO 'reference/parquet/bridge_tax_rollup.parquet'`
+5. Assert output: no `ec_normalized = '0.0.0.0'` in `bridge_ec_pathway`; `bridge_tax_rollup` has 7 rows per distinct `source_tax_id`; row counts > 0.
 5. Commit derived Parquet (Git LFS) and ship with releases.
 
 **No dbt invocation at distribution** — bridge SQL is plain Python+DuckDB. This eliminates `tag:reference`, dual-target profiles, and staging DB management. Run after raw Parquet refresh and in CI to validate bridge SQL.
@@ -619,7 +641,7 @@ dbt build --select int_tax_rollup_resolved+ --vars '{ "tax_rank": "class", ... }
 
 | Artifact | Location | Writer | Contents |
 |---|---|---|---|
-| `bridge_*.parquet` | `transform/reference/parquet/` | `build_reference.py` | Derived reference bridges; versioned, shipped |
+| `bridge_ec_pathway.parquet`, `bridge_tax_rollup.parquet` | `transform/reference/parquet/` | `build_reference.py` | Derived reference bridges; versioned, shipped via Git LFS |
 | `target/run_results.json` | `transform/target/` | dbt | Per-node status, timing, test outcomes |
 | `target/manifest.json` | `transform/target/` | dbt | Lineage, compiled SQL |
 | `run_context.json` | `runs/{sample_id}/` | wrapper | `tax_rank`, `pathway_level`, `sample_id`, `rpkm_path`, `overall_status`, pointer to `transform/target/` |
