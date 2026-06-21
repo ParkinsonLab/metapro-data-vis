@@ -54,6 +54,9 @@ Additional cardinality checks (detail also in [Edge evidence](#edge-evidence)):
 - Pathway graph degree is sparse and skewed: out-degree min 0, max 945, median 0.0; in-degree min 0, max 945, median 0.0 (§4).
 - Pathway edge counts per pathway range from 2 to 2,410, with median 132.0 (§4).
 - Displayed dangling-node output is led by pathway 1100 with 3,716 dangling nodes, pathway 1110 with 2,480, and pathway 1120 with 1,208 (§6).
+- `pathway_nodes.type` is KGML **graphics shape**, not semantic role: `circle` 15,403, `rectangle` 7,169, `roundrectangle` 1,292 (§6). Circles carry compound ids (e.g. `C10216`); rectangles carry EC numbers or occasional compound/ellipsis labels.
+- EC-dotted `pathway_nodes.name` values (pattern `^[0-9]+(\.[0-9]+){0,3}$`, 1–4 segments): **7,064** rows, **3,867** distinct names — all **4** segments in this dump (§6). RPKM fallback token `0.0.0.0` is **absent** from `pathway_nodes.name` (§6).
+- EC-dotted names ⊆ `rectangle` type (**0** EC-dotted rows outside rectangles). `rectangle` ⊄ EC-dotted: **75** distinct non-EC rectangle names (**105** rows) — **61** compound ids (`C…`) and **14** ellipsis-truncated EC labels (`1.1.1.145…`, etc.) (§6). Prefer EC-dotted name matching over `type = 'rectangle'` for RPKM→pathway joins.
 
 ## RPKM Wide Format
 
@@ -147,7 +150,7 @@ Scope: `rpkm_sample` taxonomy joins are per tax_id column header; reverse joins 
 | `superpathways` · `superpathway` | `superpathways` → `pathway_superpathways` | **0..n** · Each `superpathways` row has zero or more `pathway_superpathways` rows | Consistent. min 2, max 31, median 14 `pathway_superpathways` per superpathway; 0 superpathways without psp (§4) | By design — grouping cardinality is open-ended | — |
 | `superpathways` · `superpathway` | `pathway_superpathways` → `superpathways` | **1..1** · Each `pathway_superpathways` row maps to exactly one `superpathways` row | Consistent. 0 orphan `superpathway`→`superpathways` (§6) | SQLite FK — `pathway_superpathways.superpathway` | — |
 
-**Attribute note (not an ER edge):** `pathway_nodes.name` is not unique — top duplicate `1.14.14.1`: 77 rows (§6). **Enforced:** By design — duplicate EC labels are valid.
+**Attribute note (not an ER edge):** `pathway_nodes.name` is not unique — top duplicate `1.14.14.1`: 77 rows (§6). **Enforced:** By design — duplicate EC labels are valid. `pathway_nodes.type` stores KGML graphics shape (`circle` / `rectangle` / `roundrectangle`), not enzyme vs compound semantics (§6).
 
 ## Regression Validation Targets
 
@@ -170,7 +173,8 @@ Invariants that hold in the current dump but are not fully guaranteed by SQLite 
 
 - Do not treat tax_id headers as ordinary row values until the RPKM tables are unpivoted.
 - Join taxonomy on `tax_id`, not `names.id` (UUID surrogate).
-- Normalize `EC#` values before joining to pathway tables, and expect `0.0.0.0` to dominate when `EC#` is absent. Not every normalized EC appears in KEGG `pathway_nodes`; track join-row coverage for analytics, not as a defect.
+- Normalize `EC#` values before joining to pathway tables, and expect `0.0.0.0` to dominate when `EC#` is absent. `0.0.0.0` does not appear in `pathway_nodes.name`, so the fallback does not collide with KEGG reference labels (§6). Not every normalized EC appears in KEGG `pathway_nodes`; track join-row coverage for analytics, not as a defect.
+- `pathway_nodes.type` is a graphics shape from KGML, not a semantic filter. EC-dotted names are a strict subset of `rectangle` nodes; some rectangles are compound ids or truncated labels (§6). Match joins on EC-dotted `name` patterns, not on `type`.
 - `pathway_nodes.name` is many-to-one from the perspective of EC labels; downstream summaries should decide whether to count distinct ECs, pathway nodes, pathways, or superpathways.
 - Several notebook outputs are display-limited top-N tables. For exhaustive audits, rerun or extend the underlying SQL cells rather than inferring from visible rows alone.
 - Keep this document updated when new dumps or sample files are introduced; re-run regression validation targets on data refresh.
