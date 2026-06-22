@@ -14,13 +14,16 @@ vars:
   tax_rank: "phylum"
   pathway_level: "pathway"
   reference_parquet_dir: "transform/reference/parquet"
-  # rpkm_path and sample_id: required at runtime, no defaults
+  rpkm_path: ""
+  sample_id: ""
   # raw_parquet_dir: for build_reference.py only, not used by dbt models
 
 models:
   rpkm_transform:
     staging:
       +materialized: table
+      +rpkm_path: "{{ var('rpkm_path') }}"
+      +sample_id: "{{ var('sample_id') }}"
     intermediate:
       +materialized: table
     marts:
