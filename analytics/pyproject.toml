@@ -22,4 +22,4 @@ dev = [
 prerelease = "allow"
 
 [tool.pytest.ini_options]
-testpaths = ["exploration/scripts"]
+testpaths = ["exploration/scripts", "transform/tests/python"]

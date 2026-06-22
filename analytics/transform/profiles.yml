@@ -3,4 +3,4 @@ rpkm_transform:
   outputs:
     dev:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', 'runs/default/sample.duckdb') }}"
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'transform/runs/default/sample.duckdb') }}"
