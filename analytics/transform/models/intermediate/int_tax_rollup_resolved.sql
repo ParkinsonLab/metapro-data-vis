@@ -2,7 +2,11 @@
 -- All 7 requested_rank values are stored — no resolution logic at upload.
 -- Mart filters to the desired requested_rank + pathway_level.
 -- Physical ordering: ORDER BY requested_rank, pathway_level, pathway_key
--- enables DuckDB zone-map skipping (~20/21 row groups per mart run).
+-- enables DuckDB zone-map skipping: ~6/7 row groups skipped per mart run (1 rank of 7 selected).
+--
+-- NOTE: source_tax_ids absent from bridge_tax_rollup produce requested_rank = NULL here.
+-- These rows are excluded by the mart's WHERE requested_rank = var('tax_rank') filter.
+-- The warn_rpkm_tax_id_resolvable test (Task 7) quantifies the affected mass.
 
 SELECT
     p.sample_id,
