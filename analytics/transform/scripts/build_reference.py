@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import subprocess
-import sys
+import sys  # noqa: F401 — used by main() added in Task 3
 from pathlib import Path
 
 import duckdb

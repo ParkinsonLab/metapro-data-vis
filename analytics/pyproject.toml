@@ -11,13 +11,13 @@ dependencies = [
     "dbt-core==1.12.0b1",
     "dbt-duckdb>=1.10.1",
     "mashumaro>=3.17,<3.18",
-    "numpy>=2.5.0",
-    "pandas>=3.0.3",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "numpy>=2.5.0",
+    "pandas>=3.0.3",
 ]
 
 [tool.uv]
