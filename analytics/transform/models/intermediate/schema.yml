@@ -24,8 +24,7 @@ models:
         tests:
           - not_null
           - accepted_values:
-              arguments:
-                values: ['superpathway', 'pathway', 'pathway_node']
+              values: ['superpathway', 'pathway', 'pathway_node']
 
   - name: int_tax_rollup_resolved
     description: >
@@ -36,5 +35,4 @@ models:
         tests:
           - not_null
           - accepted_values:
-              arguments:
-                values: ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+              values: ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
