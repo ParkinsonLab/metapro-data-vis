@@ -207,7 +207,7 @@ def main() -> None:
     conn.execute(f"COPY _bridge_tax_rollup TO '{tax_path}' (FORMAT PARQUET)")
     _assert_bridge_tax_rollup(conn, tax_path)
 
-    print("Done. Commit reference/parquet/ via Git LFS.")
+    print("Done.")
 
 
 if __name__ == "__main__":

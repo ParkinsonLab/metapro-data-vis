@@ -23,7 +23,8 @@ uv run python transform/scripts/build_reference.py
 ```
 
 Outputs `transform/reference/parquet/bridge_ec_pathway.parquet` and
-`transform/reference/parquet/bridge_tax_rollup.parquet`. Commit these via Git LFS.
+`transform/reference/parquet/bridge_tax_rollup.parquet`. These are not committed;
+run this step after cloning or whenever raw reference Parquet is refreshed.
 
 ### 3. Run the pipeline on a sample
 

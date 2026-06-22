@@ -8,3 +8,6 @@ transform/target/
 transform/dbt_packages/
 transform/logs/
 transform/**/*.duckdb
+
+# Distribution-time bridge artifacts — built by build_reference.py, not committed
+transform/reference/parquet/*.parquet
