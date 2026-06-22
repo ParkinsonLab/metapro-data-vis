@@ -12,8 +12,6 @@ from scripts.stg_rpkm_long import _transform
 
 
 def model(dbt, session):
-    dbt.config(materialized="table")
-
     rpkm_path = dbt.config.get("rpkm_path")
     sample_id = dbt.config.get("sample_id")
 

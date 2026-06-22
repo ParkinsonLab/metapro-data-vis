@@ -7,6 +7,11 @@ KEY_COLS = ("GeneID", "Length", "Reads", "EC#", "RPKM", "Unclassified")
 _EXCLUDE = ", ".join(f'"{c}"' for c in KEY_COLS)
 
 
+def _escape_sql_str(s: str) -> str:
+    """Escape single quotes for safe SQL string embedding."""
+    return s.replace("'", "''")
+
+
 def _transform(
     conn: duckdb.DuckDBPyConnection, rpkm_path: str, sample_id: str
 ) -> duckdb.DuckDBPyRelation:
@@ -16,11 +21,13 @@ def _transform(
         sample_id, gene_id, ec_normalized, source_tax_id (BIGINT), value (DOUBLE)
     Filters value > 0; drops rows where source_tax_id is not a valid integer.
     """
+    safe_path = _escape_sql_str(rpkm_path)
+    safe_sample_id = _escape_sql_str(sample_id)
     return conn.sql(f"""
         WITH wide AS (
             SELECT *
             FROM read_csv(
-                '{rpkm_path}',
+                '{safe_path}',
                 sep = '\t',
                 header = true,
                 all_varchar = true,
@@ -34,7 +41,7 @@ def _transform(
         ),
         normalized AS (
             SELECT
-                '{sample_id}'::VARCHAR                              AS sample_id,
+                '{safe_sample_id}'::VARCHAR                          AS sample_id,
                 "GeneID"                                            AS gene_id,
                 CASE
                     WHEN "EC#" IS NULL                              THEN '0.0.0.0'
