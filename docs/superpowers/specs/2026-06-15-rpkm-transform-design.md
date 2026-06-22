@@ -1,6 +1,6 @@
 # RPKM → Pathway × Taxonomy Transform Pipeline — Design Spec
 
-> **Status:** Draft (2026-06-15, revised toolchain + reference layout; 2026-06-21, bridges as dbt sources + EDA-confirmed bridge filter + output schemas + int_rpkm_pathway UNION ALL all-levels + bridge_tax_rollup pre-resolved rollup)  
+> **Status:** Draft (2026-06-15, revised toolchain + reference layout; 2026-06-21, bridges as dbt sources + EDA-confirmed bridge filter + output schemas + int_rpkm_pathway UNION ALL all-levels + bridge_tax_rollup pre-resolved rollup; 2026-06-22, derived bridge Parquet gitignored — local build output only, raw reference Parquet remains Git LFS)  
 > **Goal:** Build a dbt + DuckDB pipeline in `analytics/transform/` that ingests a wide RPKM/FPKM sample file and produces a long-form pathway × taxonomy matrix with summed per-taxon column values, configurable taxonomy rank and pathway level, tiered constraint checks, and persisted run artifacts. API integration and chord-matrix derivation are explicitly out of scope for v1.
 
 ## 1. Context
@@ -13,7 +13,7 @@ Exploratory analysis (`analytics/exploration/`, branch `exploration/eda`) valida
 
 | Phase | When | Data |
 |---|---|---|
-| **Distribution** | App install / software distribution | Raw reference Parquet (`resources/db/parquet/`); derived bridge Parquet (`analytics/transform/reference/parquet/`) built by `build_reference.py` and committed via Git LFS |
+| **Distribution** | App install / software distribution | Raw reference Parquet (`resources/db/parquet/`, Git LFS); derived bridge Parquet (`analytics/transform/reference/parquet/`) built locally by `build_reference.py` — **not git-tracked** |
 | **Runtime** | User uploads RPKM/FPKM | Sample TSV only |
 
 Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to the Node app, pre-compute intermediates for snappy UI, derive `chord_matrix` in the API layer from `mart_pathway_taxonomy_long`.
@@ -30,7 +30,7 @@ Future work (out of scope v1): invoke pipeline on upload, stream dbt progress to
 | Taxonomy rollup | Resolve via `bridge_tax_rank_map`: exact rank → coarser fallback → `Unclassified` | Mart stores `resolved_tax_rank`; exact vs fallback derived via `tax_rank` var / `run_context.json` |
 | EC → pathway join | **LEFT JOIN**; `pathway_key IS NULL` when unmapped | Preserves knowledge-gap mass in mart; no boolean flag needed |
 | Reference taxonomy shape | `bridge_tax_rank_map` derived from wide `parents` (long form with self-rows) | Parameterized rank without dynamic SQL columns |
-| Reference bridges | `bridge_tax_rank_map`, `bridge_ec_pathway`; built at distribution by `build_reference.py` → `reference/parquet/`; consumed at upload as dbt external sources | Pre-computed joins; no dbt build step at upload; no dual-profile complexity |
+| Reference bridges | `bridge_tax_rank_map`, `bridge_ec_pathway`; built at distribution by `build_reference.py` → `reference/parquet/` (local disk, gitignored); consumed at upload as dbt external sources | Pre-computed joins; no dbt build step at upload; no dual-profile complexity; reproducible from raw Parquet |
 | Pipeline tool | **dbt-first** (dbt-duckdb) with Python model for wide TSV ingest | Single toolchain; `run_results.json` ready for future streaming |
 | Constraints | Tiered severity (error / warn / info); profile-ready for v2 | dbt test `severity:` + info singular tests; no profiles in v1 |
 | Reporting | dbt artifacts in `transform/target/`; `run_context.json` when using wrapper | Conventional dbt layout; no per-run history |
@@ -58,9 +58,10 @@ analytics/
     │   ├── run_pipeline.py
     │   └── build_reference.py   # distribution: pure DuckDB SQL → reference/parquet/
     ├── reference/
-    │   └── parquet/             # versioned — derived bridge tables (Git LFS)
-    │       ├── bridge_ec_pathway.parquet
-    │       └── bridge_tax_rollup.parquet
+    │   └── parquet/             # gitignored *.parquet — run build_reference.py after clone
+    │       ├── .gitkeep
+    │       ├── bridge_ec_pathway.parquet      # local build output (not committed)
+    │       └── bridge_tax_rollup.parquet      # local build output (not committed)
     ├── data/                   # gitignored — optional staging DB during distribution build
     ├── target/                 # gitignored — dbt artifacts (run_results.json, manifest.json)
     └── runs/                   # gitignored — one folder per sample (see §3.3)
@@ -75,7 +76,7 @@ analytics/
 | Layer | Produced by | Location |
 |---|---|---|
 | **Raw** table exports | `export_parquet.py` from `taxonomy.db` | `resources/db/parquet/*.parquet` |
-| **Derived** bridge tables | `build_reference.py` (pure DuckDB SQL) | `analytics/transform/reference/parquet/*.parquet` |
+| **Derived** bridge tables | `build_reference.py` (pure DuckDB SQL) | `analytics/transform/reference/parquet/*.parquet` (local; gitignored) |
 
 Raw Parquet is input to `build_reference.py` only. Upload reads **derived** bridge Parquet via dbt external sources — no raw table access, no UNPIVOT/join recomputation at upload.
 
@@ -86,7 +87,7 @@ Upload-path models materialize as **DuckDB tables** inside `sample.duckdb` unles
 | Layer | When built | Storage | Persisted to disk? | Lifetime |
 |---|---|---|---|---|
 | **Raw reference Parquet** | `export_parquet.py` | `resources/db/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
-| **Derived bridge Parquet** | `build_reference.py` at distribution | `analytics/transform/reference/parquet/*.parquet` | Yes (Git LFS) | Shipped with app; versioned |
+| **Derived bridge Parquet** | `build_reference.py` at distribution | `analytics/transform/reference/parquet/*.parquet` | No (gitignored) | Local disk; rebuild via `build_reference.py` after clone or raw Parquet refresh |
 | **Bridge dbt sources** (`bridge_tax_rank_map`, `bridge_ec_pathway`) | Declared in `sources.yml`; no build — dbt resolves `{{ source(...) }}` as `read_parquet(...)` at query time | Scanned live from derived Parquet in `sample.duckdb` queries | No DDL stored | Auto-refreshed on Parquet change; no staleness risk |
 | **Upload dbt models** (`stg_rpkm_long` … `mart_*`) | `dbt build` on sample upload | Tables in `runs/{sample_id}/sample.duckdb` | Yes | Overwritten on re-upload or param change |
 | **Mart export** (optional) | `run_pipeline.py` post-step | `runs/{sample_id}/mart_pathway_taxonomy_long.parquet` | Yes | Overwritten; canonical query target is `sample.duckdb` |
@@ -105,7 +106,7 @@ Upload-path models materialize as **DuckDB tables** inside `sample.duckdb` unles
 
 ### 3.2 `.gitignore`
 
-All dbt/DuckDB **runtime** outputs are **gitignored** — source SQL, config, seeds, scripts, and **`reference/parquet/`** (derived bridges) are committed.
+All dbt/DuckDB **runtime** outputs and **derived bridge Parquet** are **gitignored**. Source SQL, config, scripts, and raw reference Parquet (`resources/db/parquet/`, Git LFS) are committed.
 
 ```
 # analytics/transform — dbt + DuckDB runtime outputs
@@ -115,9 +116,14 @@ analytics/transform/target/
 analytics/transform/dbt_packages/
 analytics/transform/logs/
 analytics/transform/**/*.duckdb
+
+# Derived bridge artifacts — built by build_reference.py, not committed
+analytics/transform/reference/parquet/*.parquet
 ```
 
-**Not gitignored:** `analytics/transform/reference/parquet/` (derived bridge Parquet, Git LFS) and `resources/db/parquet/` (raw exports, Git LFS).
+**Committed:** `analytics/transform/reference/parquet/.gitkeep` (directory placeholder), `resources/db/parquet/` (raw exports, Git LFS), `resources/example_data/test_rpkm_*.tsv` (Git LFS).
+
+**Not committed:** `analytics/transform/reference/parquet/*.parquet` — ~170 MB combined (`bridge_tax_rollup` alone is ~166 MB), fully reproducible from raw Parquet via `build_reference.py`. Git LFS uploads are blocked on public GitHub forks; keeping bridges as local build output avoids that constraint while preserving the distribution-time build workflow. App installers or CI may still bundle the built files outside git.
 
 ### 3.3 `runs/` folder structure (rationale)
 
@@ -171,7 +177,7 @@ Pure Python + DuckDB — **no dbt invocation** at this step.
 1. Connect DuckDB; read raw Parquet from `resources/db/parquet/`.
 2. Run bridge SQL (UNPIVOT / join logic per §6.1–6.2) directly via `conn.execute()`.
 3. `COPY … TO 'reference/parquet/bridge_tax_rank_map.parquet'` (and `bridge_ec_pathway.parquet`).
-4. Commit / ship derived Parquet via Git LFS.
+4. Verify output on disk (assertions in script); **do not commit** — files are gitignored local build artifacts (§3.2).
 
 **Upload:** Bridges are declared as **dbt external sources** in `sources.yml`:
 
@@ -200,7 +206,7 @@ Upload command is **`dbt build --select stg_rpkm_long+` only**. Wrapper fails fa
 
 | Approach | Pros | Cons |
 |---|---|---|
-| **Derived Parquet + dbt sources (selected)** | Pre-computed; fast upload; single profile; no staleness; source lineage | Distribution export step; two Parquet roots |
+| **Derived Parquet + dbt sources (selected)** | Pre-computed; fast upload; single profile; no staleness; source lineage; bridges reproducible from raw Parquet | Distribution build step required after clone; two Parquet roots; bridges not versioned in git |
 | **Derived Parquet + upload views** | Pre-computed; fast upload | Dual-target complexity; view staleness if Parquet refreshes mid-run |
 | **ATTACH staging `reference.duckdb` READ_ONLY** | Pre-built tables; no Parquet export | Cross-DB config; harder to ship/version |
 | **Views over raw Parquet at upload** | No export step | Recomputes UNPIVOT/joins on every upload — rejected |
@@ -229,7 +235,7 @@ Python 3.14 (repo pin) + **dbt-core 1.12.0b1** (beta; Python 3.14 support) + dbt
 ## 5. Model Graph & Rebuild Triggers
 
 ```
-[distribution — build once, ship derived Parquet]
+[distribution — build once locally via build_reference.py]
   build_reference.py (pure DuckDB SQL)
     raw parents parquet       → reference/parquet/bridge_tax_rank_map.parquet
     raw pathway_* parquet     → reference/parquet/bridge_ec_pathway.parquet
@@ -626,8 +632,8 @@ Steps:
 4. Execute bridge SQL; write results:
    - `bridge_ec_pathway` (§6.2): filter EC-dotted names, join pathway hierarchy → `COPY … TO 'reference/parquet/bridge_ec_pathway.parquet'`
    - `bridge_tax_rollup` (§6.3): cross `bridge_tax_rank_map` with 7 ranks, resolve exact/fallback/unclassified, join `names` → `COPY … TO 'reference/parquet/bridge_tax_rollup.parquet'`
-5. Assert output: no `ec_normalized = '0.0.0.0'` in `bridge_ec_pathway`; `bridge_tax_rollup` has 7 rows per distinct `source_tax_id`; row counts > 0.
-5. Commit derived Parquet (Git LFS) and ship with releases.
+5. Assert output: no `ec_normalized = '0.0.0.0'` in `bridge_ec_pathway`; `bridge_tax_rollup` has 7 distinct `requested_rank` values; row counts > 0.
+6. Files remain on local disk under `reference/parquet/` — not committed to git (§3.2). Required before first upload run or after raw Parquet refresh.
 
 **No dbt invocation at distribution** — bridge SQL is plain Python+DuckDB. This eliminates `tag:reference`, dual-target profiles, and staging DB management. Run after raw Parquet refresh and in CI to validate bridge SQL.
 
@@ -675,7 +681,7 @@ dbt build --select int_tax_rollup_resolved+ --vars '{ "tax_rank": "class", ... }
 
 | Artifact | Location | Writer | Contents |
 |---|---|---|---|
-| `bridge_ec_pathway.parquet`, `bridge_tax_rollup.parquet` | `transform/reference/parquet/` | `build_reference.py` | Derived reference bridges; versioned, shipped via Git LFS |
+| `bridge_ec_pathway.parquet`, `bridge_tax_rollup.parquet` | `transform/reference/parquet/` | `build_reference.py` | Derived reference bridges; local build output (gitignored); must exist on disk before upload |
 | `target/run_results.json` | `transform/target/` | dbt | Per-node status, timing, test outcomes |
 | `target/manifest.json` | `transform/target/` | dbt | Lineage, compiled SQL |
 | `run_context.json` | `runs/{sample_id}/` | wrapper | `tax_rank`, `pathway_level`, `sample_id`, `rpkm_path`, `overall_status`, pointer to `transform/target/` |
@@ -758,8 +764,8 @@ cd analytics && uv sync && uv run dbt --version
 
 - [ ] Worktree `feature/rpkm-transform` with dbt project under `analytics/transform/`
 - [ ] Toolchain gate passes: `uv sync && uv run dbt --version` → Core **1.12.0-b1** on Python 3.14 (§9.1)
-- [ ] `build_reference.py` (pure DuckDB SQL) produces derived bridge Parquet from raw reference Parquet; asserts `ec_normalized != '0.0.0.0'`
-- [ ] Upload pipeline produces `mart_pathway_taxonomy_long` for `test_rpkm_1.tsv` at default vars using bridge dbt sources (no `build_reference.py` re-run needed once Parquet is present)
+- [ ] `build_reference.py` (pure DuckDB SQL) produces derived bridge Parquet from raw reference Parquet on local disk; asserts `ec_normalized != '0.0.0.0'`; bridge Parquet is gitignored (§3.2)
+- [ ] Upload pipeline produces `mart_pathway_taxonomy_long` for `test_rpkm_1.tsv` at default vars using bridge dbt sources (requires `build_reference.py` run once so Parquet exists on disk)
 - [ ] Re-run with changed `tax_rank` / `pathway_level` completes in seconds without re-ingesting TSV
 - [ ] All error-severity constraints pass on test fixtures
 - [ ] Info metrics (EC coverage, exact/fallback/unclassified rates) emitted
