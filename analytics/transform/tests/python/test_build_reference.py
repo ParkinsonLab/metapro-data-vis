@@ -104,6 +104,7 @@ def test_bridge_tax_rollup_unclassified_label(conn_with_tax):
     rel = build_bridge_tax_rollup(conn_with_tax)
     df = rel.df()
     null_rows = df[df["resolved_tax_id"].isnull()]
+    assert len(null_rows) > 0, "Expected some unresolvable combos in real data"
     assert (null_rows["resolved_tax_label"] == "Unclassified").all()
 
 

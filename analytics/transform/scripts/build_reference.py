@@ -86,7 +86,7 @@ def build_bridge_tax_rank_map(conn: duckdb.DuckDBPyConnection) -> None:
 
 def _table_exists(conn: duckdb.DuckDBPyConnection, name: str) -> bool:
     result = conn.execute(
-        "SELECT count(*) FROM information_schema.tables WHERE table_name = ?", [name]
+        "SELECT count(*) FROM information_schema.tables WHERE table_name = ? AND table_schema = 'main'", [name]
     ).fetchone()
     return result[0] > 0
 
