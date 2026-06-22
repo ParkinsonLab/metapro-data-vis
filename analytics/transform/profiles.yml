@@ -1,0 +1,6 @@
+rpkm_transform:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'runs/default/sample.duckdb') }}"

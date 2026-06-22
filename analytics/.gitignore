@@ -1,0 +1,10 @@
+# dbt per-user anonymous ID
+transform/.user.yml
+
+# dbt + DuckDB transform runtime outputs
+transform/runs/
+transform/data/
+transform/target/
+transform/dbt_packages/
+transform/logs/
+transform/**/*.duckdb

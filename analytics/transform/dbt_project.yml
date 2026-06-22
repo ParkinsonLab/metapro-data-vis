@@ -1,0 +1,27 @@
+name: 'rpkm_transform'
+version: '1.0.0'
+config-version: 2
+
+profile: 'rpkm_transform'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  tax_rank: "phylum"
+  pathway_level: "pathway"
+  reference_parquet_dir: "transform/reference/parquet"
+  # rpkm_path and sample_id: required at runtime, no defaults
+  # raw_parquet_dir: for build_reference.py only, not used by dbt models
+
+models:
+  rpkm_transform:
+    staging:
+      +materialized: table
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table
