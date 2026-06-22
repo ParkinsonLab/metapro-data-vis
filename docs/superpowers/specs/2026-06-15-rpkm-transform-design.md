@@ -514,19 +514,31 @@ Example: taxon A with `requested_rank = 'phylum'` resolves to Bacteroidota (exac
 
 Filters `int_tax_rollup_resolved` to `WHERE pathway_level = '{{ var("pathway_level") }}' AND requested_rank = '{{ var("tax_rank") }}'`, then groups by pathway + resolved taxon.
 
-**Mart GROUP BY:** `(pathway_key, pathway_label, resolved_tax_id, resolved_tax_label, resolved_tax_rank, sample_id, pathway_level, CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END)`.
+**Mart GROUP BY:** `(sample_id, pathway_level, pathway_key, resolved_tax_id)` — IDs only.
 
-(`requested_rank` is excluded — it is constant after the WHERE filter and not output.)
+Labels (`pathway_label`, `resolved_tax_label`, `resolved_tax_rank`) are functionally dependent on their respective IDs and are selected via `ANY_VALUE()`, not included as grouping dimensions. This matches standard SQL practice: group by the key, carry attributes along.
 
-The `CASE WHEN pathway_key IS NOT NULL THEN NULL ELSE ec_normalized END` expression (aliased as `ec_normalized` in the SELECT) ensures:
-- **Mapped rows** collapse across all ECs sharing the same pathway + taxon (`ec_normalized = NULL` in mart).
-- **Unmapped rows** remain per-EC (`ec_normalized = <value>` in mart).
+```sql
+SELECT
+    sample_id,
+    pathway_level,
+    pathway_key,
+    ANY_VALUE(COALESCE(pathway_label, 'Unmapped EC'))  AS pathway_label,
+    resolved_tax_id,
+    ANY_VALUE(resolved_tax_label)                      AS resolved_tax_label,
+    ANY_VALUE(resolved_tax_rank)                       AS resolved_tax_rank,
+    SUM(value)                                         AS value
+FROM int_tax_rollup_resolved
+WHERE pathway_level = '{{ var("pathway_level") }}'
+  AND requested_rank = '{{ var("tax_rank") }}'
+GROUP BY sample_id, pathway_level, pathway_key, resolved_tax_id
+```
 
-`pathway_label` for unmapped rows is `COALESCE(pathway_label, 'Unmapped EC')` — the NULL from the bridge becomes the display sentinel here, not in the intermediate.
+`requested_rank` is excluded from GROUP BY — it is constant after the WHERE filter. **The WHERE filter is the correctness guard:** if it were removed, the same `resolved_tax_id` could appear for multiple `requested_rank` values (e.g. reached via exact match at `class` and fallback at `phylum`), and the GROUP BY would silently double-count. The WHERE on `requested_rank` is not optional.
 
-This matches the app's cross-EC superpathway aggregation for mapped ECs.
+`ec_normalized` is not in the GROUP BY or output. All unmapped ECs for the same taxon collapse into a single `(pathway_key = NULL, resolved_tax_id)` bucket — `pathway_label` renders as `'Unmapped EC'` via `COALESCE`. EC-level detail for unmapped rows is available in `int_rpkm_pathway` if needed.
 
-Different source tax_ids that resolve to the same `(resolved_tax_id, resolved_tax_rank)` aggregate together — regardless of whether they arrived via exact or fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
+Different `source_tax_id` values that resolve to the same `resolved_tax_id` aggregate together — regardless of exact vs fallback path. Different fallback targets (e.g. Bacteroidota vs Pseudomonadati) remain separate rows.
 
 **Vars (upload / full pipeline):**
 
@@ -548,10 +560,9 @@ Path vars for distribution builds — see §3.4 (`raw_parquet_dir`).
 | `pathway_level` | VARCHAR | Selected level from dbt var |
 | `pathway_key` | VARCHAR | ID at selected level; NULL when unmapped |
 | `pathway_label` | VARCHAR | Name at selected level; `'Unmapped EC'` when unmapped |
-| `ec_normalized` | VARCHAR | NULL for mapped rows; EC string for unmapped rows (see GROUP BY note) |
-| `resolved_tax_rank` | VARCHAR | Actual rank used (may differ under fallback); NULL when Unclassified |
 | `resolved_tax_id` | BIGINT | Resolved tax_id; NULL when Unclassified |
 | `resolved_tax_label` | VARCHAR | Scientific name; `'Unclassified'` when null |
+| `resolved_tax_rank` | VARCHAR | Actual rank used (may differ under fallback); NULL when Unclassified |
 | `value` | DOUBLE | `SUM(value)` |
 
 `requested_rank` (= `var('tax_rank')`) is not a mart output column — it is constant for all mart rows and stored in `run_context.json`.
