@@ -330,6 +330,8 @@ When aggregating at `pathway` or `superpathway`, dedup to one count per distinct
 
 **No `ec:` prefix stripping in bridge SQL:** `pathway_nodes.name` values are already clean `N.N.N.N` in the DB (KGML parser strips the `ec:` prefix at build time). No normalization needed on the bridge side — names match RPKM `ec_normalized` directly.
 
+**Physical ordering:** Written with `ORDER BY superpathway_id, pathway_id, ec_normalized` in `build_reference.py`'s `COPY … TO` statement. The bridge is always fully scanned (no filter pushdown), so this purely improves Parquet compression: `superpathway_id` (≈13 distinct values) and `pathway_name` become near-constant within each row group → dictionary + RLE encoding reduces their cost to near-zero.
+
 ### 6.3 `bridge_tax_rollup` (dbt source)
 
 Built by `build_reference.py` (DuckDB SQL) from `bridge_tax_rank_map` (§6.1) + raw `names` Parquet. Output written to `reference/parquet/bridge_tax_rollup.parquet`. Consumed at upload via `{{ source('reference', 'bridge_tax_rollup') }}`.
@@ -352,6 +354,8 @@ Encodes the **pre-resolved taxonomy rollup** for every `(tax_id, requested_rank)
 | `resolved_tax_id` | BIGINT | Resolved **ancestor** tax_id at `resolved_tax_rank`; distinct from `source_tax_id` which is the original sample taxon; NULL when Unclassified |
 | `resolved_tax_rank` | VARCHAR | Actual rank used (may be coarser than `requested_rank` under fallback); NULL when Unclassified |
 | `resolved_tax_label` | VARCHAR | Scientific name of `resolved_tax_id`; `'Unclassified'` when `resolved_tax_id` is null |
+
+**Physical ordering:** Written with `ORDER BY requested_rank, source_tax_id` in `build_reference.py`'s `COPY … TO` statement. `requested_rank` (7 values) clusters rows for compression; `source_tax_id` orders within each rank. Full scan every run — benefit is Parquet compression only.
 
 ### 6.4 `stg_rpkm_long` (Python model)
 
@@ -452,6 +456,8 @@ LEFT JOIN {{ source('reference', 'bridge_ec_pathway') }} b
 
 **Performance:** Gene aggregation before join reduces input size. `pathway_join_fanout_rate` (§7) measures average bridge matches per `int_rpkm_by_ec_tax` row (mapped only) before dedup.
 
+**Physical ordering:** Materialised with `ORDER BY pathway_level, pathway_key`. `pathway_level` (3 values) has very low cardinality → zone-map statistics per row group are tight, enabling DuckDB to skip ~2/3 of row groups when downstream models filter to a single level. `pathway_key` is a secondary compression aid. High-cardinality tail columns (`ec_normalized`, `source_tax_id`) are excluded from the sort — their zone-map benefit is negligible.
+
 ### 6.7 `int_tax_rollup_resolved`
 
 Joins `int_rpkm_pathway` with `{{ source('reference', 'bridge_tax_rollup') }}` on `source_tax_id`. All 7 `requested_rank` values are joined and stored — no resolution logic in upload SQL. The mart filters to the specific `requested_rank = var('tax_rank')`.
@@ -464,6 +470,8 @@ LEFT JOIN {{ source('reference', 'bridge_tax_rollup') }} t
 ```
 
 Each row from `int_rpkm_pathway` (which already covers all 3 `pathway_level` values) expands to up to 7 rows — one per `requested_rank`. Total: 3 pathway levels × 7 tax ranks × base rows.
+
+**Physical ordering:** Materialised with `ORDER BY requested_rank, pathway_level, pathway_key`. The mart filters on both `requested_rank` (7 values) and `pathway_level` (3 values) — with these as the leading sort columns, DuckDB zone-map skipping eliminates ~20/21 of row groups for a typical mart run. `pathway_key` is added as the primary GROUP BY key for modest additional compression; high-cardinality columns (`resolved_tax_id`, `source_tax_id`) are excluded.
 
 **Unclassified rows:** `source_tax_id` values absent from `bridge_tax_rollup` (or resolving to NULL) yield `resolved_tax_id = NULL`, `resolved_tax_label = 'Unclassified'`, `resolved_tax_rank = NULL`. Left join ensures these rows are preserved.
 
