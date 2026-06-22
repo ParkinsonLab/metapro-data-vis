@@ -58,3 +58,62 @@ def test_bridge_ec_pathway_row_count(conn):
     df = rel.df()
     assert len(df) > 0
     assert len(df) >= 7000, f"Expected ≥7000 rows, got {len(df)}"
+
+
+@pytest.fixture
+def conn_with_tax():
+    c = duckdb.connect()
+    for tbl in ["names", "parents"]:
+        c.execute(
+            f"CREATE VIEW {tbl} AS SELECT * FROM read_parquet('{RAW_PARQUET_DIR}/{tbl}.parquet')"
+        )
+    return c
+
+
+def test_bridge_tax_rollup_schema(conn_with_tax):
+    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
+    rel = build_bridge_tax_rollup(conn_with_tax)
+    df = rel.df()
+    assert set(df.columns) == {
+        "source_tax_id",
+        "requested_rank",
+        "resolved_tax_id",
+        "resolved_tax_rank",
+        "resolved_tax_label",
+    }
+
+
+def test_bridge_tax_rollup_seven_ranks(conn_with_tax):
+    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
+    rel = build_bridge_tax_rollup(conn_with_tax)
+    df = rel.df()
+    ranks = set(df["requested_rank"].unique())
+    assert ranks == {"kingdom", "phylum", "class", "order", "family", "genus", "species"}
+
+
+def test_bridge_tax_rollup_one_row_per_tax_rank(conn_with_tax):
+    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
+    rel = build_bridge_tax_rollup(conn_with_tax)
+    df = rel.df()
+    dupes = df.groupby(["source_tax_id", "requested_rank"]).size()
+    assert (dupes > 1).sum() == 0, "Duplicate (source_tax_id, requested_rank) rows found"
+
+
+def test_bridge_tax_rollup_unclassified_label(conn_with_tax):
+    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
+    rel = build_bridge_tax_rollup(conn_with_tax)
+    df = rel.df()
+    null_rows = df[df["resolved_tax_id"].isnull()]
+    assert (null_rows["resolved_tax_label"] == "Unclassified").all()
+
+
+def test_bridge_tax_rollup_known_taxon(conn_with_tax):
+    """Homo sapiens (tax_id=9606) should resolve exactly at species rank."""
+    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
+    rel = build_bridge_tax_rollup(conn_with_tax)
+    df = rel.df()
+    row = df[(df["source_tax_id"] == 9606) & (df["requested_rank"] == "species")]
+    assert len(row) == 1
+    assert row.iloc[0]["resolved_tax_id"] == 9606
+    assert row.iloc[0]["resolved_tax_rank"] == "species"
+    assert row.iloc[0]["resolved_tax_label"] is not None
