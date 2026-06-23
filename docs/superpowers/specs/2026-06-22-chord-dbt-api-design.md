@@ -29,9 +29,10 @@ The rpkm-transform pipeline (`analytics/transform/`) materialises `int_tax_rollu
 | Decision | Choice | Rationale |
 |---|---|---|
 | API contract | Unchanged request body + `{ ok, value }` envelope | No frontend changes |
+| FastAPI route | **`POST /api/viz/chord`** — identical path, method, envelope, and HTTP 200 as Express | Drop-in replacement when Express is retired; proxy forwards same path |
 | Default backend | Legacy Node `parse_ec_chord` | Safe rollout |
-| Opt-in backend | `POST /api/viz/chord?backend=duckdb` | Explicit testing switch; no env var |
-| Integration | Express sidecar proxy → FastAPI on separate port | dbt ecosystem lives in Python; Express keeps single URL |
+| Opt-in backend | `POST /api/viz/chord?backend=duckdb` (Express) or direct `POST /api/viz/chord` (FastAPI :8001) | Explicit testing switch; no env var |
+| Integration | Express sidecar proxy → FastAPI on separate port, **same URL path** | dbt ecosystem lives in Python; Express keeps single URL during transition |
 | Data source | Query `int_tax_rollup_resolved` at request time | All ranks/levels precomputed; no mart rebuild or `run_context.json` |
 | Aggregation | Mart-equivalent GROUP BY after runtime filters | Shared logic with `mart_pathway_taxonomy_long` via dbt macro |
 | Sample lookup (v1 interim) | `sample_id = strip_extension(names[0])` → `runs/{sample_id}/sample.duckdb` | Matches `run_pipeline.py --sample-id test_rpkm_1`; upload integration defines final filename mapping later |
@@ -48,12 +49,12 @@ The rpkm-transform pipeline (`analytics/transform/`) materialises `int_tax_rollu
                                                        │
                          ?backend=duckdb               │
                          ─────────────────────────────►│ proxy ──────┐
-                                                       │             │
+                                                       │  (same path) │
                                                        ▼             ▼
-                                              legacy in-process   ┌──────────────┐
-                                                                  │   FastAPI    │
-                                                                  │   :8001      │
-                                                                  └──────┬───────┘
+                                              legacy in-process   ┌──────────────────────────┐
+                                                                  │   FastAPI  :8001         │
+                                                                  │   POST /api/viz/chord    │
+                                                                  └──────────────┬───────────┘
                                                                          │
                                                                          ▼
                                                               runs/{sample_id}/sample.duckdb
@@ -63,13 +64,33 @@ The rpkm-transform pipeline (`analytics/transform/`) materialises `int_tax_rollu
 
 | Component | Location | Role |
 |---|---|---|
-| Express router switch | `src/server/chord_handler.ts` | Default → legacy; `?backend=duckdb` → HTTP proxy to FastAPI |
-| FastAPI app | `analytics/api/main.py` | Chord endpoint service |
+| Express router switch | `src/server/chord_handler.ts` | Default → legacy; `?backend=duckdb` → proxy `POST /api/viz/chord` → FastAPI `POST /api/viz/chord` |
+| FastAPI app | `analytics/api/main.py` | **`POST /api/viz/chord`** — same route contract as Express (`src/server/index.ts`) |
+| Envelope helper | `analytics/api/envelope.py` | `{ ok: true, value }` / `{ ok: false, error }`; always HTTP 200 on success path |
 | Query + matrix | `analytics/api/chord_service.py` | Runtime SQL filters, mart aggregation, `build_chord_matrix()` |
 | Shared SQL macro | `analytics/transform/macros/mart_pathway_taxonomy_agg.sql` | Mart model + API query share GROUP BY logic |
 | DuckDB access | read-only attach/open `sample.duckdb` | No writes at request time |
 
-**FastAPI port:** `8001` (configurable via `CHORD_API_PORT` env on Express proxy side only; FastAPI binds via uvicorn `--port`).
+**FastAPI port:** `8001` in dev (Express proxy target via `CHORD_API_URL`, default `http://localhost:8001`). FastAPI binds via uvicorn `--port`.
+
+**Route parity (required):** FastAPI must not use a shortened internal path (e.g. `/chord`). It exposes the production route `POST /api/viz/chord` so that a future cutover is a host/port change only — no frontend or path rewrites.
+
+### 3.1 Express proxy behaviour
+
+When `?backend=duckdb` is present on the Express request:
+
+1. Forward method, path (`/api/viz/chord`), query string, and JSON body unchanged to FastAPI.
+2. Return FastAPI's JSON envelope to the client unchanged.
+3. On connection failure, return `{ ok: false, error: "chord duckdb backend unavailable: ..." }` with HTTP 200.
+
+### 3.2 Future Express retirement (out of scope v1)
+
+```
+Today:     React → Express :3001 /api/viz/chord?backend=duckdb → FastAPI :8001 /api/viz/chord
+Future:    React → FastAPI :8080 /api/viz/chord   (Express removed)
+```
+
+Vite dev proxy (or production reverse proxy) switches upstream; frontend `api.ts` URL map stays `/api/viz/chord`.
 
 ## 4. Request / Response Contract
 
@@ -120,7 +141,7 @@ Frontend (`Chord.tsx`) consumes `count_matrix`, `index`, `colors` only. `tax_map
 | FastAPI unreachable | 200 | `"chord duckdb backend unavailable: ..."` |
 | Invalid `tax_level` / `ann_level` | 200 | `"invalid tax_level: ..."` / `"invalid ann_level: ..."` |
 
-Express always returns HTTP 200 with envelope (matches existing pattern).
+Express and FastAPI always return HTTP 200 with envelope (matches existing pattern). FastAPI error responses use the same `{ ok: false, error: string }` shape as `src/server/envelope.ts`.
 
 ## 5. Data Flow
 
@@ -216,10 +237,11 @@ analytics/
 ├── pyproject.toml              # add fastapi, uvicorn, httpx
 ├── api/
 │   ├── __init__.py
-│   ├── main.py                 # FastAPI app, POST /chord
+│   ├── main.py                 # FastAPI app, POST /api/viz/chord
+│   ├── envelope.py             # wrap_handler equivalent
 │   ├── chord_service.py        # filters, SQL, build_chord_matrix
 │   ├── colors.py               # get_color port
-│   └── schemas.py              # Pydantic request/response models
+│   └── schemas.py              # Pydantic request body models
 └── transform/
     └── macros/
         └── mart_pathway_taxonomy_agg.sql   # shared with mart model
@@ -253,8 +275,19 @@ cd analytics && uv run uvicorn api.main:app --port 8001
 # Terminal 2 — Express
 npm run dev:server
 
-# Manual test (duckdb backend)
+# Via Express proxy (duckdb backend)
 curl -X POST 'http://localhost:3001/api/viz/chord?backend=duckdb' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "names": ["test_rpkm_1.tsv"],
+    "tax_level": "phylum",
+    "ann_level": "superpathway",
+    "selected_ann_cat": {},
+    "selected_taxon": {}
+  }'
+
+# Direct FastAPI (same path — validates Express retirement readiness)
+curl -X POST 'http://localhost:8001/api/viz/chord' \
   -H 'Content-Type: application/json' \
   -d '{
     "names": ["test_rpkm_1.tsv"],
@@ -272,21 +305,23 @@ curl -X POST 'http://localhost:3001/api/viz/chord?backend=duckdb' \
 | Python unit | `build_chord_matrix()` on synthetic pairs; gap filler math; color strings; filter normalisation |
 | Python integration | Open `runs/test_rpkm_1/sample.duckdb`; assert matrix shape, index structure, non-negative values |
 | Python SQL | Taxon filter + ann filter predicates return expected row counts on fixture |
-| Express | Proxy forwards to FastAPI; default route still calls legacy; envelope shape preserved |
+| Express | Proxy forwards to FastAPI `POST /api/viz/chord`; default route still calls legacy |
+| FastAPI direct | `POST /api/viz/chord` returns same envelope as Express; callable without proxy |
 | Parity script (optional) | Compare legacy vs duckdb for same params; document expected rollup deltas |
 
 ## 10. Future Considerations
 
 - **Upload integration:** `/api/data` triggers dbt ingest; filename → `sample_id` mapping replaces strip-extension interim
 - **Comparison mode:** delta two samples via attached DuckDB files (rpkm-transform spec §12)
-- **Retire legacy:** flip default once parity validated; remove `?backend=duckdb` gate
+- **Retire Express:** point Vite/prod proxy at FastAPI; all viz routes migrate to FastAPI with same `/api/viz/*` paths; remove Express chord handler and `?backend=duckdb` gate once parity validated
 - **`ann_map` population:** EC-grain query from `int_rpkm_pathway` if needed downstream
 - **Frontend re-fetch:** restore `useEffect` on rank/filter changes (currently commented out in `App.tsx`) — independent of this backend work
 
 ## 11. Success Criteria
 
 - [ ] Worktree `feature/chord-dbt-api` branched from `feature/rpkm-transform`
-- [ ] FastAPI service returns valid chord JSON from `runs/test_rpkm_1/sample.duckdb`
+- [ ] FastAPI `POST /api/viz/chord` returns valid chord JSON (same envelope as Express) from `runs/test_rpkm_1/sample.duckdb`
+- [ ] Direct FastAPI call (no Express) produces identical response shape to proxied call
 - [ ] Express default path unchanged (legacy); `?backend=duckdb` proxies successfully
 - [ ] Runtime rank/level change works without dbt rebuild (query different `requested_rank` / `pathway_level`)
 - [ ] `selected_ann_cat` and `selected_taxon` filters reduce matrix as expected
