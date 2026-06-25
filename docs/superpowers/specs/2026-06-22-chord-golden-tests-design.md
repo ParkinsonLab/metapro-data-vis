@@ -1,7 +1,7 @@
 # Chord Golden Integration Tests — Design Spec
 
-> **Status:** Approved (2026-06-22)  
-> **Goal:** Add hand-verified golden integration tests for the DuckDB chord path, with a reusable fake RPKM fixture that covers shared transform semantics (rollup fallback, Unclassified, unmapped EC) for this and future viz endpoints.
+> **Status:** Approved (2026-06-22, revised naming)  
+> **Goal:** Add hand-verified integration tests for the DuckDB chord path, backed by a reusable fake RPKM fixture and shared pipeline expectations for transform semantics (rollup fallback, Unclassified, unmapped EC) that future viz endpoints can reuse.
 
 **Parent specs:**
 
@@ -12,68 +12,72 @@
 
 ## 1. Context
 
-The chord DuckDB backend (`analytics/api/chord_service.py`) has unit tests for matrix assembly and filter normalisation, plus a minimal integration test that only checks response shape when `runs/test_rpkm_1/sample.duckdb` exists. There are no golden correctness tests for runtime SQL, tax/pathway filters, or documented rollup semantics.
+The chord DuckDB backend (`analytics/api/chord_service.py`) has unit tests for matrix assembly and filter normalisation, plus a minimal integration test that only checks response shape when `runs/test_rpkm_1/sample.duckdb` exists. There are no correctness tests for runtime SQL, tax/pathway filters, or documented rollup semantics.
 
-This spec adds a **small hand-designed fake TSV**, a **single pipeline run**, and **YAML golden expectations** with parametrized pytest. Tests are tiered: transform preconditions first, then chord API goldens.
+This spec adds a **small hand-designed fake TSV**, a **single pipeline run**, and **YAML expectations** with parametrized pytest. Tests are tiered: shared pipeline preconditions first, then chord API pair assertions in the existing `test_chord_service.py` module.
 
 ## 2. Requirements (Locked In)
 
 | Decision | Choice | Rationale |
 |---|---|---|
 | Reference data | Real `bridge_ec_pathway` / `bridge_tax_rollup` Parquet | Stable; matches production semantics |
-| Fixture TSV | One shared fake file for transform + multiple endpoints | Same edge cases apply to overview, network, etc. |
-| TSV naming | `fake_rpkm_chord_golden.tsv` | Clearly synthetic; not confused with `resources/example_data/` |
-| Sample id | `fake_rpkm_chord_golden` | `strip_extension(names[0])` → `runs/fake_rpkm_chord_golden/sample.duckdb` |
-| Int precondition | 21 rows for anchor `(ec, source_tax_id)` with **exact** golden values | Verifies dbt pipeline before chord tests |
-| Chord goldens | 14 unfiltered cases (7 ranks × 2 `ann_level`s) + filter + edge cases | API contract; `pathway_node` not exposed to chord |
+| Fixture TSV | One shared `fake_rpkm.tsv` for transform + all endpoints | Same edge cases apply to overview, network, etc. |
+| Sample id | `fake_rpkm` | `strip_extension(names[0])` → `runs/fake_rpkm/sample.duckdb` |
+| Pipeline expectations | `fake_rpkm_pipeline_expectations.yaml` | Shared transform goldens; not chord-specific |
+| Rollup grid | 21 rows for focal `(ec, source_tax_id)` with **exact** values | Verifies dbt pipeline before endpoint tests |
+| Chord expectations | `chord_expectations.yaml` | 14 unfiltered + filter + edge cases |
+| Chord tests | Merged into `test_chord_service.py` | One module for `build_chord_from_duckdb` integration |
 | Golden storage | External YAML, not inline Python tuples | Readable, diffable, parametrized via `case_id` |
 | Mart / legacy parity | Out of scope | Mart may be retired; no Node parity harness |
-| Missing bridges | `pytest.skip` entire golden module | Local dev convenience; CI hardening deferred |
+| Missing bridges | `pytest.skip` entire modules using fake fixture | Local dev convenience; CI hardening deferred |
 | CI pipeline for bridges | Out of scope | Repo CI needs broader rework |
 
-## 3. Shared Fake Fixture (Cross-Endpoint)
-
-The fake TSV is **transform-level**, not chord-specific. Future DuckDB endpoints (overview, pathway list, network) filter and aggregate the same `int_tax_rollup_resolved` rows and need the same semantic coverage:
-
-| Scenario | Why shared |
-|---|---|
-| Tax siblings (same phylum, different genus) | Rank drilldown and rollup aggregation |
-| Rollup fallback | Coarser resolution at finer requested ranks |
-| Unclassified (`tax_id` absent from bridge) | NULL `resolved_tax_id`, label `'Unclassified'` |
-| Unmapped EC (`0.0.0.0`) | `pathway_key IS NULL` → `'Unmapped EC'` |
-| Multiple superpathways / pathways | Pathway and ann filters |
-
-**Layout:**
+## 3. File Layout
 
 ```
-analytics/transform/tests/fixtures/
-├── fake_rpkm_chord_golden.tsv              # shared input (rename later if generic: fake_rpkm_viz_golden.tsv)
-├── fake_rpkm_chord_golden_expectations.yaml # chord-specific goldens (this spec)
-└── (future) fake_rpkm_overview_expectations.yaml
+analytics/
+├── conftest.py                                    # shared: bridge guard + fake_rpkm session DuckDB
+├── testing/
+│   └── viz_golden.py                              # paths, YAML load, run_pipeline helper
+├── transform/tests/
+│   ├── fixtures/
+│   │   ├── fake_rpkm.tsv                          # SHARED synthetic input (tab-separated)
+│   │   └── fake_rpkm_pipeline_expectations.yaml   # SHARED transform goldens
+│   └── python/
+│       └── test_fake_rpkm_pipeline.py             # pipeline / rollup_grid tests
+└── api/tests/
+    ├── fixtures/
+    │   └── chord_expectations.yaml                # chord-only goldens
+    └── test_chord_service.py                      # smoke + chord pair tests (merged)
 ```
 
-**Shared test infrastructure (future-friendly):**
+**Runtime artifact (gitignored):**
 
-| Component | Location | Role |
+```
+transform/runs/fake_rpkm/sample.duckdb
+```
+
+### Ownership split
+
+| Asset | Owner | Purpose |
 |---|---|---|
-| TSV | `transform/tests/fixtures/fake_rpkm_chord_golden.tsv` | Committed synthetic input |
-| Pipeline session fixture | `transform/tests/conftest.py` (or `tests/python/conftest.py`) | Run `run_pipeline.py` once → `runs/fake_rpkm_chord_golden/sample.duckdb` |
-| Bridge guard | Same conftest | Skip module if `reference/parquet/bridge_*.parquet` missing |
-| Expectations | Per-endpoint YAML beside fixture | Each endpoint owns its golden pairs; same `sample_id` |
+| `fake_rpkm.tsv` | Shared | One synthetic RPKM for all DuckDB viz endpoints |
+| `fake_rpkm_pipeline_expectations.yaml` | Shared | `fixture` metadata, `rollup_grid` (21 rows), future pipeline sections |
+| `test_fake_rpkm_pipeline.py` | Shared | Asserts `int_tax_rollup_resolved` — transform precondition |
+| `chord_expectations.yaml` | Chord | `chord_unfiltered`, `chord_filtered`, `edge_cases` |
+| `test_chord_service.py` | Chord | Smoke + parametrized pair tests via `build_chord_from_duckdb()` |
 
-Chord tests import the shared DuckDB fixture; overview/network tests add their own YAML later without duplicating the TSV or pipeline run.
-
-**Naming note:** File is named `fake_rpkm_chord_golden` for v1 because chord drives the first consumer. When a second endpoint adds goldens, consider renaming to `fake_rpkm_viz_golden` in a follow-up (TSV + sample_id + YAML paths) — not required for v1.
+Future endpoints add `overview_expectations.yaml`, `test_overview_service.py`, etc., reusing the same TSV and session fixture.
 
 ## 4. Fixture TSV Design
 
-**File:** `analytics/transform/tests/fixtures/fake_rpkm_chord_golden.tsv`
+**File:** `analytics/transform/tests/fixtures/fake_rpkm.tsv`
 
-Hand-pick IDs from real reference Parquet at implementation time. Use round numeric values (10, 20, 30, …) for hand-computed goldens.
+Hand-pick IDs from real reference Parquet at implementation time. Use round numeric values (10, 20, 30, …) for hand-computed expectations.
 
 | Row role | Purpose |
 |---|---|
-| **Anchor** `(EC₁, T_anchor)` | Parametric int (21) and chord (14) cases |
+| **Focal** `(EC₁, T_focal)` | `rollup_grid` (21 rows) and chord parametric cases |
 | **Tax siblings** `T_sib1`, `T_sib2` | Same phylum, different genus; different ECs so rank rollup changes summed values |
 | **Fallback taxon** `T_fallback` | Exact at rank R, coarser fallback when `requested_rank` is finer |
 | **Unclassified** `T_unknown` | Column header tax_id not in `bridge_tax_rollup` (e.g. `999999999`) |
@@ -84,75 +88,90 @@ EC choices must map to ≥2 superpathways and ≥2 pathways under one superpathw
 ## 5. Tiered Test Architecture
 
 ```
-fake_rpkm_chord_golden.tsv
+fake_rpkm.tsv
         │
-        ▼  run_pipeline.py (session fixture)
-runs/fake_rpkm_chord_golden/sample.duckdb
+        ▼  run_pipeline.py (session fixture in analytics/conftest.py)
+runs/fake_rpkm/sample.duckdb
         │
-        ├── Tier 1: int anchor precondition (transform tests)
+        ├── Tier 1: pipeline / rollup_grid (transform)
+        │     test_fake_rpkm_pipeline.py
         │     21 rows × exact (pathway_label, resolved_tax_label, value)
         │
-        └── Tier 2: chord API goldens (api tests)
+        └── Tier 2: chord pairs (api)
+              test_chord_service.py
               14 unfiltered + filters + edge cases
-              assert golden pairs via build_chord_from_duckdb()
 ```
 
-### 5.1 Tier 1 — Int anchor precondition (dbt, not chord)
+### 5.1 Tier 1 — Pipeline rollup grid (shared, not chord-specific)
 
-**Purpose:** Confirm `int_tax_rollup_resolved` materialized anchor rows correctly. Failure here invalidates chord goldens but does **not** test the chord endpoint.
+**Purpose:** Confirm `int_tax_rollup_resolved` materialized focal rows correctly across all rank × pathway_level combinations. Failure here invalidates endpoint goldens but does **not** test any HTTP/service layer.
 
-**Query:** Filter `int_tax_rollup_resolved` where `ec_normalized = EC₁` and `source_tax_id = T_anchor`.
+**Query:** Filter `int_tax_rollup_resolved` where `ec_normalized = focal_ec` and `source_tax_id = focal_tax_id`.
 
 **Assert:**
 
 - Exactly **21 rows** (7 `requested_rank` × 3 `pathway_level`)
-- Each row matches YAML golden: `requested_rank`, `pathway_level`, `pathway_label`, `resolved_tax_label`, `value` (all exact; values **are not constant** across rows because siblings and pathway level affect labels and rollup sums)
+- Each row matches YAML: `requested_rank`, `pathway_level`, `pathway_label`, `resolved_tax_label`, `value` (all exact; values differ across rows because siblings and pathway level affect labels and rollup sums)
 
-**Location:** `analytics/transform/tests/python/test_chord_golden_int.py`
+**Location:** `analytics/transform/tests/python/test_fake_rpkm_pipeline.py`
 
-### 5.2 Tier 2 — Chord API goldens
+**Test name:** `test_rollup_grid_row[...]` (parametrized over 21 YAML rows)
+
+### 5.2 Tier 2 — Chord pair tests (merged into existing module)
 
 **Purpose:** Verify `chord_service.py` runtime SQL + `build_chord_matrix()`.
 
-**Unfiltered (14 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {superpathway, pathway}`. For each case, assert one or more golden pairs `(pathway_label, resolved_tax_label, value)` — the cells receiving anchor-related mass after GROUP BY. Values differ across cases due to sibling rollup.
+**Location:** `analytics/api/tests/test_chord_service.py` (no separate golden file)
 
-**Filtered:**
+**Structure within module:**
 
-| `case_id` | Params |
-|---|---|
-| `taxon_filter_*` | `selected_taxon` matching one sibling |
-| `ann_filter_*` | `selected_ann_cat` restricting to one superpathway |
+```python
+# Always runs — no DB
+def test_build_chord_rejects_comparison(): ...
 
-**Edge cases:**
+# fake_rpkm fixture — parametrized from chord_expectations.yaml
+@pytest.mark.parametrize("case", ..., ids=lambda c: c["case_id"])
+def test_chord_pairs(case, fake_rpkm_db): ...
 
-| `case_id` | Assert |
-|---|---|
-| `unmapped_ec` | `'Unmapped EC'` pair with expected sum |
-| `unclassified_tax` | `'Unclassified'` pair for unknown tax_id mass |
-| `fallback_*` | Finer `tax_level` resolves to coarser label for `T_fallback` |
+# Optional smoke on fake_rpkm (replaces test_rpkm_1 skip pattern for this module)
+def test_build_chord_from_duckdb_shape(fake_rpkm_db): ...
+```
 
-**Location:** `analytics/api/tests/test_chord_golden.py`
+**Unfiltered (14 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {superpathway, pathway}`. Assert golden pairs `(pathway_label, resolved_tax_label, value)`.
+
+**Filtered:** taxon filter + ann filter cases.
+
+**Edge cases:** unmapped EC, Unclassified tax_id, fallback taxon.
 
 **Pair extraction:** Helper converts `build_chord_matrix()` output to sorted `(pathway_label, resolved_tax_label, value)` list from `index` + `count_matrix` (annotation × taxon submatrix only; not gap fillers).
 
 ## 6. Expectations YAML
 
-**File:** `analytics/transform/tests/fixtures/fake_rpkm_chord_golden_expectations.yaml`
+### 6.1 Shared — `fake_rpkm_pipeline_expectations.yaml`
 
 ```yaml
 fixture:
-  sample_id: fake_rpkm_chord_golden
-  tsv_name: fake_rpkm_chord_golden.tsv
-  anchor_ec: "..."       # set at implementation from real bridge
-  anchor_tax_id: ...     # e.g. 9606
+  sample_id: fake_rpkm
+  tsv: fake_rpkm.tsv
+  focal_ec: "..."          # set at implementation from real bridge
+  focal_tax_id: ...        # e.g. 9606
+  roles:
+    fallback_tax_id: ...
+    unknown_tax_id: 999999999
 
-int_anchor:
+rollup_grid:               # 21 rows — exact values per (rank, pathway_level)
   - requested_rank: kingdom
     pathway_level: superpathway
     pathway_label: "..."
     resolved_tax_label: "..."
     value: 30.0
-  # ... 20 more rows
+  # ... 20 more
+```
+
+### 6.2 Chord — `chord_expectations.yaml`
+
+```yaml
+sample_id: fake_rpkm        # references shared fixture
 
 chord_unfiltered:
   - case_id: kingdom_superpathway
@@ -160,7 +179,6 @@ chord_unfiltered:
     ann_level: superpathway
     pairs:
       - ["Metabolism", "Bacteria", 30.0]
-  # ... 13 more cases
 
 chord_filtered:
   - case_id: taxon_filter_genus_a
@@ -176,44 +194,50 @@ edge_cases:
     pairs: [...]
 ```
 
-**Wiring:**
-
-```python
-@pytest.mark.parametrize("case", cases, ids=lambda c: c["case_id"])
-def test_chord_unfiltered(case, golden_db):
-    ...
-```
-
 Float comparison via `pytest.approx`. Pair lists compared as sorted tuples.
 
-## 7. Preconditions and Skip Behaviour
+## 7. Shared Test Infrastructure
+
+**`analytics/conftest.py`:**
+
+- Skip modules using fake fixture if `reference/parquet/bridge_*.parquet` missing → **SKIPPED** with message to run `build_reference.py`
+- Session fixture `fake_rpkm_db`: run `run_pipeline.py` once if DuckDB absent; propagate failures as **FAILED**
+
+**`analytics/testing/viz_golden.py`:**
+
+- Constants: `SAMPLE_ID`, TSV path, DB path, YAML paths
+- `load_yaml()`, `ensure_pipeline_built()`, bridge-exists check
+
+Both `test_fake_rpkm_pipeline.py` and `test_chord_service.py` import the same session fixture.
+
+## 8. Preconditions and Skip Behaviour
 
 | Precondition | Behaviour |
 |---|---|
-| `reference/parquet/bridge_ec_pathway.parquet` or `bridge_tax_rollup.parquet` missing | `pytest.skip` on golden modules: *"Reference parquet not built; run build_reference.py"* → **SKIPPED** (not failed) |
-| Bridges present | Session fixture runs `run_pipeline.py`; failure → **FAILED** |
-| Wrong golden value | **FAILED** |
+| Bridge Parquet missing | `pytest.skip` on fake-fixture modules → **SKIPPED** (not failed) |
+| Bridges present | Session fixture runs pipeline; failure → **FAILED** |
+| Wrong expected value | **FAILED** |
 
-No CI changes in v1. Developers run `build_reference.py` and pytest locally. Existing shape-only tests (`test_chord_service.py`) keep their current skip-if-`test_rpkm_1` pattern unchanged.
+No CI changes in v1. `test_main.py` may keep its existing `test_rpkm_1` skip pattern for HTTP integration until migrated separately.
 
-## 8. Out of Scope
+## 9. Out of Scope
 
 - Mart parity or legacy Node parity scripts
 - CI job that builds reference Parquet automatically
-- Renaming fixture to generic `fake_rpkm_viz_golden` (optional follow-up when second endpoint lands)
 - Full-matrix golden comparison (only golden pairs, not gap fillers / colors / full index)
 - `pathway_node` as chord `ann_level` (not in API)
+- Separate `test_chord_golden.py` module
 
-## 9. Success Criteria
+## 10. Success Criteria
 
-- [ ] `fake_rpkm_chord_golden.tsv` committed with documented row roles in YAML header comment or spec
-- [ ] Tier 1: 21 int anchor rows assert exact values
-- [ ] Tier 2: 14 unfiltered chord cases + taxon filter + ann filter + 3 edge cases
-- [ ] Golden module skips cleanly when bridge Parquet missing
+- [ ] `fake_rpkm.tsv` committed with row roles documented in pipeline YAML
+- [ ] Tier 1: 21 `rollup_grid` rows assert exact values in `test_fake_rpkm_pipeline.py`
+- [ ] Tier 2: chord pair tests in `test_chord_service.py` (14 unfiltered + filters + 3 edge cases)
+- [ ] Fake-fixture modules skip cleanly when bridge Parquet missing
 - [ ] Shared session fixture reusable from future endpoint test modules
-- [ ] Existing unit tests and Node tests unaffected
+- [ ] Existing unit tests (`test_chord_matrix`, `test_filters`, etc.) and Node tests unaffected
 
-## 10. References
+## 11. References
 
 - `analytics/api/chord_service.py` — runtime SQL
 - `analytics/transform/models/intermediate/int_tax_rollup_resolved.sql`
