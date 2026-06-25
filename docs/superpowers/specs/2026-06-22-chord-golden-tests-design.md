@@ -38,7 +38,7 @@ This spec adds a **small hand-designed fake TSV**, a **single pipeline run**, an
 analytics/
 ├── conftest.py                                    # shared: bridge guard + fake_rpkm session DuckDB
 ├── testing/
-│   └── viz_golden.py                              # paths, YAML load, run_pipeline helper
+│   └── fake_rpkm_fixture.py                       # paths, YAML load, run_pipeline helper
 ├── transform/tests/
 │   ├── fixtures/
 │   │   ├── fake_rpkm.tsv                          # SHARED synthetic input (tab-separated)
@@ -203,10 +203,16 @@ Float comparison via `pytest.approx`. Pair lists compared as sorted tuples.
 - Skip modules using fake fixture if `reference/parquet/bridge_*.parquet` missing → **SKIPPED** with message to run `build_reference.py`
 - Session fixture `fake_rpkm_db`: run `run_pipeline.py` once if DuckDB absent; propagate failures as **FAILED**
 
-**`analytics/testing/viz_golden.py`:**
+**`analytics/testing/fake_rpkm_fixture.py`:**
 
 - Constants: `SAMPLE_ID`, TSV path, DB path, YAML paths
 - `load_yaml()`, `ensure_pipeline_built()`, bridge-exists check
+
+Example import:
+
+```python
+from testing.fake_rpkm_fixture import SAMPLE_ID, ensure_built, load_pipeline_expectations
+```
 
 Both `test_fake_rpkm_pipeline.py` and `test_chord_service.py` import the same session fixture.
 
