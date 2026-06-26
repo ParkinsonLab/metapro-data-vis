@@ -24,7 +24,7 @@ Read before implementing:
 - `analytics/transform/scripts/stg_rpkm_long.py` — TSV columns, EC normalization
 - `analytics/api/chord_service.py` — runtime SQL, filter wiring
 - `analytics/api/chord_matrix.py` — index layout (`gap_1`, ann cats, `gap_2`, tax cats, `gap_3`)
-- `analytics/transform/tests/python/test_build_reference.py` — bridge semantics examples (9606 at species)
+- `analytics/transform/tests/python/test_build_reference.py` — bridge semantics (reference tests use 9606; **fake_rpkm uses bacterial tax_ids only**)
 
 **Prerequisite (local):** Reference Parquet built once:
 
@@ -293,7 +293,9 @@ git commit -m "feat(testing): add session fake_rpkm_db pytest fixture"
 **Files:**
 - Create: `analytics/transform/tests/fixtures/fake_rpkm.tsv`
 
-Use DuckDB to pick concrete IDs before writing the TSV. Run from `analytics/`:
+Use DuckDB to pick concrete IDs before writing the TSV. **Use bacterial tax_ids only** (metagenomics domain; keeps the fixture valid if the app later restricts to bacterial taxonomy). Default focal: **`1280`** (*Staphylococcus aureus*).
+
+Run from `analytics/`:
 
 ```bash
 cd analytics
@@ -304,19 +306,28 @@ from pathlib import Path
 ref = Path("transform/reference/parquet")
 tax = ref / "bridge_tax_rollup.parquet"
 ec = ref / "bridge_ec_pathway.parquet"
+FOCAL = 1280
 conn = duckdb.connect()
 conn.execute(f"CREATE TABLE tax AS SELECT * FROM read_parquet('{tax}')")
 conn.execute(f"CREATE TABLE ec AS SELECT * FROM read_parquet('{ec}')")
 
-# Focal: well-resolved species with full ladder
-focal = conn.execute("""
-    SELECT source_tax_id, resolved_tax_label
+# Bacterial tax_ids: resolved kingdom label = 'Bacteria'
+conn.execute("""
+    CREATE TEMP TABLE bacteria AS
+    SELECT DISTINCT source_tax_id
     FROM tax
-    WHERE source_tax_id = 9606 AND requested_rank = 'species'
-""").fetchone()
+    WHERE requested_rank = 'kingdom' AND resolved_tax_label = 'Bacteria'
+""")
+
+# Focal: S. aureus resolves at species
+focal = conn.execute("""
+    SELECT source_tax_id, resolved_tax_rank, resolved_tax_label
+    FROM tax
+    WHERE source_tax_id = ? AND requested_rank = 'species'
+""", [FOCAL]).fetchone()
 print("focal_tax_id:", focal)
 
-# Two ECs in different superpathways (for ann filter + siblings)
+# ECs mapping to KEGG pathways (metabolic genes; typical for bacteria)
 ecs = conn.execute("""
     SELECT ec_normalized,
            MIN(superpathway_name) AS sp,
@@ -329,32 +340,37 @@ ecs = conn.execute("""
 """).fetchall()
 print("ec candidates:", ecs[:3])
 
-# Same phylum, different genus (siblings)
+# Same phylum as focal, different genus — bacterial sibling
 sibs = conn.execute("""
-    SELECT a.source_tax_id, a.resolved_tax_label,
-           b.source_tax_id, b.resolved_tax_label
-    FROM tax a
-    JOIN tax b
-      ON a.requested_rank = 'phylum'
-     AND b.requested_rank = 'phylum'
-     AND a.resolved_tax_id = b.resolved_tax_id
-    JOIN tax ga ON ga.source_tax_id = a.source_tax_id AND ga.requested_rank = 'genus'
-    JOIN tax gb ON gb.source_tax_id = b.source_tax_id AND gb.requested_rank = 'genus'
-    WHERE a.requested_rank = 'phylum'
-      AND a.source_tax_id != b.source_tax_id
-      AND ga.resolved_tax_id != gb.resolved_tax_id
-      AND a.source_tax_id = 9606
-    LIMIT 3
-""").fetchall()
+    SELECT focal.source_tax_id AS focal_id,
+           ga.resolved_tax_label AS focal_genus,
+           sib.source_tax_id AS sibling_id,
+           gs.resolved_tax_label AS sibling_genus,
+           ph.resolved_tax_label AS phylum
+    FROM tax focal
+    JOIN tax ph ON ph.source_tax_id = focal.source_tax_id AND ph.requested_rank = 'phylum'
+    JOIN tax ga ON ga.source_tax_id = focal.source_tax_id AND ga.requested_rank = 'genus'
+    JOIN tax sib ON sib.source_tax_id != focal.source_tax_id
+    JOIN tax ps ON ps.source_tax_id = sib.source_tax_id
+               AND ps.requested_rank = 'phylum'
+               AND ps.resolved_tax_id = ph.resolved_tax_id
+    JOIN tax gs ON gs.source_tax_id = sib.source_tax_id AND gs.requested_rank = 'genus'
+    JOIN bacteria bf ON bf.source_tax_id = focal.source_tax_id
+    JOIN bacteria bs ON bs.source_tax_id = sib.source_tax_id
+    WHERE focal.source_tax_id = ?
+      AND ga.resolved_tax_id != gs.resolved_tax_id
+    LIMIT 5
+""", [FOCAL]).fetchall()
 print("sibling candidates:", sibs)
 
-# Fallback: taxon where species request != species resolved rank
+# Fallback: bacterial taxon where species request resolves coarser than species
 fallback = conn.execute("""
-    SELECT source_tax_id, requested_rank, resolved_tax_rank, resolved_tax_label
-    FROM tax
-    WHERE requested_rank = 'species'
-      AND resolved_tax_rank IS NOT NULL
-      AND resolved_tax_rank != 'species'
+    SELECT t.source_tax_id, t.resolved_tax_rank, t.resolved_tax_label
+    FROM tax t
+    JOIN bacteria b ON b.source_tax_id = t.source_tax_id
+    WHERE t.requested_rank = 'species'
+      AND t.resolved_tax_rank IS NOT NULL
+      AND t.resolved_tax_rank != 'species'
     LIMIT 5
 """).fetchall()
 print("fallback candidates:", fallback)
@@ -367,20 +383,22 @@ Pick from output:
 
 | Role | Selection rule |
 |---|---|
-| `focal_tax_id` | `9606` (Homo sapiens) unless bridge missing |
-| `sibling_tax_id` | Second tax_id from sibling query sharing phylum with 9606 |
-| `fallback_tax_id` | First tax_id from fallback query |
+| `focal_tax_id` | **`1280`** (*Staphylococcus aureus*) — verify species-level resolution in bridge |
+| `sibling_tax_id` | Bacterial tax_id from sibling query sharing phylum with 1280, different genus (e.g. another *Firmicutes* genus) |
+| `fallback_tax_id` | Bacterial tax_id from fallback query (species request → coarser rank) |
 | `unknown_tax_id` | `999999999` (not in bridge) |
 | `ec_focal` | EC mapping to a known superpathway (e.g. first row from ec candidates) |
 | `ec_sibling` | EC mapping to a **different** superpathway than `ec_focal` |
 | `ec_fallback` | Any mapped EC for fallback taxon row (can reuse `ec_sibling`) |
+
+**Do not use** eukaryote / human tax_ids (e.g. 9606) in fixture columns.
 
 - [ ] **Step 2: Write TSV**
 
 Create `analytics/transform/tests/fixtures/fake_rpkm.tsv` (tab-separated). Template — replace EC strings and tax_id columns with discovered values:
 
 ```tsv
-GeneID	Length	Reads	EC#	RPKM	Unclassified	9606	<SIBLING_TAX_ID>	<FALLBACK_TAX_ID>	999999999
+GeneID	Length	Reads	EC#	RPKM	Unclassified	1280	<SIBLING_TAX_ID>	<FALLBACK_TAX_ID>	999999999
 g_focal	100	10	<EC_FOCAL>	10	0	10	0	0	0
 g_sib	100	10	<EC_SIBLING>	20	0	0	20	0	0
 g_fallback	100	10	<EC_FALLBACK>	30	0	0	0	30	0
@@ -599,7 +617,7 @@ Then dump (fill CLI args from Task 4 discovery output):
 cd analytics
 uv run python -m testing.dump_fake_rpkm_expectations \
   --focal-ec "<EC_FOCAL>" \
-  --focal-tax-id 9606 \
+  --focal-tax-id 1280 \
   --fallback-tax-id <FALLBACK_TAX_ID> \
   --sibling-genus-name "<SIBLING_GENUS_NAME>" \
   --ann-superpathway-name "<SUPERPATHWAY_FOR_EC_FOCAL>"

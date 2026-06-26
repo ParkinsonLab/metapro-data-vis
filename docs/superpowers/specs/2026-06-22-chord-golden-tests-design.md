@@ -22,6 +22,7 @@ This spec adds a **small hand-designed fake TSV**, a **single pipeline run**, an
 |---|---|---|
 | Reference data | Real `bridge_ec_pathway` / `bridge_tax_rollup` Parquet | Stable; matches production semantics |
 | Fixture TSV | One shared `fake_rpkm.tsv` for transform + all endpoints | Same edge cases apply to overview, network, etc. |
+| Taxonomy in fixture | Bacterial `tax_id`s only; focal **`1280`** (*S. aureus*) | Metagenomics domain; safe if app restricts to bacteria later |
 | Sample id | `fake_rpkm` | `strip_extension(names[0])` → `runs/fake_rpkm/sample.duckdb` |
 | Pipeline expectations | `fake_rpkm_pipeline_expectations.yaml` | Shared transform goldens; not chord-specific |
 | Rollup grid | 21 rows for focal `(ec, source_tax_id)` with **exact** values | Verifies dbt pipeline before endpoint tests |
@@ -74,6 +75,8 @@ Future endpoints add `overview_expectations.yaml`, `test_overview_service.py`, e
 **File:** `analytics/transform/tests/fixtures/fake_rpkm.tsv`
 
 Hand-pick IDs from real reference Parquet at implementation time. Use round numeric values (10, 20, 30, …) for hand-computed expectations.
+
+**Taxonomy policy:** Use **bacterial `tax_id`s only** in fixture columns (metagenomics domain). Default focal: **`1280`** (*Staphylococcus aureus*). Sibling and fallback taxa must also resolve under kingdom `Bacteria` in `bridge_tax_rollup`. Do not use human or other eukaryote tax_ids (e.g. 9606).
 
 | Row role | Purpose |
 |---|---|
@@ -154,7 +157,7 @@ fixture:
   sample_id: fake_rpkm
   tsv: fake_rpkm.tsv
   focal_ec: "..."          # set at implementation from real bridge
-  focal_tax_id: ...        # e.g. 9606
+  focal_tax_id: 1280          # Staphylococcus aureus (bacterial focal)
   roles:
     fallback_tax_id: ...
     unknown_tax_id: 999999999
