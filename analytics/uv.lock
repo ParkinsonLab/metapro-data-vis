@@ -1199,6 +1199,7 @@ dev = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pytest" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
@@ -1220,6 +1221,7 @@ dev = [
     { name = "numpy", specifier = ">=2.5.0" },
     { name = "pandas", specifier = ">=3.0.3" },
     { name = "pytest", specifier = ">=8.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]
