@@ -1,0 +1,6 @@
+GeneID	Length	Reads	EC#	RPKM	Unclassified	1280	298593	620891	999999999
+g_focal	100	10	1.5.8.1	10	0	10	0	0	0
+g_sib	100	10	1.17.5.2	20	0	0	20	0	0
+g_fallback	100	10	2.1.1.158	30	0	0	0	30	0
+g_unknown	100	10	1.5.8.1	40	0	0	0	0	40
+g_unmapped	100	10		50	0	50	0	0	0
