@@ -83,7 +83,7 @@ Hand-pick IDs from real reference Parquet at implementation time. Use round nume
 | **Focal** `(EC₁, T_focal)` | `rollup_grid` (21 rows) and chord parametric cases |
 | **Tax siblings** `T_sib1`, `T_sib2` | Same phylum, different genus; different ECs so rank rollup changes summed values |
 | **Fallback taxon** `T_fallback` | Exact at rank R, coarser fallback when `requested_rank` is finer |
-| **Unclassified** `T_unknown` | Column header tax_id not in `bridge_tax_rollup` (e.g. `999999999`) |
+| **Unknown header** `T_unknown` | Column header `tax_id` **absent from `bridge_tax_rollup`** (e.g. `999999999`); see §12 — not the same as bridge `'Unclassified'` |
 | **Unmapped EC** | Empty/`None` `EC#` → `0.0.0.0` |
 
 EC choices must map to ≥2 superpathways and ≥2 pathways under one superpathway (real bridge rows).
@@ -146,7 +146,7 @@ def test_build_chord_from_duckdb_shape(fake_rpkm_db): ...
 
 **Filtered:** taxon filter + ann filter cases.
 
-**Edge cases:** unmapped EC, Unclassified tax_id, fallback taxon.
+**Edge cases:** unmapped EC, unknown header tax_id (mass in `int` only — see §12), fallback taxon.
 
 **Pair extraction:** Helper converts `build_chord_matrix()` output to sorted `(pathway_label, resolved_tax_label, value)` list from `index` + `count_matrix` (annotation × taxon submatrix only; not gap fillers).
 
@@ -238,6 +238,7 @@ No CI changes in v1. `test_main.py` may keep its existing `test_rpkm_1` skip pat
 - Full-matrix golden comparison (only golden pairs, not gap fillers / colors / full index)
 - `pathway_node` as chord `ann_level` (not in API)
 - Separate `test_chord_golden.py` module
+- **Synthesizing 7 `requested_rank` rows for unknown header tax_ids** in `int_tax_rollup_resolved` (deferred — see §12)
 
 ## 10. Success Criteria
 
@@ -255,3 +256,36 @@ No CI changes in v1. `test_main.py` may keep its existing `test_rpkm_1` skip pat
 - `analytics/transform/scripts/run_pipeline.py`
 - `analytics/transform/scripts/build_reference.py`
 - `docs/superpowers/specs/2026-06-22-chord-dbt-api-design.md` §6 — documented deviations (fallback, Unclassified, unmapped)
+
+## 12. Unknown header tax_id semantics (deferred fix)
+
+The fake TSV includes column `999999999` to document **current pipeline behavior** for sample tax_id headers that are not in the reference taxonomy. Fixing this is **deferred**; goldens and tests assert today’s behavior, not the aspirational `'Unclassified'` rows described in `2026-06-15-rpkm-transform-design.md` §6.7 for absent tax_ids.
+
+### Three distinct cases
+
+| Case | In `bridge_tax_rollup`? | Rows in `int_tax_rollup_resolved` (per pathway row) | `requested_rank` | `resolved_tax_label` | Visible in mart / chord (`WHERE requested_rank = ?`) |
+|---|---|---|---|---|---|
+| **Known** tax_id (e.g. `1280`) | Yes — 7 ranks per tax_id | 7 × 3 pathway levels = **21** for focal `(ec, tax_id)` | Set (kingdom…species) | Resolved name at rank | Yes |
+| **Bridge Unclassified** — tax_id in reference but no ancestor at requested rank | Yes — row with null `resolved_tax_id` | 7 × 3 = **21** | Set | **`'Unclassified'`** (from `build_reference.py`) | Yes |
+| **Unknown header** — tax_id not in reference at all (e.g. `999999999`) | **No** | **3** only (one null-bridge row per `pathway_level`) | **`NULL`** | **`NULL`** (not `'Unclassified'`) | **No** — filtered out by rank predicate |
+
+### Why unknown headers differ
+
+`int_tax_rollup_resolved` LEFT JOINs `int_rpkm_pathway` to `bridge_tax_rollup` on `source_tax_id` only. Known tax_ids fan out to seven `requested_rank` rows from the bridge. Unknown tax_ids have **no bridge rows**, so the join yields **one** row with all bridge columns NULL per `int_rpkm_pathway` row — not seven synthetic ranks and not the `'Unclassified'` label (that label is produced inside `build_reference.py` only for tax_ids **present** in the reference graph).
+
+Observed shape for `999999999` in `fake_rpkm` (example):
+
+```
+source_tax_id=999999999, value=40, pathway_level=superpathway|pathway|pathway_node
+requested_rank=NULL, resolved_tax_id=NULL, resolved_tax_rank=NULL, resolved_tax_label=NULL
+```
+
+### Impact on golden tests
+
+- **Tier 1 (`rollup_grid`):** Asserts focal **known** tax_id only (21 rows). No `rollup_grid` assertions for `999999999` in v1.
+- **Tier 2 (chord):** `unclassified_tax_snapshot` golden pairs reflect phylum/superpathway aggregation **without** unknown-column mass — chord SQL cannot surface `'Unclassified'` for unknown headers until pipeline or API handling changes.
+- **Fixture role:** `T_unknown` column remains in `fake_rpkm.tsv` so mass is present in `int_rpkm_pathway` and the gap is reproducible; it is **not** a test that chord shows `'Unclassified'` for unknown headers.
+
+### Deferred follow-up (not v1)
+
+Expand unknown header tax_ids to seven `requested_rank` rows with `'Unclassified'` semantics in `int_tax_rollup_resolved` (e.g. known/unknown UNION in dbt), then regold expectations and assert chord/mart include that mass. See implementation discussion on branch `feature/chord-dbt-api`.

@@ -479,13 +479,18 @@ Each row from `int_rpkm_pathway` (which already covers all 3 `pathway_level` val
 
 **Physical ordering:** Materialised with `ORDER BY requested_rank, pathway_level, pathway_key`. The mart filters on both `requested_rank` (7 values) and `pathway_level` (3 values) — with these as the leading sort columns, DuckDB zone-map skipping eliminates ~20/21 of row groups for a typical mart run. `pathway_key` is added as the primary GROUP BY key for modest additional compression; high-cardinality columns (`resolved_tax_id`, `source_tax_id`) are excluded.
 
-**Unclassified rows:** `source_tax_id` values absent from `bridge_tax_rollup` (or resolving to NULL) yield `resolved_tax_id = NULL`, `resolved_tax_label = 'Unclassified'`, `resolved_tax_rank = NULL`. Left join ensures these rows are preserved.
+**Unclassified rows (two cases):**
+
+1. **Bridge Unclassified** — `source_tax_id` is in `bridge_tax_rollup` but has no ancestor at the requested rank. Bridge row: `requested_rank` set, `resolved_tax_id = NULL`, `resolved_tax_label = 'Unclassified'`, `resolved_tax_rank = NULL`. Fans out to 7 ranks × pathway levels like any known tax_id.
+
+2. **Unknown header tax_id** — `source_tax_id` is **absent from `bridge_tax_rollup`** entirely (sample column header not in reference taxonomy). Current `int_tax_rollup_resolved` LEFT JOIN produces **one row per `int_rpkm_pathway` row** with `requested_rank`, `resolved_tax_id`, `resolved_tax_rank`, and `resolved_tax_label` all **NULL** — not `'Unclassified'`, and **not** seven rank rows. Mart/chord `WHERE requested_rank = var('tax_rank')` excludes this mass. **Deferred:** synthesize seven rank rows with `'Unclassified'` for unknown headers (see `2026-06-22-chord-golden-tests-design.md` §12).
 
 **NULL keys for gap rows:**
 
 | Case | `resolved_tax_id` | `resolved_tax_label` | `pathway_key` | `pathway_label` |
 |---|---|---|---|---|
-| Unclassified taxonomy | NULL | `'Unclassified'` | (normal) | (normal) |
+| Unclassified taxonomy (bridge row) | NULL | `'Unclassified'` | (normal) | (normal) |
+| Unknown header tax_id (not in bridge) | NULL | **NULL** (v1) | (normal) | (normal) |
 | Unmapped EC | (normal) | (normal) | NULL | NULL → mart renders `'Unmapped EC'` |
 
 **Deriving resolution type** from output (for diagnostics / constraints):
