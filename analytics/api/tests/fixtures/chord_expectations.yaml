@@ -1,0 +1,294 @@
+sample_id: fake_rpkm
+chord_unfiltered:
+- case_id: kingdom_superpathway
+  tax_level: kingdom
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillati
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - Bacteria
+    - 30.0
+  - - Energy metabolism
+    - Bacillati
+    - 10.0
+  - - Unmapped EC
+    - Bacillati
+    - 50.0
+- case_id: kingdom_pathway
+  tax_level: kingdom
+  ann_level: pathway
+  pairs:
+  - - Caffeine metabolism
+    - Bacillati
+    - 20.0
+  - - Caffeine metabolism
+    - Bacteria
+    - 30.0
+  - - Methane metabolism
+    - Bacillati
+    - 10.0
+  - - Unmapped EC
+    - Bacillati
+    - 50.0
+- case_id: phylum_superpathway
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Bacillota
+    - 10.0
+  - - Unmapped EC
+    - Bacillota
+    - 50.0
+- case_id: phylum_pathway
+  tax_level: phylum
+  ann_level: pathway
+  pairs:
+  - - Caffeine metabolism
+    - Bacillota
+    - 20.0
+  - - Caffeine metabolism
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Methane metabolism
+    - Bacillota
+    - 10.0
+  - - Unmapped EC
+    - Bacillota
+    - 50.0
+- case_id: class_superpathway
+  tax_level: class
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacilli
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Bacilli
+    - 10.0
+  - - Unmapped EC
+    - Bacilli
+    - 50.0
+- case_id: class_pathway
+  tax_level: class
+  ann_level: pathway
+  pairs:
+  - - Caffeine metabolism
+    - Bacilli
+    - 20.0
+  - - Caffeine metabolism
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Methane metabolism
+    - Bacilli
+    - 10.0
+  - - Unmapped EC
+    - Bacilli
+    - 50.0
+- case_id: order_superpathway
+  tax_level: order
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Caryophanales
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Caryophanales
+    - 10.0
+  - - Unmapped EC
+    - Caryophanales
+    - 50.0
+- case_id: order_pathway
+  tax_level: order
+  ann_level: pathway
+  pairs:
+  - - Caffeine metabolism
+    - Caryophanales
+    - 20.0
+  - - Caffeine metabolism
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Methane metabolism
+    - Caryophanales
+    - 10.0
+  - - Unmapped EC
+    - Caryophanales
+    - 50.0
+- case_id: family_superpathway
+  tax_level: family
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillaceae
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Staphylococcaceae
+    - 10.0
+  - - Unmapped EC
+    - Staphylococcaceae
+    - 50.0
+- case_id: family_pathway
+  tax_level: family
+  ann_level: pathway
+  pairs:
+  - - Caffeine metabolism
+    - Bacillaceae
+    - 20.0
+  - - Caffeine metabolism
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Methane metabolism
+    - Staphylococcaceae
+    - 10.0
+  - - Unmapped EC
+    - Staphylococcaceae
+    - 50.0
+- case_id: genus_superpathway
+  tax_level: genus
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillus
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Staphylococcus
+    - 10.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 50.0
+- case_id: genus_pathway
+  tax_level: genus
+  ann_level: pathway
+  pairs:
+  - - Caffeine metabolism
+    - Bacillus
+    - 20.0
+  - - Caffeine metabolism
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Methane metabolism
+    - Staphylococcus
+    - 10.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 50.0
+- case_id: species_superpathway
+  tax_level: species
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillus sp. LMG 22259
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Staphylococcus aureus
+    - 10.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 50.0
+- case_id: species_pathway
+  tax_level: species
+  ann_level: pathway
+  pairs:
+  - - Caffeine metabolism
+    - Bacillus sp. LMG 22259
+    - 20.0
+  - - Caffeine metabolism
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Methane metabolism
+    - Staphylococcus aureus
+    - 10.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 50.0
+chord_filtered:
+- case_id: taxon_filter_sibling_genus
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 20.0
+  selected_taxon:
+    level: genus
+    name: Bacillus
+- case_id: ann_filter_superpathway
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Energy metabolism
+    - Bacillota
+    - 10.0
+  selected_ann_cat: Energy metabolism
+edge_cases:
+- case_id: unmapped_ec_snapshot
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Bacillota
+    - 10.0
+  - - Unmapped EC
+    - Bacillota
+    - 50.0
+- case_id: unclassified_tax_snapshot
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Bacillota
+    - 10.0
+  - - Unmapped EC
+    - Bacillota
+    - 50.0
+- case_id: fallback_species_request
+  tax_level: species
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillus sp. LMG 22259
+    - 20.0
+  - - Biosynthesis of other secondary metabolites
+    - bacterium enrichment culture clone 15A3
+    - 30.0
+  - - Energy metabolism
+    - Staphylococcus aureus
+    - 10.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 50.0

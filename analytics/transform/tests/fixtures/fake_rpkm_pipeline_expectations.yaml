@@ -1,0 +1,114 @@
+fixture:
+  sample_id: fake_rpkm
+  tsv: fake_rpkm.tsv
+  focal_ec: 1.5.8.1
+  focal_tax_id: 1280
+  roles:
+    fallback_tax_id: 620891
+    unknown_tax_id: 999999999
+rollup_grid:
+- requested_rank: class
+  pathway_level: pathway
+  pathway_label: Methane metabolism
+  resolved_tax_label: Bacilli
+  value: 10.0
+- requested_rank: class
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Bacilli
+  value: 10.0
+- requested_rank: class
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Bacilli
+  value: 10.0
+- requested_rank: family
+  pathway_level: pathway
+  pathway_label: Methane metabolism
+  resolved_tax_label: Staphylococcaceae
+  value: 10.0
+- requested_rank: family
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Staphylococcaceae
+  value: 10.0
+- requested_rank: family
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Staphylococcaceae
+  value: 10.0
+- requested_rank: genus
+  pathway_level: pathway
+  pathway_label: Methane metabolism
+  resolved_tax_label: Staphylococcus
+  value: 10.0
+- requested_rank: genus
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Staphylococcus
+  value: 10.0
+- requested_rank: genus
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Staphylococcus
+  value: 10.0
+- requested_rank: kingdom
+  pathway_level: pathway
+  pathway_label: Methane metabolism
+  resolved_tax_label: Bacillati
+  value: 10.0
+- requested_rank: kingdom
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Bacillati
+  value: 10.0
+- requested_rank: kingdom
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Bacillati
+  value: 10.0
+- requested_rank: order
+  pathway_level: pathway
+  pathway_label: Methane metabolism
+  resolved_tax_label: Caryophanales
+  value: 10.0
+- requested_rank: order
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Caryophanales
+  value: 10.0
+- requested_rank: order
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Caryophanales
+  value: 10.0
+- requested_rank: phylum
+  pathway_level: pathway
+  pathway_label: Methane metabolism
+  resolved_tax_label: Bacillota
+  value: 10.0
+- requested_rank: phylum
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Bacillota
+  value: 10.0
+- requested_rank: phylum
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Bacillota
+  value: 10.0
+- requested_rank: species
+  pathway_level: pathway
+  pathway_label: Methane metabolism
+  resolved_tax_label: Staphylococcus aureus
+  value: 10.0
+- requested_rank: species
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Staphylococcus aureus
+  value: 10.0
+- requested_rank: species
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Staphylococcus aureus
+  value: 10.0

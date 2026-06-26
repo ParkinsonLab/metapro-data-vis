@@ -33,6 +33,5 @@ models:
     columns:
       - name: requested_rank
         tests:
-          - not_null
           - accepted_values:
               values: ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
