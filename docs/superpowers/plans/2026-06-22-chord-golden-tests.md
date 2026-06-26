@@ -629,7 +629,7 @@ Expected: writes both YAML files; `rollup_grid` has 21 entries; `chord_unfiltere
 
 Open both YAML files and confirm:
 
-- Focal `rollup_grid` values differ across ranks (sibling rollup effect at phylum/kingdom).
+- Focal `rollup_grid` **values are constant** (raw focal cell mass, e.g. 10.0); **labels** vary across rank × pathway_level. Sibling rollup effects appear in **chord** pair goldens after GROUP BY, not in int focal row values.
 - `edge_cases` include `'Unmapped EC'` and `'Unclassified'` pairs where expected.
 - `fallback_species_request` shows coarser label than species for fallback taxon mass.
 - No zero-value pairs listed.

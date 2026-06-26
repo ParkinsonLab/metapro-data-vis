@@ -25,7 +25,7 @@ This spec adds a **small hand-designed fake TSV**, a **single pipeline run**, an
 | Taxonomy in fixture | Bacterial `tax_id`s only; focal **`1280`** (*S. aureus*) | Metagenomics domain; safe if app restricts to bacteria later |
 | Sample id | `fake_rpkm` | `strip_extension(names[0])` → `runs/fake_rpkm/sample.duckdb` |
 | Pipeline expectations | `fake_rpkm_pipeline_expectations.yaml` | Shared transform goldens; not chord-specific |
-| Rollup grid | 21 rows for focal `(ec, source_tax_id)` with **exact** values | Verifies dbt pipeline before endpoint tests |
+| Rollup grid | 21 rows for focal `(ec, source_tax_id)` with **exact** labels and value | Verifies dbt pipeline before endpoint tests; see §5.1 for value semantics |
 | Chord expectations | `chord_expectations.yaml` | 14 unfiltered + filter + edge cases |
 | Chord tests | Merged into `test_chord_service.py` | One module for `build_chord_from_duckdb` integration |
 | Golden storage | External YAML, not inline Python tuples | Readable, diffable, parametrized via `case_id` |
@@ -114,7 +114,9 @@ runs/fake_rpkm/sample.duckdb
 **Assert:**
 
 - Exactly **21 rows** (7 `requested_rank` × 3 `pathway_level`)
-- Each row matches YAML: `requested_rank`, `pathway_level`, `pathway_label`, `resolved_tax_label`, `value` (all exact; values differ across rows because siblings and pathway level affect labels and rollup sums)
+- Each row matches YAML: `requested_rank`, `pathway_level`, `pathway_label`, `resolved_tax_label`, `value` (all exact)
+
+**Value semantics (int vs chord):** At this tier the query filters to a **single** `(focal_ec, focal_tax_id)` pair. Each row is that cell’s raw mass at a different `(requested_rank, pathway_level)` — so **`value` is the same** across all 21 rows (e.g. 10.0 from the focal TSV cell). What **varies** is `pathway_label` and `resolved_tax_label` (pathway level and rank resolution). Sibling tax columns affect **chord** goldens after mart-equivalent `GROUP BY`, not the focal row’s `value` in `int_tax_rollup_resolved`.
 
 **Location:** `analytics/transform/tests/python/test_fake_rpkm_pipeline.py`
 
@@ -140,7 +142,7 @@ def test_chord_pairs(case, fake_rpkm_db): ...
 def test_build_chord_from_duckdb_shape(fake_rpkm_db): ...
 ```
 
-**Unfiltered (14 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {superpathway, pathway}`. Assert golden pairs `(pathway_label, resolved_tax_label, value)`.
+**Unfiltered (14 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {superpathway, pathway}`. Assert golden pairs `(pathway_label, resolved_tax_label, value)`. **Pair values differ across cases** because aggregation rolls up sibling tax columns at coarser ranks (e.g. phylum sums focal + sibling mass; genus keeps them separate).
 
 **Filtered:** taxon filter + ann filter cases.
 
@@ -162,7 +164,7 @@ fixture:
     fallback_tax_id: ...
     unknown_tax_id: 999999999
 
-rollup_grid:               # 21 rows — exact values per (rank, pathway_level)
+rollup_grid:               # 21 rows — labels vary; value constant for focal cell
   - requested_rank: kingdom
     pathway_level: superpathway
     pathway_label: "..."
