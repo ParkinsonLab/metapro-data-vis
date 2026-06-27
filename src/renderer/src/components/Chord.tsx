@@ -220,8 +220,12 @@ const RankSelector = () => {
 
   return (
     <div id="chord-top-bar">
-      <div className="sub-selector-container">{t_elements}</div>
-      <div className="sub-selector-container">{a_elements}</div>
+      <div className="chord-rank-slot chord-rank-slot--tax">
+        <div className="sub-selector-container">{t_elements}</div>
+      </div>
+      <div className="chord-rank-slot chord-rank-slot--pathway">
+        <div className="sub-selector-container">{a_elements}</div>
+      </div>
     </div>
   )
 }
@@ -236,30 +240,34 @@ const FilterChips = (): React.JSX.Element | null => {
 
   return (
     <div id="chord-filter-chips">
-      {ann_active && (
-        <span className="chord-filter-chip">
-          Pathway: {selected_ann_cat.name} ({selected_ann_cat.level})
-          <button
-            type="button"
-            aria-label="Clear pathway filter"
-            onClick={() => useAppStore.setState({ selected_ann_cat: {}, selected_annotations: [] })}
-          >
-            ×
-          </button>
-        </span>
-      )}
-      {tax_active && (
-        <span className="chord-filter-chip">
-          Taxon: {selected_taxon.name} ({selected_taxon.level})
-          <button
-            type="button"
-            aria-label="Clear taxon filter"
-            onClick={() => useAppStore.setState({ selected_taxon: {} })}
-          >
-            ×
-          </button>
-        </span>
-      )}
+      <div className="chord-filter-chip-slot chord-filter-chip-slot--tax">
+        {tax_active && (
+          <span className="chord-filter-chip">
+            Taxon: {selected_taxon.name} ({selected_taxon.level})
+            <button
+              type="button"
+              aria-label="Clear taxon filter"
+              onClick={() => useAppStore.setState({ selected_taxon: {} })}
+            >
+              ×
+            </button>
+          </span>
+        )}
+      </div>
+      <div className="chord-filter-chip-slot chord-filter-chip-slot--pathway">
+        {ann_active && (
+          <span className="chord-filter-chip">
+            Pathway: {selected_ann_cat.name} ({selected_ann_cat.level})
+            <button
+              type="button"
+              aria-label="Clear pathway filter"
+              onClick={() => useAppStore.setState({ selected_ann_cat: {}, selected_annotations: [] })}
+            >
+              ×
+            </button>
+          </span>
+        )}
+      </div>
     </div>
   )
 }
