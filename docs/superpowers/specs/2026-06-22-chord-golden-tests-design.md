@@ -1,6 +1,6 @@
 # Chord Golden Integration Tests — Design Spec
 
-> **Status:** Approved (2026-06-22; §4 revised for dense-matrix fixture + focal-pair goldens)  
+> **Status:** Approved (2026-06-22; §4 revised — 1→7 staircase, naming, kingdom fallback `2`)  
 > **Goal:** Add hand-verified integration tests for the DuckDB chord path, backed by a reusable fake RPKM fixture and shared pipeline expectations for transform semantics (rollup fallback, Unclassified, unmapped EC) that future viz endpoints can reuse.
 
 **Parent specs:**
@@ -27,7 +27,7 @@ This spec adds a **small hand-designed fake TSV**, a **single pipeline run**, an
 | Pipeline expectations | `fake_rpkm_pipeline_expectations.yaml` | Shared transform goldens; not chord-specific |
 | Rollup grid | 21 rows for focal `(ec, source_tax_id)` with **exact** labels and value | Verifies dbt pipeline before endpoint tests; see §5.1 for value semantics |
 | Chord expectations | `chord_expectations.yaml` | 14 unfiltered (focal pair primary) + filter + edge cases |
-| Fixture numerics | Unit **1** per non-zero tax cell | Hand-computed focal-pair staircase; see §4.3 |
+| Fixture numerics | Unit **1** per non-zero tax cell; focal pair **1 → 7** | Hand-computed staircase; see §4.3 |
 | Chord tests | Merged into `test_chord_service.py` | One module for `build_chord_from_duckdb` integration |
 | Golden storage | External YAML, not inline Python tuples | Readable, diffable, parametrized via `case_id` |
 | Mart / legacy parity | Out of scope | Mart may be retired; no Node parity harness |
@@ -81,14 +81,21 @@ The fixture is a **wide dense matrix**: tax_id **columns** (phylogenetic axis) �
 
 ### 4.1 Tax columns (phylogenetic axis)
 
-| Column role | Purpose |
-|---|---|
-| **`T_focal` (`1280`)** | Focal species; baseline for rollup_grid and chord focal pair |
-| **~6 cousin columns** | Bacterial tax_ids at different phylogenetic depths; each chosen so it **merges into focal’s `resolved_tax_id` bucket at exactly one coarser rank** when carrying `EC_focal` mass |
-| **`T_fallback`** | Exact at rank R in reference; coarser fallback when `requested_rank` is finer |
-| **`T_unknown` (`999999999`)** | Column header **absent from `bridge_tax_rollup`**; see §12 |
+| Column role | Default `tax_id` | Purpose |
+|---|---|---|
+| **`col_tax_focal`** | **`1280`** (*S. aureus*) | Focal species; baseline for rollup_grid and chord focal pair |
+| **`col_tax_sibling_genus`** | e.g. another *Staphylococcus* species | **Sibling** = cousin whose nearest shared ancestor with focal is **genus** (parent of both species); first merge at **`genus`** |
+| **`col_tax_cousin_family`** | pick at implementation | Shares **family** with focal; first merge at **`family`** |
+| **`col_tax_cousin_order`** | pick at implementation | Shares **order**; first merge at **`order`** |
+| **`col_tax_cousin_class`** | pick at implementation | Shares **class**; first merge at **`class`** |
+| **`col_tax_cousin_phylum`** | e.g. different genus, same phylum | Shares **phylum**; first merge at **`phylum`**; also used for **taxon-filter** edge case (different genus label) |
+| **`col_tax_cousin_kingdom`** | pick at implementation | Shares **kingdom** only; first merge at **`kingdom`** |
+| **`col_tax_fallback_kingdom`** | **`2`** (*Bacteria*) | Taxon **native rank = kingdom**; when `requested_rank` is finer than kingdom, bridge resolves to **`Bacteria`** (coarser fallback) |
+| **`col_tax_unknown_header`** | **`999999999`** | Column header **absent from `bridge_tax_rollup`**; see §12 |
 
-Pick cousins so the focal pair **increases by 1 at every rank step** from species → kingdom (see §4.3). At genus, focal may still be alone unless a same-genus cousin is added deliberately.
+**Not `620891` for fallback:** `620891` is in the bridge but is phylum-ranked (*bacterium enrichment culture clone 15A3*); it resolves to itself at phylum→species, not kingdom-only fallback. Use **`2`** instead.
+
+Pick the six rank-merge columns (sibling + five cousins) so the focal pair **increases by exactly 1 at every rank step** from species → kingdom (§4.3).
 
 ### 4.2 EC rows (pathway axis)
 
@@ -97,37 +104,52 @@ Each gene row carries one EC (or empty for unmapped) and **one non-zero tax colu
 | Row role | EC relationship to focal | Purpose |
 |---|---|---|
 | **Focal** | `EC_focal` — maps to **exactly one** `pathway_id` and **one** `superpathway_id` in bridge | Tier 1 rollup_grid; chord focal pair |
-| **Cousin × N** | **Same `EC_focal`** | Rank-merge summation in chord |
+| **Rank-merge × 6** | **Same `EC_focal`** on sibling + cousin columns | Staircase summation (§4.3) |
 | **`EC_alt`** | Different **pathway**, **same superpathway** as `EC_focal` | Separate pair at `ann_level=pathway`; merges with focal at `ann_level=superpathway` |
-| **`EC_diff_sp`** | **Neither** same pathway nor same-superpathway alt — i.e. **different superpathway** | Ann-filter golden (dropped when filtering to focal’s superpathway) |
-| **`EC_fb`** | Any mapped EC on `T_fallback` | Fallback taxon edge case |
-| **Unknown column row** | Any mapped EC on `T_unknown` | Mass in `int` only (§12) |
-| **Unmapped** | Empty/`None` `EC#` → `0.0.0.0` | `'Unmapped EC'` chord pair |
+| **`EC_diff_sp`** | **Different superpathway** | Ann-filter golden (dropped when filtering to focal’s superpathway) |
+| **`EC_fb`** | Any mapped EC on **`col_tax_fallback_kingdom`** | Fallback **taxon** edge case |
+| **Unknown header row** | Any mapped EC on **`col_tax_unknown_header`** | Unknown **tax column header**; mass in `int` only (§12) |
+| **Unmapped EC row** | Empty/`None` `EC#` → `0.0.0.0` | Unmapped **EC**; `'Unmapped EC'` chord pair |
 
 **Bridge note (`data-model.md`):** each `pathway_superpathways` row maps to exactly one superpathway; each `pathway_nodes` row maps to exactly one pathway group. An EC **can** fan out to multiple pathway nodes (and, empirically, multiple pathways under one superpathway). **`EC_focal` must be validated** at implementation time as single-pathway / single-superpathway so the focal pair is unambiguous at both `ann_level`s. Use **`EC_alt`** and **`EC_diff_sp`** as separate gene rows — do not rely on multi-pathway fan-out of `EC_focal`.
 
 The fixture must still include ≥2 superpathways and ≥2 pathways (across **different EC rows**, not via `EC_focal` fan-out).
+
+### 4.2.1 Naming convention (`GeneID` and docs)
+
+Role names must distinguish **tax column** vs **EC** vs **unknown header**:
+
+| Kind | Pattern | Example |
+|---|---|---|
+| Tax column (TSV header) | `col_tax_<role>` | `col_tax_focal` → header `1280` |
+| Rank-merge gene row | `row_ec_focal__col_tax_<role>` | `row_ec_focal__col_tax_sibling_genus` |
+| Pathway-variant row | `row_ec_<variant>__col_tax_focal` | `row_ec_alt_pathway__col_tax_focal` |
+| Fallback **taxon** row | `row_ec_any__col_tax_fallback_kingdom` | EC mapped; tax column is kingdom fallback |
+| Unknown **header** row | `row_ec_focal__col_tax_unknown_header` | Mapped EC; tax_id not in bridge |
+| Unmapped **EC** row | `row_ec_unmapped__col_tax_focal` | Empty `EC#`; known tax column |
+
+Document the mapping from role name → concrete `tax_id` / EC string in `fake_rpkm_pipeline_expectations.yaml` `fixture.roles`.
 
 ### 4.3 Numeric policy
 
 Use **1** for every non-zero tax-column cell. Mental math:
 
 - **Focal pair** at a given `tax_level` = count of `(EC_focal, tax column)` cells whose tax_ids resolve to the **same** `(pathway_key, resolved_tax_id)` as focal at that rank.
-- Each cousin column contributes **+1** when it first merges into that bucket (typically one new cousin per rank step).
+- Each rank-merge column (sibling + cousins) contributes **+1** when it **first** merges into that bucket — **one new column per rank step**.
 - **Tier 1** focal cell value is **constant 1.0** across all 21 rollup_grid rows (labels vary; value does not).
-- Other roles (`EC_alt`, `EC_diff_sp`, fallback, unmapped) also use **1** in their cell; they appear in **secondary** golden pairs only where filters or edge cases need them.
+- Other roles (`EC_alt`, `EC_diff_sp`, fallback taxon, unmapped EC) also use **1** in their cell; they appear in **secondary** golden pairs only where filters or edge cases need them.
 
-Example focal-pair staircase (illustrative — exact ranks depend on chosen cousins):
+**Focal-pair staircase (locked):** 1 focal column + 1 sibling (genus merge) + 5 cousins (family → kingdom) ⇒ values **1 through 7**:
 
-| `tax_level` | Focal pair value |
-|---|---|
-| species | 1 |
-| genus | 1 (or 2 if same-genus cousin) |
-| family | 2 |
-| order | 3 |
-| class | 4 |
-| phylum | 5 |
-| kingdom | 6 |
+| `tax_level` | Focal pair value | Rank-merge column joining this step |
+|---|---|---|
+| species | **1** | `col_tax_focal` only |
+| genus | **2** | + `col_tax_sibling_genus` |
+| family | **3** | + `col_tax_cousin_family` |
+| order | **4** | + `col_tax_cousin_order` |
+| class | **5** | + `col_tax_cousin_class` |
+| phylum | **6** | + `col_tax_cousin_phylum` |
+| kingdom | **7** | + `col_tax_cousin_kingdom` |
 
 ### 4.4 Chord aggregation (`GROUP BY pathway_key, resolved_tax_id`)
 
@@ -143,27 +165,32 @@ Changing **`tax_level`** only affects **`resolved_tax_id`** (rollup target). Cha
 
 | Scenario | Required TSV shape | Expected chord behavior |
 |---|---|---|
-| **Rank merge (cousins)** | Focal row: `EC_focal` × `T_focal` = 1; cousin rows: **`EC_focal` × `T_cousin` = 1** each | Focal pair **increases by 1** at each rank where another cousin merges |
+| **Rank merge (sibling + cousins)** | Focal row: `EC_focal` × `col_tax_focal` = 1; six rows: **`EC_focal` × rank-merge columns** = 1 each | Focal pair staircase **1 → 7** (§4.3) |
 | **Alt pathway** | Gene row with **`EC_alt`** (same superpathway as `EC_focal`) | Two pathway pairs at `ann_level=pathway`; one superpathway pair at `ann_level=superpathway` |
 | **Ann filter** | Gene row with **`EC_diff_sp`** (different superpathway) | Unfiltered total > ann-filtered total; filter on focal superpathway drops `EC_diff_sp` mass |
-| **Taxon filter** | Cousin shares `EC_focal` but **different genus** than focal | Genus filter on focal genus yields focal pair **1**, not merged total |
-| **Fallback** | `T_fallback` with `EC_fb` | Species request shows coarser `resolved_tax_label`; bucket value unchanged |
-| **Unmapped EC** | Empty `EC#` | `'Unmapped EC'` pair |
-| **Unknown header** | `999999999` column | Mass excluded from chord today (§12) |
+| **Taxon filter** | `col_tax_cousin_phylum` shares `EC_focal` but **different genus** than focal | Genus filter on *Staphylococcus* at `tax_level=genus` yields focal pair **1**, not **2** |
+| **Fallback taxon** | `EC_fb` on **`col_tax_fallback_kingdom` (`2`)** | `tax_level=species` (or any rank below kingdom) shows `resolved_tax_label = Bacteria`; bucket value **1** |
+| **Unmapped EC** | Empty `EC#` on a known tax column | `'Unmapped EC'` pair |
+| **Unknown tax header** | Mapped EC on **`col_tax_unknown_header`** | Mass excluded from chord today (§12) |
 
 **Anti-pattern (v1 TSV):** focal `EC_focal` on `T_focal` and cousin row with **`EC ≠ EC_focal`**. Different ECs → different `pathway_key`s → **no rank summation**; pair values stay constant across all 14 unfiltered cases (labels only).
 
-Example corrected TSV sketch:
+Example corrected TSV sketch (concrete `tax_id`s filled at implementation; role names in `GeneID`):
 
 ```tsv
-GeneID	…	1280	<cousin1>	…	620891	999999999
-g_focal      …	EC_focal   1  0  …  0  0
-g_cousin1    …	EC_focal   0  1  …  0  0
-g_alt        …	EC_alt     1  0  …  0  0
-g_diff_sp    …	EC_diff_sp 1  0  …  0  0
-g_fallback   …	EC_fb      0  0  …  1  0
-g_unknown    …	EC_focal   0  0  …  0  1
-g_unmapped   …	(empty)    1  0  …  0  0
+GeneID	…	1280	<sibling>	<fam>	<ord>	<cls>	<phy>	<king>	2	999999999
+row_ec_focal__col_tax_focal              …	EC_focal  1  0  0  0  0  0  0  0  0
+row_ec_focal__col_tax_sibling_genus      …	EC_focal  0  1  0  0  0  0  0  0  0
+row_ec_focal__col_tax_cousin_family      …	EC_focal  0  0  1  0  0  0  0  0  0
+row_ec_focal__col_tax_cousin_order       …	EC_focal  0  0  0  1  0  0  0  0  0
+row_ec_focal__col_tax_cousin_class       …	EC_focal  0  0  0  0  1  0  0  0  0
+row_ec_focal__col_tax_cousin_phylum      …	EC_focal  0  0  0  0  0  1  0  0  0
+row_ec_focal__col_tax_cousin_kingdom     …	EC_focal  0  0  0  0  0  0  1  0  0
+row_ec_alt_pathway__col_tax_focal        …	EC_alt    1  0  0  0  0  0  0  0  0
+row_ec_diff_superpathway__col_tax_focal  …	EC_diff_sp 1  0  0  0  0  0  0  0  0
+row_ec_any__col_tax_fallback_kingdom     …	EC_fb     0  0  0  0  0  0  0  1  0
+row_ec_focal__col_tax_unknown_header     …	EC_focal  0  0  0  0  0  0  0  0  1
+row_ec_unmapped__col_tax_focal           …	(empty)   1  0  0  0  0  0  0  0  0
 ```
 
 (`EC_focal`, `EC_alt`, `EC_diff_sp`, `EC_fb` = concrete bridge EC strings chosen at implementation time.)
@@ -171,7 +198,7 @@ g_unmapped   …	(empty)    1  0  …  0  0
 **Regold checklist:**
 
 1. Re-run pipeline + `dump_fake_rpkm_expectations.py`
-2. Verify **focal pair values increase** across `tax_level` for each `ann_level` (not just label changes)
+2. Verify **focal pair staircase 1 → 7** across `tax_level` for each `ann_level` (not just label changes)
 3. Verify taxon and ann filter cases drop mass vs matching unfiltered case
 4. Tier 1 `rollup_grid`: still 21 rows for focal `(EC_focal, T_focal)`; constant value **1.0**
 
@@ -181,9 +208,9 @@ Goldens stay **sorted pair lists**, not full matrices. The wide TSV is dense; ex
 
 | Tier | Primary assertion | Secondary pairs |
 |---|---|---|
-| **14 unfiltered** | **Focal pair** `(pathway_label, resolved_tax_label, value)` per `(tax_level, ann_level)` — staircase per §4.3 | Optional split cousin pair at fine ranks (genus/species) |
+| **14 unfiltered** | **Focal pair** `(pathway_label, resolved_tax_label, value)` per `(tax_level, ann_level)` — staircase **1 → 7** per §4.3 | At **fine ranks** (genus, species): optional pair for a cousin whose mass is **not yet merged** — same `EC_focal` pathway label, **cousin’s** `resolved_tax_label` at that rank, value **1** (proves separate buckets before coarser rollup) |
 | **Filtered** | Focal pair or total **lower** than unfiltered | — |
-| **Edge cases** | Fuller lists where behavior is the point (unmapped, fallback, unknown absent from chord) | — |
+| **Edge cases** | Fuller lists where behavior is the point (unmapped **EC**, fallback **taxon**, unknown **tax header** absent from chord) | — |
 
 Do not golden every cousin × EC combination.
 
@@ -241,7 +268,7 @@ def test_chord_pairs(case, fake_rpkm_db): ...
 def test_build_chord_from_duckdb_shape(fake_rpkm_db): ...
 ```
 
-**Unfiltered (14 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {superpathway, pathway}`. Assert golden pairs `(pathway_label, resolved_tax_label, value)` — **primarily the focal pair** (§4.5). Focal pair **values must increase** across `tax_level` as cousins merge (§4.4). **`ann_level`** changes labels/`pathway_key` grain; pathway vs superpathway may split or merge `EC_alt` relative to `EC_focal`.
+**Unfiltered (14 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {superpathway, pathway}`. Assert golden pairs `(pathway_label, resolved_tax_label, value)` — **primarily the focal pair** (§4.5), staircase **1 → 7** across ranks (§4.3). **`ann_level`** changes labels/`pathway_key` grain; pathway vs superpathway may split or merge `EC_alt` relative to `EC_focal`.
 
 **Filtered:** taxon filter + ann filter cases must assert **lower totals** or **fewer pairs** than the matching unfiltered case ( proves filters and `GROUP BY` interact).
 
@@ -260,8 +287,9 @@ fixture:
   focal_ec: "..."          # set at implementation from real bridge
   focal_tax_id: 1280          # Staphylococcus aureus (bacterial focal)
   roles:
-    fallback_tax_id: ...
+    fallback_tax_id: 2        # Bacteria — kingdom-ranked fallback taxon
     unknown_tax_id: 999999999
+    # sibling + cousin tax_ids documented by col_tax_* role name
 
 rollup_grid:               # 21 rows — labels vary; value constant for focal cell
   - requested_rank: kingdom
@@ -282,7 +310,7 @@ chord_unfiltered:
     tax_level: kingdom
     ann_level: superpathway
     pairs:
-      - ["Energy metabolism", "Bacteria", 6.0]   # focal pair — primary assertion
+      - ["Energy metabolism", "Bacteria", 7.0]   # focal pair at kingdom — primary assertion
       # optional secondary pairs at fine ranks or for EC_alt / unmapped
 
 chord_filtered:
@@ -344,7 +372,7 @@ No CI changes in v1. `test_main.py` may keep its existing `test_rpkm_1` skip pat
 
 - [ ] `fake_rpkm.tsv` committed with tax columns + EC rows documented in pipeline YAML (§4)
 - [ ] Tier 1: 21 `rollup_grid` rows assert exact values in `test_fake_rpkm_pipeline.py`
-- [ ] Tier 2: chord pair tests in `test_chord_service.py` (14 unfiltered + filters + 3 edge cases); **focal pair staircase** per §4.3–§4.5
+- [ ] Tier 2: chord pair tests in `test_chord_service.py` (14 unfiltered + filters + 3 edge cases); **focal pair staircase 1 → 7** per §4.3–§4.5
 - [ ] Fake-fixture modules skip cleanly when bridge Parquet missing
 - [ ] Shared session fixture reusable from future endpoint test modules
 - [ ] Existing unit tests (`test_chord_matrix`, `test_filters`, etc.) and Node tests unaffected
