@@ -131,6 +131,8 @@ Role names must distinguish **tax column** vs **EC** vs **unknown header**:
 
 Document the mapping from role name → concrete `tax_id` / EC string in `fake_rpkm_pipeline_expectations.yaml` `fixture.roles`.
 
+**Row order in `fake_rpkm.tsv`:** group by what is held constant — (1) **`EC_focal` rows** with varying tax columns (focal → cousins → fallback → unknown header), then (2) **`col_tax_focal` rows** with varying EC (`EC_same_pathway`, `EC_alt`, `EC_diff_sp`, unmapped).
+
 ### 4.3 Numeric policy
 
 Use **1** for every non-zero tax-column cell. Mental math:
@@ -178,10 +180,11 @@ Changing **`tax_level`** only affects **`resolved_tax_id`** (rollup target). Cha
 
 **Anti-pattern (v1 TSV):** focal `EC_focal` on `T_focal` and cousin row with **`EC ≠ EC_focal`**. Different ECs → different `pathway_key`s → **no rank summation**; pair values stay constant across all 14 unfiltered cases (labels only).
 
-Example corrected TSV sketch (concrete `tax_id`s filled at implementation; role names in `GeneID`):
+Example corrected TSV sketch (concrete `tax_id`s filled at implementation; role names in `GeneID`). Rows grouped: **`EC_focal` block** then **`col_tax_focal` block**:
 
 ```tsv
 GeneID	…	1280	<sibling>	<fam>	<ord>	<cls>	<phy>	<king>	2	999999999
+# EC_focal — tax column varies
 row_ec_focal__col_tax_focal              …	EC_focal  1  0  0  0  0  0  0  0  0
 row_ec_focal__col_tax_sibling_genus      …	EC_focal  0  1  0  0  0  0  0  0  0
 row_ec_focal__col_tax_cousin_family      …	EC_focal  0  0  1  0  0  0  0  0  0
@@ -189,11 +192,12 @@ row_ec_focal__col_tax_cousin_order       …	EC_focal  0  0  0  1  0  0  0  0  0
 row_ec_focal__col_tax_cousin_class       …	EC_focal  0  0  0  0  1  0  0  0  0
 row_ec_focal__col_tax_cousin_phylum      …	EC_focal  0  0  0  0  0  1  0  0  0
 row_ec_focal__col_tax_cousin_kingdom     …	EC_focal  0  0  0  0  0  0  1  0  0
+row_ec_focal__col_tax_fallback_kingdom   …	EC_focal  0  0  0  0  0  0  0  1  0
+row_ec_focal__col_tax_unknown_header     …	EC_focal  0  0  0  0  0  0  0  0  1
+# col_tax_focal — EC varies
 row_ec_same_pathway__col_tax_focal       …	EC_same   1  0  0  0  0  0  0  0  0
 row_ec_alt_pathway__col_tax_focal        …	EC_alt    1  0  0  0  0  0  0  0  0
 row_ec_diff_superpathway__col_tax_focal  …	EC_diff_sp 1  0  0  0  0  0  0  0  0
-row_ec_focal__col_tax_fallback_kingdom     …	EC_focal  0  0  0  0  0  0  0  1  0
-row_ec_focal__col_tax_unknown_header     …	EC_focal  0  0  0  0  0  0  0  0  1
 row_ec_unmapped__col_tax_focal           …	(empty)   1  0  0  0  0  0  0  0  0
 ```
 
