@@ -20,6 +20,10 @@ from testing.fake_rpkm_fixture import (
 )
 
 FOCAL_EC = "1.6.5.9"
+EC_SAME_PATHWAY = "2.7.4.1"
+EC_ALT = "1.5.8.1"
+EC_DIFF_SP = "1.1.1.349"
+EC_FALLBACK_TAXON = "2.1.1.158"
 FOCAL_TAX_ID = 1280
 FALLBACK_TAX_ID = 2
 UNKNOWN_TAX_ID = 999999999
@@ -107,9 +111,10 @@ def main() -> None:
                 "fallback_tax_id": FALLBACK_TAX_ID,
                 "unknown_tax_id": UNKNOWN_TAX_ID,
                 "ec_focal": FOCAL_EC,
-                "ec_alt": "1.5.8.1",
-                "ec_diff_superpathway": "1.1.1.349",
-                "ec_fallback_taxon": "2.1.1.158",
+                "ec_same_pathway": EC_SAME_PATHWAY,
+                "ec_alt": EC_ALT,
+                "ec_diff_superpathway": EC_DIFF_SP,
+                "ec_fallback_taxon": EC_FALLBACK_TAXON,
                 "focal_superpathway": FOCAL_SUPERPATHWAY,
                 **TAX_COLUMNS,
             },

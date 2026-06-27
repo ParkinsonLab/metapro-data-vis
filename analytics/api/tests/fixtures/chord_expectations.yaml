@@ -5,14 +5,14 @@ chord_unfiltered:
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacteria
-    - 2.0
-  - - Energy metabolism
     - Bacillati
-    - 7.0
-  - - Energy metabolism
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
     - Bacteria
     - 1.0
+  - - Energy metabolism
+    - Bacillati
+    - 9.0
   - - Unmapped EC
     - Bacillati
     - 1.0
@@ -21,17 +21,17 @@ chord_unfiltered:
   ann_level: pathway
   pairs:
   - - Aflatoxin biosynthesis
-    - Bacteria
+    - Bacillati
     - 1.0
   - - Caffeine metabolism
     - Bacteria
     - 1.0
   - - Methane metabolism
-    - Bacteria
+    - Bacillati
     - 1.0
   - - Oxidative phosphorylation
     - Bacillati
-    - 7.0
+    - 8.0
   - - Unmapped EC
     - Bacillati
     - 1.0
@@ -40,17 +40,17 @@ chord_unfiltered:
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
+    - 1.0
   - - Energy metabolism
     - Actinomycetota
     - 1.0
   - - Energy metabolism
     - Bacillota
-    - 6.0
-  - - Energy metabolism
-    - Bacteria
-    - 1.0
+    - 8.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -59,20 +59,20 @@ chord_unfiltered:
   ann_level: pathway
   pairs:
   - - Aflatoxin biosynthesis
-    - Bacteria
+    - Bacillota
     - 1.0
   - - Caffeine metabolism
     - Bacteria
     - 1.0
   - - Methane metabolism
-    - Bacteria
+    - Bacillota
     - 1.0
   - - Oxidative phosphorylation
     - Actinomycetota
     - 1.0
   - - Oxidative phosphorylation
     - Bacillota
-    - 6.0
+    - 7.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -81,17 +81,17 @@ chord_unfiltered:
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
+    - Bacilli
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
+    - 1.0
   - - Energy metabolism
     - Actinomycetes
     - 1.0
   - - Energy metabolism
     - Bacilli
-    - 5.0
-  - - Energy metabolism
-    - Bacteria
-    - 1.0
+    - 7.0
   - - Energy metabolism
     - Negativicutes
     - 1.0
@@ -103,20 +103,20 @@ chord_unfiltered:
   ann_level: pathway
   pairs:
   - - Aflatoxin biosynthesis
-    - Bacteria
+    - Bacilli
     - 1.0
   - - Caffeine metabolism
     - Bacteria
     - 1.0
   - - Methane metabolism
-    - Bacteria
+    - Bacilli
     - 1.0
   - - Oxidative phosphorylation
     - Actinomycetes
     - 1.0
   - - Oxidative phosphorylation
     - Bacilli
-    - 5.0
+    - 6.0
   - - Oxidative phosphorylation
     - Negativicutes
     - 1.0
@@ -129,13 +129,13 @@ chord_unfiltered:
   pairs:
   - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
-  - - Energy metabolism
-    - Bacteria
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
+    - Caryophanales
     - 1.0
   - - Energy metabolism
     - Caryophanales
-    - 4.0
+    - 6.0
   - - Energy metabolism
     - Lactobacillales
     - 1.0
@@ -153,17 +153,17 @@ chord_unfiltered:
   ann_level: pathway
   pairs:
   - - Aflatoxin biosynthesis
-    - Bacteria
+    - Caryophanales
     - 1.0
   - - Caffeine metabolism
     - Bacteria
     - 1.0
   - - Methane metabolism
-    - Bacteria
+    - Caryophanales
     - 1.0
   - - Oxidative phosphorylation
     - Caryophanales
-    - 4.0
+    - 5.0
   - - Oxidative phosphorylation
     - Lactobacillales
     - 1.0
@@ -182,12 +182,12 @@ chord_unfiltered:
   pairs:
   - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
-  - - Energy metabolism
-    - Bacillaceae
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcaceae
     - 1.0
   - - Energy metabolism
-    - Bacteria
+    - Bacillaceae
     - 1.0
   - - Energy metabolism
     - Lactobacillaceae
@@ -200,7 +200,7 @@ chord_unfiltered:
     - 1.0
   - - Energy metabolism
     - Staphylococcaceae
-    - 3.0
+    - 5.0
   - - Unmapped EC
     - Staphylococcaceae
     - 1.0
@@ -209,13 +209,13 @@ chord_unfiltered:
   ann_level: pathway
   pairs:
   - - Aflatoxin biosynthesis
-    - Bacteria
+    - Staphylococcaceae
     - 1.0
   - - Caffeine metabolism
     - Bacteria
     - 1.0
   - - Methane metabolism
-    - Bacteria
+    - Staphylococcaceae
     - 1.0
   - - Oxidative phosphorylation
     - Bacillaceae
@@ -231,7 +231,7 @@ chord_unfiltered:
     - 1.0
   - - Oxidative phosphorylation
     - Staphylococcaceae
-    - 3.0
+    - 4.0
   - - Unmapped EC
     - Staphylococcaceae
     - 1.0
@@ -241,12 +241,12 @@ chord_unfiltered:
   pairs:
   - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
-  - - Energy metabolism
-    - Bacillus
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcus
     - 1.0
   - - Energy metabolism
-    - Bacteria
+    - Bacillus
     - 1.0
   - - Energy metabolism
     - Clavibacter
@@ -262,7 +262,7 @@ chord_unfiltered:
     - 1.0
   - - Energy metabolism
     - Staphylococcus
-    - 2.0
+    - 4.0
   - - Unmapped EC
     - Staphylococcus
     - 1.0
@@ -271,13 +271,13 @@ chord_unfiltered:
   ann_level: pathway
   pairs:
   - - Aflatoxin biosynthesis
-    - Bacteria
+    - Staphylococcus
     - 1.0
   - - Caffeine metabolism
     - Bacteria
     - 1.0
   - - Methane metabolism
-    - Bacteria
+    - Staphylococcus
     - 1.0
   - - Oxidative phosphorylation
     - Bacillus
@@ -296,7 +296,7 @@ chord_unfiltered:
     - 1.0
   - - Oxidative phosphorylation
     - Staphylococcus
-    - 2.0
+    - 3.0
   - - Unmapped EC
     - Staphylococcus
     - 1.0
@@ -306,12 +306,12 @@ chord_unfiltered:
   pairs:
   - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
-  - - Energy metabolism
-    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcus aureus
     - 1.0
   - - Energy metabolism
-    - Bacteria
+    - Bacillus sp. b107A(2010)
     - 1.0
   - - Energy metabolism
     - Clavibacter sp. OL-4
@@ -327,7 +327,7 @@ chord_unfiltered:
     - 1.0
   - - Energy metabolism
     - Staphylococcus aureus
-    - 1.0
+    - 3.0
   - - Energy metabolism
     - Staphylococcus epidermidis
     - 1.0
@@ -339,13 +339,13 @@ chord_unfiltered:
   ann_level: pathway
   pairs:
   - - Aflatoxin biosynthesis
-    - Bacteria
+    - Staphylococcus aureus
     - 1.0
   - - Caffeine metabolism
     - Bacteria
     - 1.0
   - - Methane metabolism
-    - Bacteria
+    - Staphylococcus aureus
     - 1.0
   - - Oxidative phosphorylation
     - Bacillus sp. b107A(2010)
@@ -364,7 +364,7 @@ chord_unfiltered:
     - 1.0
   - - Oxidative phosphorylation
     - Staphylococcus aureus
-    - 1.0
+    - 2.0
   - - Oxidative phosphorylation
     - Staphylococcus epidermidis
     - 1.0
@@ -376,9 +376,12 @@ chord_filtered:
   tax_level: genus
   ann_level: superpathway
   pairs:
-  - - Energy metabolism
+  - - Biosynthesis of other secondary metabolites
     - Staphylococcus
     - 1.0
+  - - Energy metabolism
+    - Staphylococcus
+    - 3.0
   - - Unmapped EC
     - Staphylococcus
     - 1.0
@@ -394,10 +397,7 @@ chord_filtered:
     - 1.0
   - - Energy metabolism
     - Bacillota
-    - 6.0
-  - - Energy metabolism
-    - Bacteria
-    - 1.0
+    - 8.0
   selected_ann_cat: Energy metabolism
 edge_cases:
 - case_id: unmapped_ec_snapshot
@@ -405,17 +405,17 @@ edge_cases:
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
+    - 1.0
   - - Energy metabolism
     - Actinomycetota
     - 1.0
   - - Energy metabolism
     - Bacillota
-    - 6.0
-  - - Energy metabolism
-    - Bacteria
-    - 1.0
+    - 8.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -424,17 +424,17 @@ edge_cases:
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
+    - 1.0
   - - Energy metabolism
     - Actinomycetota
     - 1.0
   - - Energy metabolism
     - Bacillota
-    - 6.0
-  - - Energy metabolism
-    - Bacteria
-    - 1.0
+    - 8.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -444,12 +444,12 @@ edge_cases:
   pairs:
   - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 2.0
-  - - Energy metabolism
-    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcus aureus
     - 1.0
   - - Energy metabolism
-    - Bacteria
+    - Bacillus sp. b107A(2010)
     - 1.0
   - - Energy metabolism
     - Clavibacter sp. OL-4
@@ -465,7 +465,7 @@ edge_cases:
     - 1.0
   - - Energy metabolism
     - Staphylococcus aureus
-    - 1.0
+    - 3.0
   - - Energy metabolism
     - Staphylococcus epidermidis
     - 1.0

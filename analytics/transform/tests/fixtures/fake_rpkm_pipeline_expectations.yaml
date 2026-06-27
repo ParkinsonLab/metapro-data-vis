@@ -7,6 +7,7 @@ fixture:
     fallback_tax_id: 2
     unknown_tax_id: 999999999
     ec_focal: 1.6.5.9
+    ec_same_pathway: 2.7.4.1
     ec_alt: 1.5.8.1
     ec_diff_superpathway: 1.1.1.349
     ec_fallback_taxon: 2.1.1.158

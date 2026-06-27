@@ -105,8 +105,9 @@ Each gene row carries one EC (or empty for unmapped) and **one non-zero tax colu
 |---|---|---|
 | **Focal** | `EC_focal` — maps to **exactly one** `pathway_id` and **one** `superpathway_id` in bridge | Tier 1 rollup_grid; chord focal pair |
 | **Rank-merge × 6** | **Same `EC_focal`** on sibling + cousin columns | Staircase summation (§4.3) |
-| **`EC_alt`** | Different **pathway**, **same superpathway** as `EC_focal` | Separate pair at `ann_level=pathway`; merges with focal at `ann_level=superpathway` |
-| **`EC_diff_sp`** | **Different superpathway** | Ann-filter golden (dropped when filtering to focal’s superpathway) |
+| **`EC_same_pathway`** | Different **EC**, **same pathway** as `EC_focal` (`2.7.4.1` + `1.6.5.9` → Oxidative phosphorylation) | **`+1`** on focal pathway pair at `ann_level=pathway`; **`+1`** on superpathway pair at `ann_level=superpathway` |
+| **`EC_alt`** | Different **pathway**, **same superpathway** as `EC_focal` on **`col_tax_focal`** | **`+1`** on superpathway pair; separate pathway pair at `ann_level=pathway` |
+| **`EC_diff_sp`** | **Different superpathway** on **`col_tax_focal`** | Ann-filter golden (dropped when filtering to focal’s superpathway) |
 | **`EC_fb`** | Any mapped EC on **`col_tax_fallback_kingdom`** | Fallback **taxon** edge case |
 | **Unknown header row** | Any mapped EC on **`col_tax_unknown_header`** | Unknown **tax column header**; mass in `int` only (§12) |
 | **Unmapped EC row** | Empty/`None` `EC#` → `0.0.0.0` | Unmapped **EC**; `'Unmapped EC'` chord pair |
@@ -123,7 +124,7 @@ Role names must distinguish **tax column** vs **EC** vs **unknown header**:
 |---|---|---|
 | Tax column (TSV header) | `col_tax_<role>` | `col_tax_focal` → header `1280` |
 | Rank-merge gene row | `row_ec_focal__col_tax_<role>` | `row_ec_focal__col_tax_sibling_genus` |
-| Pathway-variant row | `row_ec_<variant>__col_tax_focal` | `row_ec_alt_pathway__col_tax_focal` |
+| Pathway-variant row | `row_ec_<variant>__col_tax_focal` | `row_ec_alt_pathway__col_tax_focal`, `row_ec_same_pathway__col_tax_focal` |
 | Fallback **taxon** row | `row_ec_any__col_tax_fallback_kingdom` | EC mapped; tax column is kingdom fallback |
 | Unknown **header** row | `row_ec_focal__col_tax_unknown_header` | Mapped EC; tax_id not in bridge |
 | Unmapped **EC** row | `row_ec_unmapped__col_tax_focal` | Empty `EC#`; known tax column |
@@ -134,12 +135,12 @@ Document the mapping from role name → concrete `tax_id` / EC string in `fake_r
 
 Use **1** for every non-zero tax-column cell. Mental math:
 
-- **Focal pair** at a given `tax_level` = count of `(EC_focal, tax column)` cells whose tax_ids resolve to the **same** `(pathway_key, resolved_tax_id)` as focal at that rank.
-- Each rank-merge column (sibling + cousins) contributes **+1** when it **first** merges into that bucket — **one new column per rank step**.
+- **Focal pair** at a given `tax_level` sums all mass on **`col_tax_focal`** and rank-merge columns that share focal’s `(pathway_key, resolved_tax_id)` after chord `GROUP BY`.
+- **Rank-merge (`EC_focal` only):** +1 per rank step ⇒ **`EC_focal` contribution 1 → 7** (table below).
+- **`EC_alt` / `EC_same_pathway` on `col_tax_focal`:** each adds **`+1`** to the focal superpathway bucket at every rank (goldens must reflect this). At `ann_level=pathway`, **`EC_same_pathway` adds `+1`** to the Oxidative phosphorylation pair; **`EC_alt`** stays a separate Methane metabolism pair.
 - **Tier 1** focal cell value is **constant 1.0** across all 21 rollup_grid rows (labels vary; value does not).
-- Other roles (`EC_alt`, `EC_diff_sp`, fallback taxon, unmapped EC) also use **1** in their cell; they appear in **secondary** golden pairs only where filters or edge cases need them.
 
-**Focal-pair staircase (locked):** 1 focal column + 1 sibling (genus merge) + 5 cousins (family → kingdom) ⇒ values **1 through 7**:
+**`EC_focal` rank-merge contribution (locked):**
 
 | `tax_level` | Focal pair value | Rank-merge column joining this step |
 |---|---|---|
@@ -150,6 +151,8 @@ Use **1** for every non-zero tax-column cell. Mental math:
 | class | **5** | + `col_tax_cousin_class` |
 | phylum | **6** | + `col_tax_cousin_phylum` |
 | kingdom | **7** | + `col_tax_cousin_kingdom` |
+
+**Example superpathway focal totals at `col_tax_focal`’s resolved label:** species **3** (= 1 `EC_focal` + 1 `EC_same_pathway` + 1 `EC_alt`), genus **4**, … kingdom **9** (= 7 + 1 + 1). Regold from pipeline output; do not hand-edit.
 
 ### 4.4 Chord aggregation (`GROUP BY pathway_key, resolved_tax_id`)
 
@@ -186,6 +189,7 @@ row_ec_focal__col_tax_cousin_order       …	EC_focal  0  0  0  1  0  0  0  0  0
 row_ec_focal__col_tax_cousin_class       …	EC_focal  0  0  0  0  1  0  0  0  0
 row_ec_focal__col_tax_cousin_phylum      …	EC_focal  0  0  0  0  0  1  0  0  0
 row_ec_focal__col_tax_cousin_kingdom     …	EC_focal  0  0  0  0  0  0  1  0  0
+row_ec_same_pathway__col_tax_focal       …	EC_same   1  0  0  0  0  0  0  0  0
 row_ec_alt_pathway__col_tax_focal        …	EC_alt    1  0  0  0  0  0  0  0  0
 row_ec_diff_superpathway__col_tax_focal  …	EC_diff_sp 1  0  0  0  0  0  0  0  0
 row_ec_any__col_tax_fallback_kingdom     …	EC_fb     0  0  0  0  0  0  0  1  0
