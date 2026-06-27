@@ -144,7 +144,7 @@ useEffect(() => {
 
 **Why not filter deps on `useCallback`:** That would recreate `draw_chord` on every filter click and, if wired to the effect, redraw the stale matrix immediately.
 
-**Alternative (equivalent):** Inline draw logic directly in the `useEffect` body with `[chord_data]` deps; skip `useCallback`. Prefer `useCallback` if it keeps `draw_chord` testable and satisfies exhaustive-deps cleanly.
+**Locked in (2026-06-27):** `useCallback` + `getState()` — satisfies exhaustive-deps and avoids premature redraw simultaneously.
 
 ### 5.3 Arc click handler
 
