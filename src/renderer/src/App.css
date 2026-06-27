@@ -193,6 +193,30 @@ body{
         justify-content: space-evenly;
         width: 100%
     }
+    #chord-filter-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin: 6px 0;
+    }
+    .chord-filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px;
+        border: 1px solid #666;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    .chord-filter-chip button {
+        border: 0;
+        background: inherit;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 2px;
+    }
     #chord-container {
         display: flex;
         flex-direction: column;

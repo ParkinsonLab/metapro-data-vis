@@ -4,8 +4,11 @@ import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
 import { useEffect, useRef } from 'react'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons'
+import { request } from '../api'
+import {
+  isFilterActive,
+  toApiFilter,
+} from '../chordFilters'
 
 //global
 const t_ranks = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus']
@@ -224,21 +227,68 @@ const RankSelector = () => {
   )
 }
 
+const FilterChips = (): React.JSX.Element | null => {
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
+  const ann_active = isFilterActive(selected_ann_cat)
+  const tax_active = isFilterActive(selected_taxon)
+
+  if (!ann_active && !tax_active) return null
+
+  return (
+    <div id="chord-filter-chips">
+      {ann_active && (
+        <span className="chord-filter-chip">
+          Pathway: {selected_ann_cat.name} ({selected_ann_cat.level})
+          <button
+            type="button"
+            aria-label="Clear pathway filter"
+            onClick={() => useAppStore.setState({ selected_ann_cat: {}, selected_annotations: [] })}
+          >
+            ×
+          </button>
+        </span>
+      )}
+      {tax_active && (
+        <span className="chord-filter-chip">
+          Taxon: {selected_taxon.name} ({selected_taxon.level})
+          <button
+            type="button"
+            aria-label="Clear taxon filter"
+            onClick={() => useAppStore.setState({ selected_taxon: {} })}
+          >
+            ×
+          </button>
+        </span>
+      )}
+    </div>
+  )
+}
+
 const Chord = (): React.JSX.Element => {
-  const reset_taxon = () => {
-    useAppStore.setState({ selected_taxon: {} })
-  }
-  const reset_ann = () => {
-    useAppStore.setState({ selected_ann_cat: '' })
-  }
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
+  const tax_rank = useAppStore((state) => state.tax_rank)
+  const ann_rank = useAppStore((state) => state.ann_rank)
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
+
+  useEffect(() => {
+    if (selected_file_list.length === 0) return
+    request('chord', {
+      names: selected_file_list,
+      tax_level: tax_rank,
+      ann_level: ann_rank,
+      selected_ann_cat: toApiFilter(selected_ann_cat),
+      selected_taxon: toApiFilter(selected_taxon)
+    })
+  }, [selected_file_list, tax_rank, ann_rank, selected_ann_cat, selected_taxon])
 
   return (
     <div id="chord-container">
       <RankSelector />
+      <FilterChips />
       <div id="chord-inner-container">
-        <button className="chord-reset-button" onClick={reset_taxon}><FontAwesomeIcon icon={faArrowRotateLeft} /></button>
         <ChordSVG />
-        <button className="chord-reset-button" onClick={reset_ann}><FontAwesomeIcon icon={faArrowRotateLeft} /></button>
       </div>
     </div>
   )
