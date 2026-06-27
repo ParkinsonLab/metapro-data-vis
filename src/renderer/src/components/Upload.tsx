@@ -7,15 +7,6 @@ const DataSelector = () => {
   const [f1, set_f1] = useState('')
   const [f2, set_f2] = useState('')
 
-  const default_settings = {
-    selected_ann_cat: {},
-    selected_taxon: {},
-    selected_pathway: '',
-    selected_annotations: [],
-    tax_rank: 'phylum',
-    ann_rank: 'superpathway'
-  }
-
   const handleDropdown_1 = (e) => {
     set_f1(e.target.value)
   }
@@ -25,13 +16,6 @@ const DataSelector = () => {
   const handleUpdate = () => {
     const names = [f1, f2].filter((e) => e)
     useAppStore.setState({ selected_file_list: names })
-    request('chord', {
-      names,
-      tax_level: default_settings.tax_rank,
-      ann_level: default_settings.ann_rank,
-      selected_ann_cat: default_settings.selected_ann_cat,
-      selected_taxon: default_settings.selected_taxon
-    })
   }
 
   return (
