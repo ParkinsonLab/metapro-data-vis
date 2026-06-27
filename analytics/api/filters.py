@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any
 
 VALID_TAX_RANKS = frozenset({"kingdom", "phylum", "class", "order", "family", "genus", "species"})
-VALID_ANN_LEVELS = frozenset({"superpathway", "pathway"})
+VALID_ANN_LEVELS = frozenset({"superpathway", "pathway", "pathway_node"})
 
 
 def sample_id_from_names(names: list[str]) -> str:
@@ -19,7 +19,7 @@ def normalise_ann_filter(raw: Any, ann_level: str) -> dict[str, str] | None:
         name = raw.strip()
         if not name:
             return None
-        level = "superpathway" if ann_level == "pathway" else ann_level
+        level = "superpathway" if ann_level in ("pathway", "pathway_node") else ann_level
         return {"level": level, "name": name}
     if isinstance(raw, dict):
         level = str(raw.get("level") or "").strip()

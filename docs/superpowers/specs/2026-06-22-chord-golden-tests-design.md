@@ -26,7 +26,7 @@ This spec adds a **small hand-designed fake TSV**, a **single pipeline run**, an
 | Sample id | `fake_rpkm` | `strip_extension(names[0])` → `runs/fake_rpkm/sample.duckdb` |
 | Pipeline expectations | `fake_rpkm_pipeline_expectations.yaml` | Shared transform goldens; not chord-specific |
 | Rollup grid | 21 rows for focal `(ec, source_tax_id)` with **exact** labels and value | Verifies dbt pipeline before endpoint tests; see §5.1 for value semantics |
-| Chord expectations | `chord_expectations.yaml` | 14 unfiltered (focal pair primary) + filter + edge cases |
+| Chord expectations | `chord_expectations.yaml` | 21 unfiltered (focal pair primary) + filter + edge cases |
 | Fixture numerics | Unit **1** per non-zero tax cell; focal pair **1 → 7** | Hand-computed staircase; see §4.3 |
 | Chord tests | Merged into `test_chord_service.py` | One module for `build_chord_from_duckdb` integration |
 | Golden storage | External YAML, not inline Python tuples | Readable, diffable, parametrized via `case_id` |
@@ -105,7 +105,7 @@ Each gene row carries one EC (or empty for unmapped) and **one non-zero tax colu
 |---|---|---|
 | **Focal** | `EC_focal` — maps to **exactly one** `pathway_id` and **one** `superpathway_id` in bridge | Tier 1 rollup_grid; chord focal pair |
 | **Rank-merge × 6** | **Same `EC_focal`** on sibling + cousin columns | Staircase summation (§4.3) |
-| **`EC_same_pathway`** | Different **EC**, **same pathway** as `EC_focal` (`2.7.4.1` + `1.6.5.9` → Oxidative phosphorylation) | **`+1`** on focal pathway pair at `ann_level=pathway`; **`+1`** on superpathway pair at `ann_level=superpathway` |
+| **`EC_same_pathway`** | Different **EC**, **same pathway** as `EC_focal` (`2.7.4.1` + `1.6.5.9` → Oxidative phosphorylation) | **`+1`** on focal pathway pair at `ann_level=pathway`; **separate node pairs** at `ann_level=pathway_node`; **`+1`** on superpathway pair at `ann_level=superpathway` |
 | **`EC_alt`** | Different **pathway**, **same superpathway** as `EC_focal` on **`col_tax_focal`** | **`+1`** on superpathway pair; separate pathway pair at `ann_level=pathway` |
 | **`EC_diff_sp`** | **Different superpathway** on **`col_tax_focal`** | Ann-filter golden (dropped when filtering to focal’s superpathway) |
 | **`EC_fb`** | **`EC_focal`** on **`col_tax_fallback_kingdom` (`2`, *Bacteria*)** | Kingdom-ranked taxon; resolves to **`Bacteria`** at every rank we query — separate bucket from focal staircase |
@@ -139,7 +139,7 @@ Use **1** for every non-zero tax-column cell. Mental math:
 
 - **Focal pair** at a given `tax_level` sums all mass on **`col_tax_focal`** and rank-merge columns that share focal’s `(pathway_key, resolved_tax_id)` after chord `GROUP BY`.
 - **Rank-merge (`EC_focal` only):** +1 per rank step ⇒ **`EC_focal` contribution 1 → 7** (table below).
-- **`EC_alt` / `EC_same_pathway` on `col_tax_focal`:** each adds **`+1`** to the focal superpathway bucket at every rank (goldens must reflect this). At `ann_level=pathway`, **`EC_same_pathway` adds `+1`** to the Oxidative phosphorylation pair; **`EC_alt`** stays a separate Methane metabolism pair.
+- **`EC_alt` / `EC_same_pathway` on `col_tax_focal`:** each adds **`+1`** to the focal superpathway bucket at every rank (goldens must reflect this). At `ann_level=pathway`, **`EC_same_pathway` adds `+1`** to the Oxidative phosphorylation pair; **`EC_alt`** stays a separate Methane metabolism pair. At **`ann_level=pathway_node`**, each EC is a **separate node** (`pathway_label` = `ec_normalized`); **`EC_same_pathway` does not merge** with `EC_focal`.
 - **Tier 1** focal cell value is **constant 1.0** across all 21 rollup_grid rows (labels vary; value does not).
 
 **`EC_focal` rank-merge contribution (locked):**
@@ -178,7 +178,7 @@ Changing **`tax_level`** only affects **`resolved_tax_id`** (rollup target). Cha
 | **Unmapped EC** | Empty `EC#` on a known tax column | `'Unmapped EC'` pair |
 | **Unknown tax header** | Mapped EC on **`col_tax_unknown_header`** | Mass excluded from chord today (§12) |
 
-**Anti-pattern (v1 TSV):** focal `EC_focal` on `T_focal` and cousin row with **`EC ≠ EC_focal`**. Different ECs → different `pathway_key`s → **no rank summation**; pair values stay constant across all 14 unfiltered cases (labels only).
+**Anti-pattern (v1 TSV):** focal `EC_focal` on `T_focal` and cousin row with **`EC ≠ EC_focal`**. Different ECs → different `pathway_key`s → **no rank summation**; pair values stay constant across all 21 unfiltered cases (labels only).
 
 Example corrected TSV sketch (concrete `tax_id`s filled at implementation; role names in `GeneID`). Rows grouped: **`EC_focal` block** then **`col_tax_focal` block**:
 
@@ -216,7 +216,7 @@ Goldens stay **sorted pair lists**, not full matrices. The wide TSV is dense; ex
 
 | Tier | Primary assertion | Secondary pairs |
 |---|---|---|
-| **14 unfiltered** | **Focal pair** `(pathway_label, resolved_tax_label, value)` per `(tax_level, ann_level)` — staircase **1 → 7** per §4.3 | At **fine ranks** (genus, species): optional pair for a cousin whose mass is **not yet merged** — same `EC_focal` pathway label, **cousin’s** `resolved_tax_label` at that rank, value **1** (proves separate buckets before coarser rollup) |
+| **21 unfiltered** | **Focal pair** `(pathway_label, resolved_tax_label, value)` per `(tax_level, ann_level)` — staircase **1 → 7** per §4.3 | At **fine ranks** (genus, species): optional pair for a cousin whose mass is **not yet merged** — same `EC_focal` pathway label, **cousin’s** `resolved_tax_label` at that rank, value **1** (proves separate buckets before coarser rollup) |
 | **Filtered** | Focal pair or total **lower** than unfiltered | — |
 | **Edge cases** | Fuller lists where behavior is the point (unmapped **EC**, fallback **taxon**, unknown **tax header** absent from chord) | — |
 
@@ -236,7 +236,7 @@ runs/fake_rpkm/sample.duckdb
         │
         └── Tier 2: chord pairs (api)
               test_chord_service.py
-              14 unfiltered + filters + edge cases
+              21 unfiltered + filters + edge cases
 ```
 
 ### 5.1 Tier 1 — Pipeline rollup grid (shared, not chord-specific)
@@ -276,7 +276,7 @@ def test_chord_pairs(case, fake_rpkm_db): ...
 def test_build_chord_from_duckdb_shape(fake_rpkm_db): ...
 ```
 
-**Unfiltered (14 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {superpathway, pathway}`. Assert golden pairs `(pathway_label, resolved_tax_label, value)` — **primarily the focal pair** (§4.5), staircase **1 → 7** across ranks (§4.3). **`ann_level`** changes labels/`pathway_key` grain; pathway vs superpathway may split or merge `EC_alt` relative to `EC_focal`.
+**Unfiltered (21 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {pathway, pathway_node, superpathway}` (fine → coarse). Assert golden pairs `(pathway_label, resolved_tax_label, value)` — **primarily the focal pair** (§4.5), staircase **1 → 7** across ranks at pathway/superpathway grains (§4.3). At **`pathway_node`**, labels are **`ec_normalized`** (bridge node EC strings); same-pathway ECs remain **separate node pairs**.
 
 **Filtered:** taxon filter + ann filter cases must assert **lower totals** or **fewer pairs** than the matching unfiltered case ( proves filters and `GROUP BY` interact).
 
@@ -372,7 +372,6 @@ No CI changes in v1. `test_main.py` may keep its existing `test_rpkm_1` skip pat
 - Mart parity or legacy Node parity scripts
 - CI job that builds reference Parquet automatically
 - Full-matrix golden comparison (only focal pair + sparse secondary pairs; not gap fillers / colors / full index)
-- `pathway_node` as chord `ann_level` (not in API)
 - Separate `test_chord_golden.py` module
 - **Synthesizing 7 `requested_rank` rows for unknown header tax_ids** in `int_tax_rollup_resolved` (deferred — see §12)
 
@@ -380,7 +379,7 @@ No CI changes in v1. `test_main.py` may keep its existing `test_rpkm_1` skip pat
 
 - [ ] `fake_rpkm.tsv` committed with tax columns + EC rows documented in pipeline YAML (§4)
 - [ ] Tier 1: 21 `rollup_grid` rows assert exact values in `test_fake_rpkm_pipeline.py`
-- [ ] Tier 2: chord pair tests in `test_chord_service.py` (14 unfiltered + filters + 3 edge cases); **focal pair staircase 1 → 7** per §4.3–§4.5
+- [ ] Tier 2: chord pair tests in `test_chord_service.py` (21 unfiltered + filters + 3 edge cases); **focal pair staircase 1 → 7** per §4.3–§4.5
 - [ ] Fake-fixture modules skip cleanly when bridge Parquet missing
 - [ ] Shared session fixture reusable from future endpoint test modules
 - [ ] Existing unit tests (`test_chord_matrix`, `test_filters`, etc.) and Node tests unaffected

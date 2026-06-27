@@ -12,6 +12,13 @@ TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
 BRIDGE_EC_PATH = REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet"
 
+PATHWAY_LABEL_SQL = (
+    "CASE "
+    "WHEN t.ec_normalized = '0.0.0.0' OR t.pathway_key IS NULL THEN 'Unmapped EC' "
+    "ELSE COALESCE(t.pathway_label, t.ec_normalized) "
+    "END"
+)
+
 
 def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
@@ -22,7 +29,21 @@ def _ann_predicate(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[s
         return "TRUE", []
     level, name = ann_filter["level"], ann_filter["name"]
     if ann_level == "superpathway":
-        return "COALESCE(t.pathway_label, 'Unmapped EC') = ?", [name]
+        return f"{PATHWAY_LABEL_SQL} = ?", [name]
+    if ann_level == "pathway_node":
+        if level == "pathway":
+            return (
+                "t.pathway_key IN ("
+                "  SELECT pathway_node_id FROM bridge_ec WHERE pathway_name = ?"
+                ")",
+                [name],
+            )
+        return (
+            "t.pathway_key IN ("
+            "  SELECT pathway_node_id FROM bridge_ec WHERE superpathway_name = ?"
+            ")",
+            [name],
+        )
     if level == "pathway":
         return (
             "t.pathway_key IN ("
@@ -88,7 +109,7 @@ def build_chord_from_duckdb(
 
         sql = f"""
             SELECT
-                COALESCE(t.pathway_label, 'Unmapped EC') AS pathway_label,
+                {PATHWAY_LABEL_SQL} AS pathway_label,
                 t.resolved_tax_label AS resolved_tax_label,
                 SUM(t.value) AS value
             FROM int_tax_rollup_resolved t
@@ -97,7 +118,7 @@ def build_chord_from_duckdb(
               AND ({tax_subquery})
               AND ({ann_sql})
             GROUP BY t.pathway_key, t.resolved_tax_id,
-                     COALESCE(t.pathway_label, 'Unmapped EC'),
+                     {PATHWAY_LABEL_SQL},
                      t.resolved_tax_label
             HAVING SUM(t.value) > 0
         """
