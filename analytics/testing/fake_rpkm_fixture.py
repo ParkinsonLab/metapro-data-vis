@@ -51,6 +51,9 @@ def load_chord_expectations() -> dict[str, Any]:
 def ensure_pipeline_built() -> Path:
     if not bridges_available():
         raise RuntimeError(skip_reason())
+    if DB_PATH.exists() and TSV_PATH.exists():
+        if TSV_PATH.stat().st_mtime > DB_PATH.stat().st_mtime:
+            DB_PATH.unlink()
     if DB_PATH.exists():
         return DB_PATH
     if not TSV_PATH.exists():

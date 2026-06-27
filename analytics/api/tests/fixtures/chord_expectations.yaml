@@ -5,243 +5,399 @@ chord_unfiltered:
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacillati
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
     - Bacteria
-    - 30.0
+    - 2.0
   - - Energy metabolism
     - Bacillati
-    - 10.0
+    - 7.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
   - - Unmapped EC
     - Bacillati
-    - 50.0
+    - 1.0
 - case_id: kingdom_pathway
   tax_level: kingdom
   ann_level: pathway
   pairs:
-  - - Caffeine metabolism
-    - Bacillati
-    - 20.0
+  - - Aflatoxin biosynthesis
+    - Bacteria
+    - 1.0
   - - Caffeine metabolism
     - Bacteria
-    - 30.0
+    - 1.0
   - - Methane metabolism
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
     - Bacillati
-    - 10.0
+    - 7.0
   - - Unmapped EC
     - Bacillati
-    - 50.0
+    - 1.0
 - case_id: phylum_superpathway
   tax_level: phylum
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacillota
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
+    - Actinomycetota
+    - 1.0
   - - Energy metabolism
     - Bacillota
-    - 10.0
+    - 6.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
   - - Unmapped EC
     - Bacillota
-    - 50.0
+    - 1.0
 - case_id: phylum_pathway
   tax_level: phylum
   ann_level: pathway
   pairs:
+  - - Aflatoxin biosynthesis
+    - Bacteria
+    - 1.0
   - - Caffeine metabolism
-    - Bacillota
-    - 20.0
-  - - Caffeine metabolism
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 1.0
   - - Methane metabolism
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Actinomycetota
+    - 1.0
+  - - Oxidative phosphorylation
     - Bacillota
-    - 10.0
+    - 6.0
   - - Unmapped EC
     - Bacillota
-    - 50.0
+    - 1.0
 - case_id: class_superpathway
   tax_level: class
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacilli
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
+    - Actinomycetes
+    - 1.0
   - - Energy metabolism
     - Bacilli
-    - 10.0
+    - 5.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Negativicutes
+    - 1.0
   - - Unmapped EC
     - Bacilli
-    - 50.0
+    - 1.0
 - case_id: class_pathway
   tax_level: class
   ann_level: pathway
   pairs:
+  - - Aflatoxin biosynthesis
+    - Bacteria
+    - 1.0
   - - Caffeine metabolism
-    - Bacilli
-    - 20.0
-  - - Caffeine metabolism
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 1.0
   - - Methane metabolism
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Actinomycetes
+    - 1.0
+  - - Oxidative phosphorylation
     - Bacilli
-    - 10.0
+    - 5.0
+  - - Oxidative phosphorylation
+    - Negativicutes
+    - 1.0
   - - Unmapped EC
     - Bacilli
-    - 50.0
+    - 1.0
 - case_id: order_superpathway
   tax_level: order
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Caryophanales
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
   - - Energy metabolism
     - Caryophanales
-    - 10.0
+    - 4.0
+  - - Energy metabolism
+    - Lactobacillales
+    - 1.0
+  - - Energy metabolism
+    - Micrococcales
+    - 1.0
+  - - Energy metabolism
+    - Selenomonadales
+    - 1.0
   - - Unmapped EC
     - Caryophanales
-    - 50.0
+    - 1.0
 - case_id: order_pathway
   tax_level: order
   ann_level: pathway
   pairs:
+  - - Aflatoxin biosynthesis
+    - Bacteria
+    - 1.0
   - - Caffeine metabolism
-    - Caryophanales
-    - 20.0
-  - - Caffeine metabolism
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 1.0
   - - Methane metabolism
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
     - Caryophanales
-    - 10.0
+    - 4.0
+  - - Oxidative phosphorylation
+    - Lactobacillales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Micrococcales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Selenomonadales
+    - 1.0
   - - Unmapped EC
     - Caryophanales
-    - 50.0
+    - 1.0
 - case_id: family_superpathway
   tax_level: family
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
     - Bacillaceae
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillaceae
+    - 1.0
+  - - Energy metabolism
+    - Microbacteriaceae
+    - 1.0
+  - - Energy metabolism
+    - Selenomonadaceae
+    - 1.0
   - - Energy metabolism
     - Staphylococcaceae
-    - 10.0
+    - 3.0
   - - Unmapped EC
     - Staphylococcaceae
-    - 50.0
+    - 1.0
 - case_id: family_pathway
   tax_level: family
   ann_level: pathway
   pairs:
+  - - Aflatoxin biosynthesis
+    - Bacteria
+    - 1.0
   - - Caffeine metabolism
-    - Bacillaceae
-    - 20.0
-  - - Caffeine metabolism
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 1.0
   - - Methane metabolism
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Microbacteriaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Selenomonadaceae
+    - 1.0
+  - - Oxidative phosphorylation
     - Staphylococcaceae
-    - 10.0
+    - 3.0
   - - Unmapped EC
     - Staphylococcaceae
-    - 50.0
+    - 1.0
 - case_id: genus_superpathway
   tax_level: genus
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
     - Bacillus
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Clavibacter
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillus
+    - 1.0
+  - - Energy metabolism
+    - Mammaliicoccus
+    - 1.0
+  - - Energy metabolism
+    - Pectinatus
+    - 1.0
   - - Energy metabolism
     - Staphylococcus
-    - 10.0
+    - 2.0
   - - Unmapped EC
     - Staphylococcus
-    - 50.0
+    - 1.0
 - case_id: genus_pathway
   tax_level: genus
   ann_level: pathway
   pairs:
+  - - Aflatoxin biosynthesis
+    - Bacteria
+    - 1.0
   - - Caffeine metabolism
-    - Bacillus
-    - 20.0
-  - - Caffeine metabolism
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 1.0
   - - Methane metabolism
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Clavibacter
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Mammaliicoccus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Pectinatus
+    - 1.0
+  - - Oxidative phosphorylation
     - Staphylococcus
-    - 10.0
+    - 2.0
   - - Unmapped EC
     - Staphylococcus
-    - 50.0
+    - 1.0
 - case_id: species_superpathway
   tax_level: species
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacillus sp. LMG 22259
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - Energy metabolism
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - Energy metabolism
+    - Pectinatus frisingensis
+    - 1.0
   - - Energy metabolism
     - Staphylococcus aureus
-    - 10.0
+    - 1.0
+  - - Energy metabolism
+    - Staphylococcus epidermidis
+    - 1.0
   - - Unmapped EC
     - Staphylococcus aureus
-    - 50.0
+    - 1.0
 - case_id: species_pathway
   tax_level: species
   ann_level: pathway
   pairs:
+  - - Aflatoxin biosynthesis
+    - Bacteria
+    - 1.0
   - - Caffeine metabolism
-    - Bacillus sp. LMG 22259
-    - 20.0
-  - - Caffeine metabolism
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 1.0
   - - Methane metabolism
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Oxidative phosphorylation
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - Oxidative phosphorylation
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - Oxidative phosphorylation
+    - Pectinatus frisingensis
+    - 1.0
+  - - Oxidative phosphorylation
     - Staphylococcus aureus
-    - 10.0
+    - 1.0
+  - - Oxidative phosphorylation
+    - Staphylococcus epidermidis
+    - 1.0
   - - Unmapped EC
     - Staphylococcus aureus
-    - 50.0
+    - 1.0
 chord_filtered:
-- case_id: taxon_filter_sibling_genus
-  tax_level: phylum
+- case_id: taxon_filter_focal_species
+  tax_level: genus
   ann_level: superpathway
   pairs:
-  - - Biosynthesis of other secondary metabolites
-    - Bacillota
-    - 20.0
+  - - Energy metabolism
+    - Staphylococcus
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 1.0
   selected_taxon:
-    level: genus
-    name: Bacillus
+    level: species
+    name: Staphylococcus aureus
 - case_id: ann_filter_superpathway
   tax_level: phylum
   ann_level: superpathway
   pairs:
   - - Energy metabolism
+    - Actinomycetota
+    - 1.0
+  - - Energy metabolism
     - Bacillota
-    - 10.0
+    - 6.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
   selected_ann_cat: Energy metabolism
 edge_cases:
 - case_id: unmapped_ec_snapshot
@@ -249,46 +405,70 @@ edge_cases:
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacillota
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
+    - Actinomycetota
+    - 1.0
   - - Energy metabolism
     - Bacillota
-    - 10.0
+    - 6.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
   - - Unmapped EC
     - Bacillota
-    - 50.0
+    - 1.0
 - case_id: unclassified_tax_snapshot
   tax_level: phylum
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacillota
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
+    - Actinomycetota
+    - 1.0
   - - Energy metabolism
     - Bacillota
-    - 10.0
+    - 6.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
   - - Unmapped EC
     - Bacillota
-    - 50.0
+    - 1.0
 - case_id: fallback_species_request
   tax_level: species
   ann_level: superpathway
   pairs:
   - - Biosynthesis of other secondary metabolites
-    - Bacillus sp. LMG 22259
-    - 20.0
-  - - Biosynthesis of other secondary metabolites
-    - bacterium enrichment culture clone 15A3
-    - 30.0
+    - Bacteria
+    - 2.0
+  - - Energy metabolism
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - Energy metabolism
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - Energy metabolism
+    - Pectinatus frisingensis
+    - 1.0
   - - Energy metabolism
     - Staphylococcus aureus
-    - 10.0
+    - 1.0
+  - - Energy metabolism
+    - Staphylococcus epidermidis
+    - 1.0
   - - Unmapped EC
     - Staphylococcus aureus
-    - 50.0
+    - 1.0
