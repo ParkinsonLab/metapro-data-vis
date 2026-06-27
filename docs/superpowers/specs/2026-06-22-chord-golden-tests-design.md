@@ -108,7 +108,7 @@ Each gene row carries one EC (or empty for unmapped) and **one non-zero tax colu
 | **`EC_same_pathway`** | Different **EC**, **same pathway** as `EC_focal` (`2.7.4.1` + `1.6.5.9` → Oxidative phosphorylation) | **`+1`** on focal pathway pair at `ann_level=pathway`; **`+1`** on superpathway pair at `ann_level=superpathway` |
 | **`EC_alt`** | Different **pathway**, **same superpathway** as `EC_focal` on **`col_tax_focal`** | **`+1`** on superpathway pair; separate pathway pair at `ann_level=pathway` |
 | **`EC_diff_sp`** | **Different superpathway** on **`col_tax_focal`** | Ann-filter golden (dropped when filtering to focal’s superpathway) |
-| **`EC_fb`** | Any mapped EC on **`col_tax_fallback_kingdom`** | Fallback **taxon** edge case |
+| **`EC_fb`** | **`EC_focal`** on **`col_tax_fallback_kingdom` (`2`, *Bacteria*)** | Kingdom-ranked taxon; resolves to **`Bacteria`** at every rank we query — separate bucket from focal staircase |
 | **Unknown header row** | Any mapped EC on **`col_tax_unknown_header`** | Unknown **tax column header**; mass in `int` only (§12) |
 | **Unmapped EC row** | Empty/`None` `EC#` → `0.0.0.0` | Unmapped **EC**; `'Unmapped EC'` chord pair |
 
@@ -125,7 +125,7 @@ Role names must distinguish **tax column** vs **EC** vs **unknown header**:
 | Tax column (TSV header) | `col_tax_<role>` | `col_tax_focal` → header `1280` |
 | Rank-merge gene row | `row_ec_focal__col_tax_<role>` | `row_ec_focal__col_tax_sibling_genus` |
 | Pathway-variant row | `row_ec_<variant>__col_tax_focal` | `row_ec_alt_pathway__col_tax_focal`, `row_ec_same_pathway__col_tax_focal` |
-| Fallback **taxon** row | `row_ec_any__col_tax_fallback_kingdom` | EC mapped; tax column is kingdom fallback |
+| Fallback **taxon** row | `row_ec_focal__col_tax_fallback_kingdom` | `EC_focal` on kingdom-ranked tax column |
 | Unknown **header** row | `row_ec_focal__col_tax_unknown_header` | Mapped EC; tax_id not in bridge |
 | Unmapped **EC** row | `row_ec_unmapped__col_tax_focal` | Empty `EC#`; known tax column |
 
@@ -172,7 +172,7 @@ Changing **`tax_level`** only affects **`resolved_tax_id`** (rollup target). Cha
 | **Alt pathway** | Gene row with **`EC_alt`** (same superpathway as `EC_focal`) | Two pathway pairs at `ann_level=pathway`; one superpathway pair at `ann_level=superpathway` |
 | **Ann filter** | Gene row with **`EC_diff_sp`** (different superpathway) | Unfiltered total > ann-filtered total; filter on focal superpathway drops `EC_diff_sp` mass |
 | **Taxon filter** | `col_tax_cousin_phylum` shares `EC_focal` but **different genus** than focal | Genus filter on *Staphylococcus* at `tax_level=genus` yields focal pair **1**, not **2** |
-| **Fallback taxon** | `EC_fb` on **`col_tax_fallback_kingdom` (`2`)** | `tax_level=species` (or any rank below kingdom) shows `resolved_tax_label = Bacteria`; bucket value **1** |
+| **Fallback taxon** | **`EC_focal`** on **`col_tax_fallback_kingdom` (`2`)** | Every `requested_rank` shows `resolved_tax_label = Bacteria`; **`Energy metabolism` / `Bacteria` = 1**; does not merge into Bacillati staircase |
 | **Unmapped EC** | Empty `EC#` on a known tax column | `'Unmapped EC'` pair |
 | **Unknown tax header** | Mapped EC on **`col_tax_unknown_header`** | Mass excluded from chord today (§12) |
 
@@ -192,7 +192,7 @@ row_ec_focal__col_tax_cousin_kingdom     …	EC_focal  0  0  0  0  0  0  1  0  0
 row_ec_same_pathway__col_tax_focal       …	EC_same   1  0  0  0  0  0  0  0  0
 row_ec_alt_pathway__col_tax_focal        …	EC_alt    1  0  0  0  0  0  0  0  0
 row_ec_diff_superpathway__col_tax_focal  …	EC_diff_sp 1  0  0  0  0  0  0  0  0
-row_ec_any__col_tax_fallback_kingdom     …	EC_fb     0  0  0  0  0  0  0  1  0
+row_ec_focal__col_tax_fallback_kingdom     …	EC_focal  0  0  0  0  0  0  0  1  0
 row_ec_focal__col_tax_unknown_header     …	EC_focal  0  0  0  0  0  0  0  0  1
 row_ec_unmapped__col_tax_focal           …	(empty)   1  0  0  0  0  0  0  0  0
 ```

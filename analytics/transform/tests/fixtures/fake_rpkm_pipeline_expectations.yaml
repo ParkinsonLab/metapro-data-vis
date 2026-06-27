@@ -10,7 +10,6 @@ fixture:
     ec_same_pathway: 2.7.4.1
     ec_alt: 1.5.8.1
     ec_diff_superpathway: 1.1.1.349
-    ec_fallback_taxon: 2.1.1.158
     focal_superpathway: Energy metabolism
     col_tax_focal: 1280
     col_tax_sibling_genus: 1282
