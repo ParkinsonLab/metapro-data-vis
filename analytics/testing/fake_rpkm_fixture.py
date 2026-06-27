@@ -22,8 +22,8 @@ REQUIRED_BRIDGES = (
     REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet",
     REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet",
 )
-RANKS = ("kingdom", "phylum", "class", "order", "family", "genus", "species")
-ANN_LEVELS = ("superpathway", "pathway")
+RANKS = ("species", "genus", "family", "order", "class", "phylum", "kingdom")
+ANN_LEVELS = ("pathway", "superpathway")
 
 
 def bridges_available() -> bool:

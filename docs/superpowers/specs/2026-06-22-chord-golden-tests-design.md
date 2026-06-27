@@ -310,11 +310,11 @@ rollup_grid:               # 21 rows — labels vary; value constant for focal c
 sample_id: fake_rpkm        # references shared fixture
 
 chord_unfiltered:
-  - case_id: kingdom_superpathway
-    tax_level: kingdom
-    ann_level: superpathway
+  - case_id: species_pathway
+    tax_level: species
+    ann_level: pathway
     pairs:
-      - ["Energy metabolism", "Bacteria", 7.0]   # focal pair at kingdom — primary assertion
+      - ["Oxidative phosphorylation", "Staphylococcus aureus", 2.0]   # focal pair — primary assertion
       # optional secondary pairs at fine ranks or for EC_alt / unmapped
 
 chord_filtered:
