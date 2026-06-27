@@ -3,6 +3,7 @@ import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
 import { request } from '../api'
+import { filterName } from '../chordFilters'
 
 // ---------------------------------------------------------------------------
 // Network pane
@@ -334,17 +335,11 @@ const Network = (): React.JSX.Element => {
   const height = 550
 
   const selected_pathway = useAppStore((state) => state.selected_pathway)
-  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat) as
-    | string
-    | { level?: string; name?: string }
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
   const network_data = useAppStore((state) => state.network_data) as NetworkData | object
   const pathway_list = useAppStore((state) => state.pathway_list)
 
-  // selected_ann_cat is set in two slightly different shapes depending on
-  // history: a bare superpathway name (string) when picked from chord, or an
-  // empty object on reset. Normalize.
-  const superpathway_name =
-    typeof selected_ann_cat === 'string' ? selected_ann_cat : (selected_ann_cat?.name ?? '')
+  const superpathway_name = filterName(selected_ann_cat)
 
   // Fetch the pathway list whenever the active superpathway changes.
   useEffect(() => {
