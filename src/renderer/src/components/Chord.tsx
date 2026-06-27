@@ -3,7 +3,7 @@
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { request } from '../api'
 import {
   isFilterActive,
@@ -15,11 +15,7 @@ const t_ranks = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus']
 const a_ranks = ['pathway', 'superpathway']
 
 const ChordSVG = () => {
-  // Function to create the SVG element for the chord diagram
-  const parsed_data = useAppStore((state) => state.chord_data)
-  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
-  const selected_taxon = useAppStore((state) => state.selected_taxon)
-  const tax_rank = useAppStore((state) => state.tax_rank)
+  const chord_data = useAppStore((state) => state.chord_data)
   const ref = useRef<SVGSVGElement>(null)
 
   const width = 900
@@ -27,17 +23,21 @@ const ChordSVG = () => {
   const base_radius = Math.min(width, height) * 0.5 - 50 // the inner radius of the inner ring
   const rad_step = 20
 
-  const draw_chord = () => {
+  const draw_chord = useCallback(() => {
     const {
       count_matrix,
       index,
       colors
-    } = parsed_data
+    } = chord_data
 
     if (!Array.isArray(index) || !Array.isArray(count_matrix)) {
-      console.error('[Chord] expected chord_data { count_matrix, index, colors }', parsed_data)
+      console.error('[Chord] expected chord_data { count_matrix, index, colors }', chord_data)
       return
     }
+
+    const { selected_ann_cat, selected_taxon, tax_rank, ann_rank } = useAppStore.getState()
+    const ann_name = isFilterActive(selected_ann_cat) ? selected_ann_cat.name : ''
+    const tax_name = isFilterActive(selected_taxon) ? selected_taxon.name : ''
 
     const gaps = ['gap_1', 'gap_2', 'gap_3']
     const outer_gap_idc = gaps.map((e) => index.indexOf(e))
@@ -46,28 +46,29 @@ const ChordSVG = () => {
       // d.index is the matrix row/col (0..n-1); matrix_labels[d.index] is the label string.
       const selected_name = String(index[d.index] ?? '')
       if (selected_name.substring(0, 3) === 'gap') return
+      const state = useAppStore.getState()
+      const ann = state.selected_ann_cat
+      const tax = state.selected_taxon
       if (
         d.index > outer_gap_idc[0] &&
         d.index < outer_gap_idc[1] &&
-        selected_name !== selected_ann_cat
+        selected_name !== (isFilterActive(ann) ? ann.name : '')
       ) {
-        console.log('set selected_ann_cat to ' + selected_name)
         useAppStore.setState({
-          selected_ann_cat: selected_name,
+          selected_ann_cat: { level: state.ann_rank, name: selected_name },
           selected_annotations: []
         })
       } else if (
         d.index > outer_gap_idc[1] &&
         d.index < outer_gap_idc[2] &&
-        selected_name !== (selected_taxon as { name?: string }).name
+        selected_name !== (isFilterActive(tax) ? tax.name : '')
       ) {
-        console.log('set selected_taxon to ' + selected_name)
         const next_rank =
-          tax_rank === t_ranks[t_ranks.length - 1]
-            ? tax_rank
-            : (t_ranks[t_ranks.indexOf(tax_rank) + 1] as typeof tax_rank)
+          state.tax_rank === t_ranks[t_ranks.length - 1]
+            ? state.tax_rank
+            : (t_ranks[t_ranks.indexOf(state.tax_rank) + 1] as typeof state.tax_rank)
         useAppStore.setState({
-          selected_taxon: { level: tax_rank, name: selected_name },
+          selected_taxon: { level: state.tax_rank, name: selected_name },
           tax_rank: next_rank
         })
       }
@@ -119,7 +120,7 @@ const ChordSVG = () => {
       .append('path') // draw arc
       .attr('fill', (d) => colors[index[d.index]])
       .attr('d', outer_arc)
-      .attr('stroke', (d) => (index[d.index] === selected_ann_cat ? 'blue' : 'black'))
+      .attr('stroke', (d) => (index[d.index] === ann_name ? 'blue' : 'black'))
       .on('click', handle_arc_click)
     outer_nodes
       .append('title') // mouseover text
@@ -176,14 +177,13 @@ const ChordSVG = () => {
         (d) =>
           `${index[d.target.index]} → ${index[d.source.index]} [${Math.trunc(d.source.value)}]`
       )
-  }
+  }, [chord_data])
 
   useEffect(() => {
-    console.log(parsed_data)
-    if (parsed_data !== null && !_.isEmpty(parsed_data)) {
+    if (chord_data !== null && !_.isEmpty(chord_data)) {
       draw_chord()
     }
-  }, [parsed_data, selected_ann_cat])
+  }, [chord_data, draw_chord])
 
   return <svg width={width} height={height} id="chord" ref={ref} />
 }
