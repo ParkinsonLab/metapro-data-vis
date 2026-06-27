@@ -23,7 +23,8 @@ REQUIRED_BRIDGES = (
     REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet",
 )
 RANKS = ("species", "genus", "family", "order", "class", "phylum", "kingdom")
-ANN_LEVELS = ("pathway", "pathway_node", "superpathway")
+# Finest → coarsest annotation grain (matches tax RANKS ordering intent).
+ANN_LEVELS = ("pathway_node", "pathway", "superpathway")
 
 
 def bridges_available() -> bool:

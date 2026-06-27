@@ -276,7 +276,7 @@ def test_chord_pairs(case, fake_rpkm_db): ...
 def test_build_chord_from_duckdb_shape(fake_rpkm_db): ...
 ```
 
-**Unfiltered (21 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {pathway, pathway_node, superpathway}` (fine → coarse). Assert golden pairs `(pathway_label, resolved_tax_label, value)` — **primarily the focal pair** (§4.5), staircase **1 → 7** across ranks at pathway/superpathway grains (§4.3). At **`pathway_node`**, labels are **`ec_normalized`** (bridge node EC strings); same-pathway ECs remain **separate node pairs**.
+**Unfiltered (21 cases):** Parametrize `tax_level ∈ VALID_TAX_RANKS`, `ann_level ∈ {pathway_node, pathway, superpathway}` (fine → coarse). Assert golden pairs `(pathway_label, resolved_tax_label, value)` — **primarily the focal pair** (§4.5), staircase **1 → 7** across ranks at pathway/superpathway grains (§4.3). At **`pathway_node`** (finest), labels are **`ec_normalized`** (bridge node EC strings); same-pathway ECs remain **separate node pairs**.
 
 **Filtered:** taxon filter + ann filter cases must assert **lower totals** or **fewer pairs** than the matching unfiltered case ( proves filters and `GROUP BY` interact).
 
@@ -314,11 +314,11 @@ rollup_grid:               # 21 rows — labels vary; value constant for focal c
 sample_id: fake_rpkm        # references shared fixture
 
 chord_unfiltered:
-  - case_id: species_pathway
+  - case_id: species_pathway_node
     tax_level: species
-    ann_level: pathway
+    ann_level: pathway_node
     pairs:
-      - ["Oxidative phosphorylation", "Staphylococcus aureus", 2.0]   # focal pair — primary assertion
+      - ["1.6.5.9", "Staphylococcus aureus", 2.0]   # focal node pair — primary assertion
       # optional secondary pairs at fine ranks or for EC_alt / unmapped
 
 chord_filtered:

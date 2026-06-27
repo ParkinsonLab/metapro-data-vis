@@ -1,42 +1,5 @@
 sample_id: fake_rpkm
 chord_unfiltered:
-- case_id: species_pathway
-  tax_level: species
-  ann_level: pathway
-  pairs:
-  - - Aflatoxin biosynthesis
-    - Staphylococcus aureus
-    - 1.0
-  - - Methane metabolism
-    - Staphylococcus aureus
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacillus sp. b107A(2010)
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacteria
-    - 1.0
-  - - Oxidative phosphorylation
-    - Clavibacter sp. OL-4
-    - 1.0
-  - - Oxidative phosphorylation
-    - Lactobacillus sp. 100-5
-    - 1.0
-  - - Oxidative phosphorylation
-    - Mammaliicoccus sciuri
-    - 1.0
-  - - Oxidative phosphorylation
-    - Pectinatus frisingensis
-    - 1.0
-  - - Oxidative phosphorylation
-    - Staphylococcus aureus
-    - 2.0
-  - - Oxidative phosphorylation
-    - Staphylococcus epidermidis
-    - 1.0
-  - - Unmapped EC
-    - Staphylococcus aureus
-    - 1.0
 - case_id: species_pathway_node
   tax_level: species
   ann_level: pathway_node
@@ -77,6 +40,43 @@ chord_unfiltered:
   - - Unmapped EC
     - Staphylococcus aureus
     - 1.0
+- case_id: species_pathway
+  tax_level: species
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Staphylococcus aureus
+    - 1.0
+  - - Methane metabolism
+    - Staphylococcus aureus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - Oxidative phosphorylation
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - Oxidative phosphorylation
+    - Pectinatus frisingensis
+    - 1.0
+  - - Oxidative phosphorylation
+    - Staphylococcus aureus
+    - 2.0
+  - - Oxidative phosphorylation
+    - Staphylococcus epidermidis
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 1.0
 - case_id: species_superpathway
   tax_level: species
   ann_level: superpathway
@@ -110,40 +110,6 @@ chord_unfiltered:
     - 1.0
   - - Unmapped EC
     - Staphylococcus aureus
-    - 1.0
-- case_id: genus_pathway
-  tax_level: genus
-  ann_level: pathway
-  pairs:
-  - - Aflatoxin biosynthesis
-    - Staphylococcus
-    - 1.0
-  - - Methane metabolism
-    - Staphylococcus
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacillus
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacteria
-    - 1.0
-  - - Oxidative phosphorylation
-    - Clavibacter
-    - 1.0
-  - - Oxidative phosphorylation
-    - Lactobacillus
-    - 1.0
-  - - Oxidative phosphorylation
-    - Mammaliicoccus
-    - 1.0
-  - - Oxidative phosphorylation
-    - Pectinatus
-    - 1.0
-  - - Oxidative phosphorylation
-    - Staphylococcus
-    - 3.0
-  - - Unmapped EC
-    - Staphylococcus
     - 1.0
 - case_id: genus_pathway_node
   tax_level: genus
@@ -182,6 +148,40 @@ chord_unfiltered:
   - - Unmapped EC
     - Staphylococcus
     - 1.0
+- case_id: genus_pathway
+  tax_level: genus
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Staphylococcus
+    - 1.0
+  - - Methane metabolism
+    - Staphylococcus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Clavibacter
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Mammaliicoccus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Pectinatus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Staphylococcus
+    - 3.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 1.0
 - case_id: genus_superpathway
   tax_level: genus
   ann_level: superpathway
@@ -212,37 +212,6 @@ chord_unfiltered:
     - 4.0
   - - Unmapped EC
     - Staphylococcus
-    - 1.0
-- case_id: family_pathway
-  tax_level: family
-  ann_level: pathway
-  pairs:
-  - - Aflatoxin biosynthesis
-    - Staphylococcaceae
-    - 1.0
-  - - Methane metabolism
-    - Staphylococcaceae
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacillaceae
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacteria
-    - 1.0
-  - - Oxidative phosphorylation
-    - Lactobacillaceae
-    - 1.0
-  - - Oxidative phosphorylation
-    - Microbacteriaceae
-    - 1.0
-  - - Oxidative phosphorylation
-    - Selenomonadaceae
-    - 1.0
-  - - Oxidative phosphorylation
-    - Staphylococcaceae
-    - 4.0
-  - - Unmapped EC
-    - Staphylococcaceae
     - 1.0
 - case_id: family_pathway_node
   tax_level: family
@@ -278,6 +247,37 @@ chord_unfiltered:
   - - Unmapped EC
     - Staphylococcaceae
     - 1.0
+- case_id: family_pathway
+  tax_level: family
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Staphylococcaceae
+    - 1.0
+  - - Methane metabolism
+    - Staphylococcaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Microbacteriaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Selenomonadaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Staphylococcaceae
+    - 4.0
+  - - Unmapped EC
+    - Staphylococcaceae
+    - 1.0
 - case_id: family_superpathway
   tax_level: family
   ann_level: superpathway
@@ -305,34 +305,6 @@ chord_unfiltered:
     - 5.0
   - - Unmapped EC
     - Staphylococcaceae
-    - 1.0
-- case_id: order_pathway
-  tax_level: order
-  ann_level: pathway
-  pairs:
-  - - Aflatoxin biosynthesis
-    - Caryophanales
-    - 1.0
-  - - Methane metabolism
-    - Caryophanales
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacteria
-    - 1.0
-  - - Oxidative phosphorylation
-    - Caryophanales
-    - 5.0
-  - - Oxidative phosphorylation
-    - Lactobacillales
-    - 1.0
-  - - Oxidative phosphorylation
-    - Micrococcales
-    - 1.0
-  - - Oxidative phosphorylation
-    - Selenomonadales
-    - 1.0
-  - - Unmapped EC
-    - Caryophanales
     - 1.0
 - case_id: order_pathway_node
   tax_level: order
@@ -365,6 +337,34 @@ chord_unfiltered:
   - - Unmapped EC
     - Caryophanales
     - 1.0
+- case_id: order_pathway
+  tax_level: order
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Caryophanales
+    - 1.0
+  - - Methane metabolism
+    - Caryophanales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Caryophanales
+    - 5.0
+  - - Oxidative phosphorylation
+    - Lactobacillales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Micrococcales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Selenomonadales
+    - 1.0
+  - - Unmapped EC
+    - Caryophanales
+    - 1.0
 - case_id: order_superpathway
   tax_level: order
   ann_level: superpathway
@@ -389,31 +389,6 @@ chord_unfiltered:
     - 1.0
   - - Unmapped EC
     - Caryophanales
-    - 1.0
-- case_id: class_pathway
-  tax_level: class
-  ann_level: pathway
-  pairs:
-  - - Aflatoxin biosynthesis
-    - Bacilli
-    - 1.0
-  - - Methane metabolism
-    - Bacilli
-    - 1.0
-  - - Oxidative phosphorylation
-    - Actinomycetes
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacilli
-    - 6.0
-  - - Oxidative phosphorylation
-    - Bacteria
-    - 1.0
-  - - Oxidative phosphorylation
-    - Negativicutes
-    - 1.0
-  - - Unmapped EC
-    - Bacilli
     - 1.0
 - case_id: class_pathway_node
   tax_level: class
@@ -443,6 +418,31 @@ chord_unfiltered:
   - - Unmapped EC
     - Bacilli
     - 1.0
+- case_id: class_pathway
+  tax_level: class
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Bacilli
+    - 1.0
+  - - Methane metabolism
+    - Bacilli
+    - 1.0
+  - - Oxidative phosphorylation
+    - Actinomycetes
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacilli
+    - 6.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Negativicutes
+    - 1.0
+  - - Unmapped EC
+    - Bacilli
+    - 1.0
 - case_id: class_superpathway
   tax_level: class
   ann_level: superpathway
@@ -464,28 +464,6 @@ chord_unfiltered:
     - 1.0
   - - Unmapped EC
     - Bacilli
-    - 1.0
-- case_id: phylum_pathway
-  tax_level: phylum
-  ann_level: pathway
-  pairs:
-  - - Aflatoxin biosynthesis
-    - Bacillota
-    - 1.0
-  - - Methane metabolism
-    - Bacillota
-    - 1.0
-  - - Oxidative phosphorylation
-    - Actinomycetota
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacillota
-    - 7.0
-  - - Oxidative phosphorylation
-    - Bacteria
-    - 1.0
-  - - Unmapped EC
-    - Bacillota
     - 1.0
 - case_id: phylum_pathway_node
   tax_level: phylum
@@ -512,6 +490,28 @@ chord_unfiltered:
   - - Unmapped EC
     - Bacillota
     - 1.0
+- case_id: phylum_pathway
+  tax_level: phylum
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Bacillota
+    - 1.0
+  - - Methane metabolism
+    - Bacillota
+    - 1.0
+  - - Oxidative phosphorylation
+    - Actinomycetota
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillota
+    - 7.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Unmapped EC
+    - Bacillota
+    - 1.0
 - case_id: phylum_superpathway
   tax_level: phylum
   ann_level: superpathway
@@ -531,25 +531,6 @@ chord_unfiltered:
   - - Unmapped EC
     - Bacillota
     - 1.0
-- case_id: kingdom_pathway
-  tax_level: kingdom
-  ann_level: pathway
-  pairs:
-  - - Aflatoxin biosynthesis
-    - Bacillati
-    - 1.0
-  - - Methane metabolism
-    - Bacillati
-    - 1.0
-  - - Oxidative phosphorylation
-    - Bacillati
-    - 8.0
-  - - Oxidative phosphorylation
-    - Bacteria
-    - 1.0
-  - - Unmapped EC
-    - Bacillati
-    - 1.0
 - case_id: kingdom_pathway_node
   tax_level: kingdom
   ann_level: pathway_node
@@ -568,6 +549,25 @@ chord_unfiltered:
     - 1.0
   - - 2.7.4.1
     - Bacillati
+    - 1.0
+  - - Unmapped EC
+    - Bacillati
+    - 1.0
+- case_id: kingdom_pathway
+  tax_level: kingdom
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Bacillati
+    - 1.0
+  - - Methane metabolism
+    - Bacillati
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillati
+    - 8.0
+  - - Oxidative phosphorylation
+    - Bacteria
     - 1.0
   - - Unmapped EC
     - Bacillati
