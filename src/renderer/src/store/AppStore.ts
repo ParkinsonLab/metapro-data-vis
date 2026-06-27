@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { ChordFilterValue } from '../chordFilters'
 
 // Define your store state interface
 interface AppState {
@@ -12,10 +13,10 @@ interface AppState {
   file_list: string[]
   selected_file_list: string[]
   selectedFile: File | null
-  selected_ann_cat: object | string
+  selected_ann_cat: ChordFilterValue
   /** @deprecated Graph pane only; component unmounted */
   parsed_data?: any
-  selected_taxon: object // {level: string, name: string}
+  selected_taxon: ChordFilterValue
   selected_pathway: string
   selected_annotations: string[]
   mainState: 'upload' | 'chord' | 'network' | 'graph' | 'overview' | 'krona'
