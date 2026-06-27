@@ -35,9 +35,8 @@ const ChordSVG = () => {
       return
     }
 
-    const { selected_ann_cat, selected_taxon, tax_rank, ann_rank } = useAppStore.getState()
+    const { selected_ann_cat } = useAppStore.getState()
     const ann_name = isFilterActive(selected_ann_cat) ? selected_ann_cat.name : ''
-    const tax_name = isFilterActive(selected_taxon) ? selected_taxon.name : ''
 
     const gaps = ['gap_1', 'gap_2', 'gap_3']
     const outer_gap_idc = gaps.map((e) => index.indexOf(e))
