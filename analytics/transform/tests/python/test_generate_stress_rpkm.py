@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from testing.stress_rpkm_lib import (
@@ -11,8 +13,6 @@ from testing.stress_rpkm_lib import (
 
 
 def test_plan_overlap_defaults():
-    import random
-
     rng = random.Random(0)
     pool = list(range(10000))
     cols1, cols2 = sample_tax_columns(
@@ -37,6 +37,36 @@ def test_plan_overlap_defaults():
     assert len(set(plan.gene_ids_file1) & set(plan.gene_ids_file2)) == 200139
 
 
+def test_plan_overlap_raises_on_wrong_column_lengths():
+    with pytest.raises(ValueError, match="cols_file1/cols_file2"):
+        plan_overlap(
+            rows_1=10,
+            rows_2=10,
+            tax_cols=5,
+            column_overlap=0.5,
+            row_overlap=0.5,
+            cols_file1=(1, 2, 3),
+            cols_file2=(1, 2, 3, 4, 5),
+        )
+
+
+def test_plan_overlap_raises_when_row_overlap_too_high_for_rows_2():
+    rng = random.Random(0)
+    cols1, cols2 = sample_tax_columns(
+        list(range(100)), tax_cols=10, column_overlap=0.5, rng=rng
+    )
+    with pytest.raises(ValueError, match="n_shared_rows exceeds row counts"):
+        plan_overlap(
+            rows_1=100,
+            rows_2=10,
+            tax_cols=10,
+            column_overlap=0.5,
+            row_overlap=0.9,
+            cols_file1=cols1,
+            cols_file2=cols2,
+        )
+
+
 def test_ec_for_row_index_covers_all_ecs():
     ecs = [f"1.1.1.{i}" for i in range(10)]
     seen = {ec_for_row_index(i, ecs) for i in range(10)}
@@ -45,10 +75,15 @@ def test_ec_for_row_index_covers_all_ecs():
     assert ec_for_row_index(11, ecs) == ecs[1]
 
 
+def test_ec_for_row_index_raises_on_empty_ecs():
+    with pytest.raises(ValueError, match="ecs_shuffled must not be empty"):
+        ec_for_row_index(0, [])
+
+
 def test_sample_tax_columns_requires_enough_pool():
     pool = list(range(1000))
     cols1, cols2 = sample_tax_columns(
-        pool, tax_cols=10, column_overlap=0.75, rng=__import__("random").Random(0)
+        pool, tax_cols=10, column_overlap=0.75, rng=random.Random(0)
     )
     assert len(cols1) == 10
     assert len(cols2) == 10
@@ -62,7 +97,17 @@ def test_sample_tax_columns_raises_when_pool_too_small():
             [1, 2, 3],
             tax_cols=10,
             column_overlap=0.75,
-            rng=__import__("random").Random(0),
+            rng=random.Random(0),
+        )
+
+
+def test_sample_tax_columns_raises_when_column_overlap_too_high():
+    with pytest.raises(ValueError, match="column_overlap must be between 0 and 1"):
+        sample_tax_columns(
+            list(range(100)),
+            tax_cols=10,
+            column_overlap=1.5,
+            rng=random.Random(0),
         )
 
 

@@ -1,3 +1,4 @@
+# analytics/testing/stress_rpkm_lib.py
 from __future__ import annotations
 
 import random
@@ -44,8 +45,18 @@ def plan_overlap(
     cols_file1: tuple[int, ...],
     cols_file2: tuple[int, ...],
 ) -> OverlapPlan:
+    if rows_1 <= 0 or rows_2 <= 0:
+        raise ValueError("rows_1 and rows_2 must be positive")
+    if not (0 <= column_overlap <= 1):
+        raise ValueError("column_overlap must be between 0 and 1")
+    if not (0 <= row_overlap <= 1):
+        raise ValueError("row_overlap must be between 0 and 1")
+
     n_shared_cols = round(column_overlap * tax_cols)
     n_shared_rows = round(row_overlap * rows_1)
+    if n_shared_rows > rows_1 or n_shared_rows > rows_2:
+        raise ValueError("n_shared_rows exceeds row counts")
+
     if len(cols_file1) != tax_cols or len(cols_file2) != tax_cols:
         raise ValueError("cols_file1/cols_file2 must each have length tax_cols")
     if len(set(cols_file1) & set(cols_file2)) != n_shared_cols:
@@ -75,7 +86,14 @@ def sample_tax_columns(
     column_overlap: float,
     rng: random.Random,
 ) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    if tax_cols <= 0:
+        raise ValueError("tax_cols must be positive")
+    if not (0 <= column_overlap <= 1):
+        raise ValueError("column_overlap must be between 0 and 1")
+
     n_shared = round(column_overlap * tax_cols)
+    if n_shared > tax_cols:
+        raise ValueError("n_shared exceeds tax_cols")
     n_unique = 2 * tax_cols - n_shared
     if len(species_pool) < n_unique:
         raise ValueError(
