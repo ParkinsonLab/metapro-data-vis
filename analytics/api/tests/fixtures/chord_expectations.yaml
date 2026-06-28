@@ -48,14 +48,14 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
-  - Staphylococcus aureus
-  - Staphylococcus epidermidis
-  - Mammaliicoccus sciuri
-  - Bacillus sp. b107A(2010)
-  - Lactobacillus sp. 100-5
-  - Pectinatus frisingensis
-  - Clavibacter sp. OL-4
   - Bacteria
+  - Clavibacter sp. OL-4
+  - Pectinatus frisingensis
+  - Lactobacillus sp. 100-5
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus epidermidis
+  - Staphylococcus aureus
   - gap_3
 - case_id: species_pathway
   tax_level: species
@@ -101,14 +101,14 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
-  - Staphylococcus aureus
-  - Staphylococcus epidermidis
-  - Mammaliicoccus sciuri
-  - Bacillus sp. b107A(2010)
-  - Lactobacillus sp. 100-5
-  - Pectinatus frisingensis
-  - Clavibacter sp. OL-4
   - Bacteria
+  - Clavibacter sp. OL-4
+  - Pectinatus frisingensis
+  - Lactobacillus sp. 100-5
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus epidermidis
+  - Staphylococcus aureus
   - gap_3
 - case_id: species_superpathway
   tax_level: species
@@ -150,14 +150,14 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Staphylococcus aureus
-  - Staphylococcus epidermidis
-  - Mammaliicoccus sciuri
-  - Bacillus sp. b107A(2010)
-  - Lactobacillus sp. 100-5
-  - Pectinatus frisingensis
-  - Clavibacter sp. OL-4
   - Bacteria
+  - Clavibacter sp. OL-4
+  - Pectinatus frisingensis
+  - Lactobacillus sp. 100-5
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus epidermidis
+  - Staphylococcus aureus
   - gap_3
 - case_id: genus_pathway_node
   tax_level: genus
@@ -204,13 +204,13 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
-  - Staphylococcus
-  - Mammaliicoccus
-  - Bacillus
-  - Lactobacillus
-  - Pectinatus
-  - Clavibacter
   - Bacteria
+  - Clavibacter
+  - Pectinatus
+  - Lactobacillus
+  - Bacillus
+  - Mammaliicoccus
+  - Staphylococcus
   - gap_3
 - case_id: genus_pathway
   tax_level: genus
@@ -253,13 +253,13 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
-  - Staphylococcus
-  - Mammaliicoccus
-  - Bacillus
-  - Lactobacillus
-  - Pectinatus
-  - Clavibacter
   - Bacteria
+  - Clavibacter
+  - Pectinatus
+  - Lactobacillus
+  - Bacillus
+  - Mammaliicoccus
+  - Staphylococcus
   - gap_3
 - case_id: genus_superpathway
   tax_level: genus
@@ -298,13 +298,13 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Staphylococcus
-  - Mammaliicoccus
-  - Bacillus
-  - Lactobacillus
-  - Pectinatus
-  - Clavibacter
   - Bacteria
+  - Clavibacter
+  - Pectinatus
+  - Lactobacillus
+  - Bacillus
+  - Mammaliicoccus
+  - Staphylococcus
   - gap_3
 - case_id: family_pathway_node
   tax_level: family
@@ -348,12 +348,12 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
-  - Staphylococcaceae
-  - Bacillaceae
-  - Lactobacillaceae
-  - Selenomonadaceae
-  - Microbacteriaceae
   - Bacteria
+  - Microbacteriaceae
+  - Selenomonadaceae
+  - Lactobacillaceae
+  - Bacillaceae
+  - Staphylococcaceae
   - gap_3
 - case_id: family_pathway
   tax_level: family
@@ -393,12 +393,12 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
-  - Staphylococcaceae
-  - Bacillaceae
-  - Lactobacillaceae
-  - Selenomonadaceae
-  - Microbacteriaceae
   - Bacteria
+  - Microbacteriaceae
+  - Selenomonadaceae
+  - Lactobacillaceae
+  - Bacillaceae
+  - Staphylococcaceae
   - gap_3
 - case_id: family_superpathway
   tax_level: family
@@ -434,12 +434,12 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Staphylococcaceae
-  - Bacillaceae
-  - Lactobacillaceae
-  - Selenomonadaceae
-  - Microbacteriaceae
   - Bacteria
+  - Microbacteriaceae
+  - Selenomonadaceae
+  - Lactobacillaceae
+  - Bacillaceae
+  - Staphylococcaceae
   - gap_3
 - case_id: order_pathway_node
   tax_level: order
@@ -480,11 +480,11 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
-  - Caryophanales
-  - Lactobacillales
-  - Selenomonadales
-  - Micrococcales
   - Bacteria
+  - Micrococcales
+  - Selenomonadales
+  - Lactobacillales
+  - Caryophanales
   - gap_3
 - case_id: order_pathway
   tax_level: order
@@ -521,11 +521,11 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
-  - Caryophanales
-  - Lactobacillales
-  - Selenomonadales
-  - Micrococcales
   - Bacteria
+  - Micrococcales
+  - Selenomonadales
+  - Lactobacillales
+  - Caryophanales
   - gap_3
 - case_id: order_superpathway
   tax_level: order
@@ -558,11 +558,11 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Caryophanales
-  - Lactobacillales
-  - Selenomonadales
-  - Micrococcales
   - Bacteria
+  - Micrococcales
+  - Selenomonadales
+  - Lactobacillales
+  - Caryophanales
   - gap_3
 - case_id: class_pathway_node
   tax_level: class
@@ -600,10 +600,10 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
-  - Bacilli
-  - Negativicutes
-  - Actinomycetes
   - Bacteria
+  - Actinomycetes
+  - Negativicutes
+  - Bacilli
   - gap_3
 - case_id: class_pathway
   tax_level: class
@@ -637,10 +637,10 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
-  - Bacilli
-  - Negativicutes
-  - Actinomycetes
   - Bacteria
+  - Actinomycetes
+  - Negativicutes
+  - Bacilli
   - gap_3
 - case_id: class_superpathway
   tax_level: class
@@ -670,10 +670,10 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Bacilli
-  - Negativicutes
-  - Actinomycetes
   - Bacteria
+  - Actinomycetes
+  - Negativicutes
+  - Bacilli
   - gap_3
 - case_id: phylum_pathway_node
   tax_level: phylum
@@ -708,9 +708,9 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
-  - Bacillota
-  - Actinomycetota
   - Bacteria
+  - Actinomycetota
+  - Bacillota
   - gap_3
 - case_id: phylum_pathway
   tax_level: phylum
@@ -741,9 +741,9 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
-  - Bacillota
-  - Actinomycetota
   - Bacteria
+  - Actinomycetota
+  - Bacillota
   - gap_3
 - case_id: phylum_superpathway
   tax_level: phylum
@@ -770,9 +770,9 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Bacillota
-  - Actinomycetota
   - Bacteria
+  - Actinomycetota
+  - Bacillota
   - gap_3
 - case_id: kingdom_pathway_node
   tax_level: kingdom
@@ -804,8 +804,8 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
-  - Bacillati
   - Bacteria
+  - Bacillati
   - gap_3
 - case_id: kingdom_pathway
   tax_level: kingdom
@@ -833,8 +833,8 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
-  - Bacillati
   - Bacteria
+  - Bacillati
   - gap_3
 - case_id: kingdom_superpathway
   tax_level: kingdom
@@ -858,8 +858,8 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Bacillati
   - Bacteria
+  - Bacillati
   - gap_3
 chord_filtered:
 - case_id: taxon_filter_focal_species
@@ -903,9 +903,9 @@ chord_filtered:
   - gap_1
   - Energy metabolism
   - gap_2
-  - Bacillota
-  - Actinomycetota
   - Bacteria
+  - Actinomycetota
+  - Bacillota
   - gap_3
   selected_ann_cat: Energy metabolism
 edge_cases:
@@ -934,9 +934,9 @@ edge_cases:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Bacillota
-  - Actinomycetota
   - Bacteria
+  - Actinomycetota
+  - Bacillota
   - gap_3
 - case_id: unclassified_tax_snapshot
   tax_level: phylum
@@ -963,9 +963,9 @@ edge_cases:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Bacillota
-  - Actinomycetota
   - Bacteria
+  - Actinomycetota
+  - Bacillota
   - gap_3
 - case_id: fallback_species_request
   tax_level: species
@@ -1007,12 +1007,12 @@ edge_cases:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
-  - Staphylococcus aureus
-  - Staphylococcus epidermidis
-  - Mammaliicoccus sciuri
-  - Bacillus sp. b107A(2010)
-  - Lactobacillus sp. 100-5
-  - Pectinatus frisingensis
-  - Clavibacter sp. OL-4
   - Bacteria
+  - Clavibacter sp. OL-4
+  - Pectinatus frisingensis
+  - Lactobacillus sp. 100-5
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus epidermidis
+  - Staphylococcus aureus
   - gap_3

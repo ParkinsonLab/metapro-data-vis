@@ -149,8 +149,8 @@ def test_phylum_rank_tax_order_by_abundance_not_alphabetical(fake_rpkm_db):
     )
     gap2 = out["index"].index("gap_2")
     tax_labels = out["index"][gap2 + 1 : -1]
-    # Alphabetical would start with Actinomycetota; abundance sort puts Bacillota first
-    assert tax_labels[0] == "Bacillota"
+    # Most abundant phylum sits at the top of the tax arc (last in index, before gap_3).
+    assert tax_labels[-1] == "Bacillota"
     assert tax_labels != sorted(tax_labels)
 
 

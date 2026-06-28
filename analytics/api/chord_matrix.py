@@ -20,6 +20,9 @@ def build_chord_matrix(
 ) -> dict:
     ann_cats = _apply_order({ann for ann, _, _ in pairs}, ann_order)
     tax_cats = _apply_order({tax for _, tax, _ in pairs}, tax_order)
+    # D3 chord lays out index clockwise from 12 o'clock; the tax arc starts near
+    # the bottom (after ann labels). Reverse so highest-priority labels sit at top.
+    tax_cats = list(reversed(tax_cats))
     index = ["gap_1", *ann_cats, "gap_2", *tax_cats, "gap_3"]
     n = len(index)
     pos = {name: i for i, name in enumerate(index)}

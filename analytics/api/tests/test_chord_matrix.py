@@ -38,7 +38,7 @@ def test_apply_order_uses_explicit_tax_order():
     pairs = [("A", "tax_b", 1.0), ("A", "tax_a", 1.0)]
     out = build_chord_matrix(pairs, tax_order=["tax_b", "tax_a"])
     tax_section = out["index"][out["index"].index("gap_2") + 1 : -1]
-    assert tax_section == ["tax_b", "tax_a"]
+    assert tax_section == ["tax_a", "tax_b"]
 
 
 def test_apply_order_uses_explicit_ann_order():
@@ -55,7 +55,7 @@ def test_apply_order_none_falls_back_to_sorted():
     ann_section = out["index"][1 : out["index"].index("gap_2")]
     tax_section = out["index"][out["index"].index("gap_2") + 1 : -1]
     assert ann_section == ["A", "B"]
-    assert tax_section == ["a", "z"]
+    assert tax_section == ["z", "a"]
 
 
 def test_apply_order_appends_extra_labels_not_in_list():
