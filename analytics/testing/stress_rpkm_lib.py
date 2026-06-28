@@ -238,9 +238,18 @@ def validate_tsv(
                     nonzero += 1
     if rows != expected_rows:
         raise ValueError(f"expected {expected_rows} rows, got {rows}")
+    ec_pool_size = len(ec_pool)
+    if expected_rows >= ec_pool_size and len(distinct_ecs) != ec_pool_size:
+        raise ValueError(
+            f"expected {ec_pool_size} distinct ECs when rows >= pool size, "
+            f"got {len(distinct_ecs)} in {path}"
+        )
     rate = nonzero / total_cells if total_cells else 0.0
-    if expected_rows > 100 and abs(rate - density) > 0.05:
-        raise ValueError(f"nonzero rate {rate:.3f} outside tolerance for density {density}")
+    tolerance = 0.01 if expected_rows >= 100 else 0.15
+    if abs(rate - density) > tolerance:
+        raise ValueError(
+            f"nonzero rate {rate:.3f} outside tolerance {tolerance} for density {density}"
+        )
     body = path.read_bytes()
     return {
         "rows": rows,

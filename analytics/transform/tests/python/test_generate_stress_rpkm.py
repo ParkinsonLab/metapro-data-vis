@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import random
 import subprocess
 import sys
 from pathlib import Path
 
+import duckdb
 import pytest
 
 from testing.stress_rpkm_lib import (
@@ -217,4 +219,49 @@ def test_cli_mini_generation(tmp_path):
     assert result.returncode == 0, result.stderr
     assert (out_dir / "stress_rpkm_1.tsv").exists()
     assert (out_dir / "stress_rpkm_2.tsv").exists()
-    assert (out_dir / "stress_rpkm_manifest.json").exists()
+    manifest_path = out_dir / "stress_rpkm_manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["files"][0]["rows"] == 50
+    assert manifest["files"][1]["rows"] == 60
+    assert manifest["overlap"]["shared_columns"] == 8
+    assert manifest["overlap"]["shared_rows"] == 24
+
+
+@pytest.mark.skipif(not _parquet_available(), reason="reference parquet missing")
+def test_tax_headers_resolve(tmp_path):
+    parquet_dir = _repo_root() / "resources/db/parquet"
+    species, ecs = load_pools(parquet_dir, DEFAULT_KINGDOM_TAX_IDS)
+    rng = random.Random(0)
+    cols_1, _cols_2 = sample_tax_columns(
+        species, tax_cols=2, column_overlap=0.5, rng=rng
+    )
+    out = tmp_path / "mini.tsv"
+    with out.open("w", encoding="utf-8", newline="") as f:
+        write_tsv_header(f, cols_1)
+        row = build_row(
+            gene_id="stress_g_000000001",
+            ec=ecs[0],
+            tax_cols=cols_1,
+            density=1.0,
+            rng=rng,
+        )
+        f.write(row_to_tsv_line(row, cols_1) + "\n")
+
+    parents_path = parquet_dir / "parents.parquet"
+    parents_sql = parents_path.as_posix().replace("'", "''")
+    conn = duckdb.connect()
+    try:
+        conn.execute(
+            f"CREATE OR REPLACE VIEW parents AS SELECT * FROM read_parquet('{parents_sql}')"
+        )
+        found = {
+            int(r[0])
+            for r in conn.execute(
+                "SELECT tax_id FROM parents WHERE tax_id IN (SELECT unnest(?::BIGINT[]))",
+                [list(cols_1)],
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+    assert found == set(cols_1)
