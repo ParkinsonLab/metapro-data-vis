@@ -90,6 +90,84 @@ def _fetch_tax_order(conn, tax_level: str, ann_level: str) -> list[str]:
     return [r[0] for r in rows]
 
 
+def _fetch_ann_order(conn, tax_level: str, ann_level: str) -> list[str] | None:
+    if ann_level == "pathway_node":
+        return None
+
+    if not BRIDGE_EC_PATH.exists():
+        return None
+
+    conn.execute(
+        """
+        CREATE TEMP TABLE ann_level_totals AS
+        SELECT pathway_level, """
+        + PATHWAY_LABEL_SQL.replace("t.", "cf.")
+        + """ AS ann_label, SUM(value) AS total
+        FROM chord_prefix_rows cf
+        GROUP BY pathway_level, """
+        + PATHWAY_LABEL_SQL.replace("t.", "cf.")
+    )
+
+    label_sql = PATHWAY_LABEL_SQL.replace("t.", "cf.")
+
+    if ann_level == "superpathway":
+        conn.execute(
+            f"""
+            CREATE TEMP TABLE ann_label_totals_long AS
+            SELECT d.display_label, 'superpathway' AS anc_level, lt.total AS anc_total
+            FROM (
+                SELECT DISTINCT {label_sql} AS display_label
+                FROM chord_prefix_rows cf
+                WHERE cf.pathway_level = 'superpathway'
+                  AND cf.requested_rank = ?
+            ) d
+            JOIN ann_level_totals lt
+              ON lt.pathway_level = 'superpathway' AND lt.ann_label = d.display_label
+            """,
+            [tax_level],
+        )
+    elif ann_level == "pathway":
+        conn.execute(
+            f"""
+            CREATE TEMP TABLE ann_label_totals_long AS
+            SELECT d.display_label, 'superpathway' AS anc_level, lt.total AS anc_total
+            FROM (
+                SELECT DISTINCT {label_sql} AS display_label, b.superpathway_name
+                FROM chord_prefix_rows cf
+                LEFT JOIN bridge_ec b ON cf.ec_normalized = b.ec_normalized
+                WHERE cf.pathway_level = 'pathway' AND cf.requested_rank = ?
+            ) d
+            JOIN ann_level_totals lt
+              ON lt.pathway_level = 'superpathway' AND lt.ann_label = d.superpathway_name
+            UNION ALL
+            SELECT d.display_label, 'pathway' AS anc_level, lt.total AS anc_total
+            FROM (
+                SELECT DISTINCT {label_sql} AS display_label
+                FROM chord_prefix_rows cf
+                WHERE cf.pathway_level = 'pathway' AND cf.requested_rank = ?
+            ) d
+            JOIN ann_level_totals lt
+              ON lt.pathway_level = 'pathway' AND lt.ann_label = d.display_label
+            """,
+            [tax_level, tax_level],
+        )
+    else:
+        return None
+
+    rows = conn.execute(
+        """
+        SELECT display_label
+        FROM (
+            SELECT *
+            FROM ann_label_totals_long
+            PIVOT (MAX(anc_total) FOR anc_level IN ('superpathway', 'pathway'))
+        )
+        ORDER BY superpathway DESC NULLS LAST, pathway DESC NULLS LAST, display_label
+        """
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def _ann_predicate(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[str, list]:
     if ann_filter is None:
         return "TRUE", []
@@ -214,6 +292,9 @@ def build_chord_from_duckdb(
         rows = conn.execute(pair_sql, [tax_level, ann_level]).fetchall()
         pairs = [(r[0], r[1], float(r[2])) for r in rows]
         tax_order = _fetch_tax_order(conn, tax_level, ann_level)
-        return build_chord_matrix(pairs, tax_order=tax_order or None)
+        ann_order = _fetch_ann_order(conn, tax_level, ann_level)
+        return build_chord_matrix(
+            pairs, tax_order=tax_order or None, ann_order=ann_order
+        )
     finally:
         conn.close()

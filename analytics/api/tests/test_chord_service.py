@@ -116,3 +116,31 @@ def test_phylum_rank_tax_order_by_abundance_not_alphabetical(fake_rpkm_db):
     # Alphabetical would start with Actinomycetota; abundance sort puts Bacillota first
     assert tax_labels[0] == "Bacillota"
     assert tax_labels != sorted(tax_labels)
+
+
+@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
+def test_pathway_level_ann_order_groups_by_superpathway(fake_rpkm_db):
+    out = build_chord_from_duckdb(
+        sample_id="fake_rpkm",
+        tax_level="phylum",
+        ann_level="pathway",
+        ann_filter=None,
+        taxon_filter=None,
+    )
+    gap2 = out["index"].index("gap_2")
+    ann_labels = out["index"][1:gap2]
+    assert ann_labels != sorted(ann_labels)
+
+
+@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
+def test_pathway_node_ann_order_stays_alphabetical(fake_rpkm_db):
+    out = build_chord_from_duckdb(
+        sample_id="fake_rpkm",
+        tax_level="species",
+        ann_level="pathway_node",
+        ann_filter=None,
+        taxon_filter=None,
+    )
+    gap2 = out["index"].index("gap_2")
+    ann_labels = out["index"][1:gap2]
+    assert ann_labels == sorted(ann_labels)
