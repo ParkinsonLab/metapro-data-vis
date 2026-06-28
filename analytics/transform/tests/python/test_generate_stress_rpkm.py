@@ -7,10 +7,14 @@ import pytest
 
 from testing.stress_rpkm_lib import (
     DEFAULT_KINGDOM_TAX_IDS,
+    build_row,
     ec_for_row_index,
     load_pools,
     plan_overlap,
+    row_to_tsv_line,
     sample_tax_columns,
+    validate_tsv,
+    write_tsv_header,
 )
 
 
@@ -124,6 +128,46 @@ def test_sample_tax_columns_raises_when_column_overlap_too_high():
 
 def test_default_kingdom_count():
     assert len(DEFAULT_KINGDOM_TAX_IDS) == 8
+
+
+def test_build_row_sums_rpkm_and_formats_zeros():
+    cols = (100, 200)
+    rng = random.Random(1)
+    row = build_row(
+        gene_id="stress_g_000000001",
+        ec="1.6.5.9",
+        tax_cols=cols,
+        density=0.5,
+        rng=rng,
+    )
+    assert row["GeneID"] == "stress_g_000000001"
+    assert row["EC#"] == "1.6.5.9"
+    assert row["Unclassified"] == "0.000000"
+    tax_sum = sum(float(row[str(c)]) for c in cols)
+    assert float(row["RPKM"]) == pytest.approx(tax_sum)
+
+
+def test_validate_tsv_mini(tmp_path):
+    out = tmp_path / "mini.tsv"
+    cols = (1280, 1282)
+    with out.open("w", encoding="utf-8", newline="") as f:
+        write_tsv_header(f, cols)
+        rng = random.Random(0)
+        for i in range(3):
+            row = build_row(
+                gene_id=f"g{i}",
+                ec="1.6.5.9",
+                tax_cols=cols,
+                density=1.0,
+                rng=rng,
+            )
+            f.write(row_to_tsv_line(row, cols) + "\n")
+    report = validate_tsv(
+        out, expected_rows=3, tax_cols=cols, density=1.0, ec_pool={"1.6.5.9"}
+    )
+    assert report["rows"] == 3
+    assert report["distinct_ecs"] == 1
+    assert report["nonzero_rate"] == pytest.approx(1.0, abs=0.01)
 
 
 @pytest.mark.skipif(not _parquet_available(), reason="reference parquet missing")

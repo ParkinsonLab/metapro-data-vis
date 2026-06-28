@@ -1,6 +1,9 @@
 # analytics/testing/stress_rpkm_lib.py
 from __future__ import annotations
 
+import csv
+import hashlib
+import json
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -166,3 +169,87 @@ def ec_for_row_index(row_index: int, ecs_shuffled: list[str]) -> str:
     if row_index < n:
         return ecs_shuffled[row_index]
     return ecs_shuffled[(row_index - n) % n]
+
+
+def write_tsv_header(fp, tax_cols: tuple[int, ...]) -> None:
+    header = list(FIXED_COLUMNS) + [str(t) for t in tax_cols]
+    fp.write("\t".join(header) + "\n")
+
+
+def build_row(
+    *,
+    gene_id: str,
+    ec: str,
+    tax_cols: tuple[int, ...],
+    density: float,
+    rng: random.Random,
+) -> dict[str, str]:
+    row: dict[str, str] = {
+        "GeneID": gene_id,
+        "Length": str(rng.randint(50, 2000)),
+        "Reads": str(rng.randint(1, 50)),
+        "EC#": ec,
+        "Unclassified": "0.000000",
+    }
+    tax_sum = 0.0
+    for tax_id in tax_cols:
+        key = str(tax_id)
+        if rng.random() < density:
+            val = rng.uniform(0.01, 10.0)
+            row[key] = f"{val:.6f}"
+            tax_sum += val
+        else:
+            row[key] = "0.000000"
+    row["RPKM"] = f"{tax_sum:.6f}"
+    return row
+
+
+def row_to_tsv_line(row: dict[str, str], tax_cols: tuple[int, ...]) -> str:
+    fields = [row[c] for c in FIXED_COLUMNS] + [row[str(t)] for t in tax_cols]
+    return "\t".join(fields)
+
+
+def validate_tsv(
+    path: Path,
+    *,
+    expected_rows: int,
+    tax_cols: tuple[int, ...],
+    density: float,
+    ec_pool: set[str],
+) -> dict:
+    nonzero = 0
+    total_cells = 0
+    distinct_ecs: set[str] = set()
+    rows = 0
+    with path.open(encoding="utf-8") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        header_tax = [h for h in reader.fieldnames or [] if h not in FIXED_COLUMNS]
+        if tuple(int(h) for h in header_tax) != tax_cols:
+            raise ValueError(f"tax column mismatch in {path}")
+        for record in reader:
+            rows += 1
+            ec = record["EC#"]
+            distinct_ecs.add(ec)
+            if ec not in ec_pool:
+                raise ValueError(f"unmapped EC {ec!r} in {path}")
+            for h in header_tax:
+                total_cells += 1
+                if float(record[h]) > 0:
+                    nonzero += 1
+    if rows != expected_rows:
+        raise ValueError(f"expected {expected_rows} rows, got {rows}")
+    rate = nonzero / total_cells if total_cells else 0.0
+    if expected_rows > 100 and abs(rate - density) > 0.05:
+        raise ValueError(f"nonzero rate {rate:.3f} outside tolerance for density {density}")
+    body = path.read_bytes()
+    return {
+        "rows": rows,
+        "distinct_ecs": len(distinct_ecs),
+        "nonzero_rate": rate,
+        "bytes": len(body),
+        "sha256": hashlib.sha256(body).hexdigest(),
+    }
+
+
+def write_manifest(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
