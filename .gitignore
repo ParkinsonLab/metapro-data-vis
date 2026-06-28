@@ -37,3 +37,7 @@ analytics/transform/target/
 analytics/transform/dbt_packages/
 analytics/transform/logs/
 analytics/transform/**/*.duckdb
+
+# stress RPKM generator outputs (also under resources/*)
+resources/example_data/stress_rpkm_*.tsv
+resources/example_data/stress_rpkm_manifest.json
