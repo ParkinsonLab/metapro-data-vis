@@ -175,13 +175,13 @@ SELECT
     ec_normalized,
     value
 FROM int_tax_rollup_resolved t
-WHERE requested_rank IN (…)          -- ranks_up_to(tax_level): coarser + display rank only
-  AND pathway_level IN (…)           -- ann_levels_up_to(ann_level): coarser + display level only
+WHERE requested_rank IN (…)          -- ranks_from_root_to(tax_level): coarser + display rank only
+  AND pathway_level IN (…)           -- ann_levels_from_root_to(ann_level): coarser + display level only
   AND (<tax_subquery>)
   AND (<ann_sql>)
 ```
 
-**Filter scope:** One shared temp table per request. `requested_rank` is restricted to `ranks_up_to(tax_level)`; `pathway_level` is restricted to `ann_levels_up_to(ann_level)`. Both sort axes and the pair query read from this table — finer ranks/levels are never loaded.
+**Filter scope:** One shared temp table per request. `requested_rank` is restricted to `ranks_from_root_to(tax_level)`; `pathway_level` is restricted to `ann_levels_from_root_to(ann_level)`. Both sort axes and the pair query read from this table — finer ranks/levels are never loaded.
 
 **Pair query reads:** `chord_prefix_rows WHERE requested_rank = :tax_level AND pathway_level = :ann_level` with existing `GROUP BY pathway_key, resolved_tax_id, labels`.
 

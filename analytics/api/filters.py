@@ -16,13 +16,13 @@ TAX_RANK_ORDER = (
 ANN_LEVEL_ORDER = ("superpathway", "pathway", "pathway_node")
 
 
-def ranks_up_to(tax_level: str) -> tuple[str, ...]:
+def ranks_from_root_to(tax_level: str) -> tuple[str, ...]:
     validate_tax_level(tax_level)
     idx = TAX_RANK_ORDER.index(tax_level)
     return TAX_RANK_ORDER[: idx + 1]
 
 
-def ann_levels_up_to(ann_level: str) -> tuple[str, ...]:
+def ann_levels_from_root_to(ann_level: str) -> tuple[str, ...]:
     validate_ann_level(ann_level)
     idx = ANN_LEVEL_ORDER.index(ann_level)
     return ANN_LEVEL_ORDER[: idx + 1]

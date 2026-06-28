@@ -1,26 +1,26 @@
 from api.filters import (
-    ann_levels_up_to,
+    ann_levels_from_root_to,
     normalise_ann_filter,
     normalise_taxon_filter,
-    ranks_up_to,
+    ranks_from_root_to,
     sample_id_from_names,
 )
 
 
-def test_ranks_up_to_kingdom():
-    assert ranks_up_to("kingdom") == ("kingdom",)
+def test_ranks_from_root_to_kingdom():
+    assert ranks_from_root_to("kingdom") == ("kingdom",)
 
 
-def test_ranks_up_to_class():
-    assert ranks_up_to("class") == (
+def test_ranks_from_root_to_class():
+    assert ranks_from_root_to("class") == (
         "kingdom",
         "phylum",
         "class",
     )
 
 
-def test_ranks_up_to_species():
-    assert ranks_up_to("species") == (
+def test_ranks_from_root_to_species():
+    assert ranks_from_root_to("species") == (
         "kingdom",
         "phylum",
         "class",
@@ -31,16 +31,16 @@ def test_ranks_up_to_species():
     )
 
 
-def test_ann_levels_up_to_superpathway():
-    assert ann_levels_up_to("superpathway") == ("superpathway",)
+def test_ann_levels_from_root_to_superpathway():
+    assert ann_levels_from_root_to("superpathway") == ("superpathway",)
 
 
-def test_ann_levels_up_to_pathway():
-    assert ann_levels_up_to("pathway") == ("superpathway", "pathway")
+def test_ann_levels_from_root_to_pathway():
+    assert ann_levels_from_root_to("pathway") == ("superpathway", "pathway")
 
 
-def test_ann_levels_up_to_pathway_node():
-    assert ann_levels_up_to("pathway_node") == (
+def test_ann_levels_from_root_to_pathway_node():
+    assert ann_levels_from_root_to("pathway_node") == (
         "superpathway",
         "pathway",
         "pathway_node",

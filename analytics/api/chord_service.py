@@ -5,7 +5,7 @@ from pathlib import Path
 import duckdb
 
 from api.chord_matrix import build_chord_matrix
-from api.filters import ann_levels_up_to, ranks_up_to, validate_ann_level, validate_tax_level
+from api.filters import ann_levels_from_root_to, ranks_from_root_to, validate_ann_level, validate_tax_level
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
@@ -232,8 +232,8 @@ def build_chord_from_duckdb(
                 f"int_tax_rollup_resolved not materialized for sample: {sample_id}"
             )
 
-        rank_in = _sql_in_list(ranks_up_to(tax_level))
-        level_in = _sql_in_list(ann_levels_up_to(ann_level))
+        rank_in = _sql_in_list(ranks_from_root_to(tax_level))
+        level_in = _sql_in_list(ann_levels_from_root_to(ann_level))
 
         if BRIDGE_EC_PATH.exists():
             conn.execute(

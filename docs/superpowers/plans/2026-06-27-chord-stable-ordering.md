@@ -46,35 +46,35 @@ No frontend changes (§5 spec).
 
 ```python
 # analytics/api/tests/test_filters.py
-from api.filters import ann_levels_up_to, ranks_up_to
+from api.filters import ann_levels_from_root_to, ranks_from_root_to
 
 
-def test_ranks_up_to_kingdom():
-    assert ranks_up_to("kingdom") == ("kingdom",)
+def test_ranks_from_root_to_kingdom():
+    assert ranks_from_root_to("kingdom") == ("kingdom",)
 
 
-def test_ranks_up_to_class():
-    assert ranks_up_to("class") == (
+def test_ranks_from_root_to_class():
+    assert ranks_from_root_to("class") == (
         "kingdom", "phylum", "class",
     )
 
 
-def test_ranks_up_to_species():
-    assert ranks_up_to("species") == (
+def test_ranks_from_root_to_species():
+    assert ranks_from_root_to("species") == (
         "kingdom", "phylum", "class", "order", "family", "genus", "species",
     )
 
 
-def test_ann_levels_up_to_superpathway():
-    assert ann_levels_up_to("superpathway") == ("superpathway",)
+def test_ann_levels_from_root_to_superpathway():
+    assert ann_levels_from_root_to("superpathway") == ("superpathway",)
 
 
-def test_ann_levels_up_to_pathway():
-    assert ann_levels_up_to("pathway") == ("superpathway", "pathway")
+def test_ann_levels_from_root_to_pathway():
+    assert ann_levels_from_root_to("pathway") == ("superpathway", "pathway")
 
 
-def test_ann_levels_up_to_pathway_node():
-    assert ann_levels_up_to("pathway_node") == (
+def test_ann_levels_from_root_to_pathway_node():
+    assert ann_levels_from_root_to("pathway_node") == (
         "superpathway", "pathway", "pathway_node",
     )
 ```
@@ -87,7 +87,7 @@ Run from `analytics/`:
 uv run pytest api/tests/test_filters.py -v
 ```
 
-Expected: FAIL — `ImportError: cannot import name 'ranks_up_to'`
+Expected: FAIL — `ImportError: cannot import name 'ranks_from_root_to'`
 
 - [ ] **Step 3: Implement helpers**
 
@@ -100,13 +100,13 @@ TAX_RANK_ORDER = (
 ANN_LEVEL_ORDER = ("superpathway", "pathway", "pathway_node")
 
 
-def ranks_up_to(tax_level: str) -> tuple[str, ...]:
+def ranks_from_root_to(tax_level: str) -> tuple[str, ...]:
     validate_tax_level(tax_level)
     idx = TAX_RANK_ORDER.index(tax_level)
     return TAX_RANK_ORDER[: idx + 1]
 
 
-def ann_levels_up_to(ann_level: str) -> tuple[str, ...]:
+def ann_levels_from_root_to(ann_level: str) -> tuple[str, ...]:
     validate_ann_level(ann_level)
     idx = ANN_LEVEL_ORDER.index(ann_level)
     return ANN_LEVEL_ORDER[: idx + 1]
@@ -124,7 +124,7 @@ Expected: PASS (6 tests)
 
 ```bash
 git add analytics/api/filters.py analytics/api/tests/test_filters.py
-git commit -m "feat(chord): add ranks_up_to and ann_levels_up_to helpers"
+git commit -m "feat(chord): add ranks_from_root_to and ann_levels_from_root_to helpers"
 ```
 
 ---
@@ -285,7 +285,7 @@ Expected: PASS (baseline before refactor)
 
 In `analytics/api/chord_service.py`:
 
-1. Add imports: `ann_levels_up_to`, `ranks_up_to` from `api.filters`
+1. Add imports: `ann_levels_from_root_to`, `ranks_from_root_to` from `api.filters`
 2. Add `BRIDGE_TAX_PATH = REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet"`
 3. Replace inline pair SQL with temp-table pipeline (keep connection open through all queries):
 
@@ -298,8 +298,8 @@ def build_chord_from_duckdb(...) -> dict:
     # ... existing validation ...
     conn = duckdb.connect(str(db_file), read_only=True)
     try:
-        rank_in = _sql_in_list(ranks_up_to(tax_level))
-        level_in = _sql_in_list(ann_levels_up_to(ann_level))
+        rank_in = _sql_in_list(ranks_from_root_to(tax_level))
+        level_in = _sql_in_list(ann_levels_from_root_to(ann_level))
 
         if BRIDGE_EC_PATH.exists():
             conn.execute(
