@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import random
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -20,6 +22,10 @@ from testing.stress_rpkm_lib import (
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
+
+
+def _analytics_dir() -> Path:
+    return Path(__file__).resolve().parents[3]
 
 
 def _parquet_available() -> bool:
@@ -179,3 +185,36 @@ def test_load_pools_returns_expected_sizes():
     assert species == sorted(species)
     assert ecs == sorted(ecs)
     assert all("." in ec for ec in ecs)
+
+
+def test_cli_mini_generation(tmp_path):
+    if not _parquet_available():
+        pytest.skip("reference parquet missing")
+    parquet_dir = _repo_root() / "resources/db/parquet"
+    out_dir = tmp_path / "out"
+    script = _analytics_dir() / "transform/scripts/generate_stress_rpkm.py"
+    cmd = [
+        sys.executable,
+        str(script),
+        "--output-dir",
+        str(out_dir),
+        "--raw-parquet-dir",
+        str(parquet_dir),
+        "--rows-1",
+        "50",
+        "--rows-2",
+        "60",
+        "--tax-cols",
+        "10",
+        "--density",
+        "0.5",
+        "--column-overlap",
+        "0.75",
+        "--row-overlap",
+        "0.47",
+    ]
+    result = subprocess.run(cmd, cwd=_analytics_dir(), capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert (out_dir / "stress_rpkm_1.tsv").exists()
+    assert (out_dir / "stress_rpkm_2.tsv").exists()
+    assert (out_dir / "stress_rpkm_manifest.json").exists()
