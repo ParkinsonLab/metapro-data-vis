@@ -80,3 +80,23 @@ def test_chord_edge_case_pairs(case, fake_rpkm_db):
     assert_pairs_close(actual, case["pairs"])
     if case["case_id"] == "unmapped_ec_snapshot":
         assert any(p[0] == "Unmapped EC" for p in actual)
+
+
+@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(c, id=c["case_id"])
+        for c in load_chord_expectations()["chord_unfiltered"]
+        if c["case_id"] in ("species_pathway", "phylum_superpathway")
+    ],
+)
+def test_chord_pairs_unchanged_after_prefix_refactor(case, fake_rpkm_db):
+    out = build_chord_from_duckdb(
+        sample_id="fake_rpkm",
+        tax_level=case["tax_level"],
+        ann_level=case["ann_level"],
+        ann_filter=normalise_ann_filter(case.get("selected_ann_cat"), case["ann_level"]),
+        taxon_filter=normalise_taxon_filter(case.get("selected_taxon")),
+    )
+    assert_pairs_close(extract_chord_pairs(out), case["pairs"])
