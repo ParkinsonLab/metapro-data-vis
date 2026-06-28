@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import random
+from pathlib import Path
 
 import pytest
 
 from testing.stress_rpkm_lib import (
     DEFAULT_KINGDOM_TAX_IDS,
     ec_for_row_index,
+    load_pools,
     plan_overlap,
     sample_tax_columns,
 )
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[4]
+
+
+def _parquet_available() -> bool:
+    d = _repo_root() / "resources/db/parquet"
+    return (d / "parents.parquet").exists() and (d / "pathway_nodes.parquet").exists()
 
 
 def test_plan_overlap_defaults():
@@ -113,3 +124,14 @@ def test_sample_tax_columns_raises_when_column_overlap_too_high():
 
 def test_default_kingdom_count():
     assert len(DEFAULT_KINGDOM_TAX_IDS) == 8
+
+
+@pytest.mark.skipif(not _parquet_available(), reason="reference parquet missing")
+def test_load_pools_returns_expected_sizes():
+    parquet_dir = _repo_root() / "resources/db/parquet"
+    species, ecs = load_pools(parquet_dir, DEFAULT_KINGDOM_TAX_IDS)
+    assert len(species) >= 430_000
+    assert len(ecs) == 3867
+    assert species == sorted(species)
+    assert ecs == sorted(ecs)
+    assert all("." in ec for ec in ecs)

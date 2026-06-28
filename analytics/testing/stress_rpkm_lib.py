@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from pathlib import Path
+
+import duckdb
 
 DEFAULT_KINGDOM_TAX_IDS: tuple[int, ...] = (
     1783272,   # Bacillati
@@ -23,6 +26,54 @@ FIXED_COLUMNS: tuple[str, ...] = (
     "RPKM",
     "Unclassified",
 )
+
+SPECIES_SQL = """
+    SELECT p.tax_id
+    FROM parents p
+    WHERE p.t_kingdom IN (SELECT unnest(?::BIGINT[]))
+      AND p.t_species = p.tax_id
+    ORDER BY p.tax_id
+"""
+
+EC_SQL = """
+    SELECT DISTINCT n.name AS ec_normalized
+    FROM pathway_nodes n
+    WHERE regexp_matches(n.name, '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$')
+      AND n.name != '0.0.0.0'
+    ORDER BY ec_normalized
+"""
+
+
+def load_pools(
+    raw_parquet_dir: Path,
+    kingdom_tax_ids: tuple[int, ...] = DEFAULT_KINGDOM_TAX_IDS,
+) -> tuple[list[int], list[str]]:
+    parents_path = raw_parquet_dir / "parents.parquet"
+    nodes_path = raw_parquet_dir / "pathway_nodes.parquet"
+    if not parents_path.exists():
+        raise FileNotFoundError(f"missing {parents_path}")
+    if not nodes_path.exists():
+        raise FileNotFoundError(f"missing {nodes_path}")
+
+    parents_sql = parents_path.as_posix().replace("'", "''")
+    nodes_sql = nodes_path.as_posix().replace("'", "''")
+
+    conn = duckdb.connect()
+    try:
+        conn.execute(
+            f"CREATE OR REPLACE VIEW parents AS SELECT * FROM read_parquet('{parents_sql}')"
+        )
+        conn.execute(
+            f"CREATE OR REPLACE VIEW pathway_nodes AS SELECT * FROM read_parquet('{nodes_sql}')"
+        )
+        species = [
+            int(r[0])
+            for r in conn.execute(SPECIES_SQL, [list(kingdom_tax_ids)]).fetchall()
+        ]
+        ecs = [str(r[0]) for r in conn.execute(EC_SQL).fetchall()]
+    finally:
+        conn.close()
+    return species, ecs
 
 
 @dataclass(frozen=True)
