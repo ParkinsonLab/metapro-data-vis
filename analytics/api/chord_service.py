@@ -29,6 +29,67 @@ def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
+def _fetch_tax_order(conn, tax_level: str, ann_level: str) -> list[str]:
+    if not BRIDGE_TAX_PATH.exists():
+        return []
+
+    conn.execute(
+        f"CREATE TEMP TABLE bridge_tax AS "
+        f"SELECT source_tax_id, requested_rank, resolved_tax_label "
+        f"FROM read_parquet('{BRIDGE_TAX_PATH.as_posix()}')"
+    )
+    conn.execute(
+        """
+        CREATE TEMP TABLE rank_totals AS
+        SELECT requested_rank, resolved_tax_label, SUM(value) AS total
+        FROM chord_prefix_rows
+        GROUP BY requested_rank, resolved_tax_label
+        """
+    )
+    conn.execute(
+        f"""
+        CREATE TEMP TABLE tax_label_totals_long AS
+        SELECT
+            d.display_label,
+            b.requested_rank AS anc_rank,
+            rt.total AS anc_total
+        FROM (
+            SELECT DISTINCT source_tax_id, resolved_tax_label AS display_label
+            FROM chord_prefix_rows
+            WHERE requested_rank = ?
+              AND pathway_level = ?
+        ) d
+        JOIN bridge_tax b ON b.source_tax_id = d.source_tax_id
+        JOIN rank_totals rt
+          ON rt.requested_rank = b.requested_rank
+         AND rt.resolved_tax_label = b.resolved_tax_label
+        """,
+        [tax_level, ann_level],
+    )
+    rows = conn.execute(
+        """
+        SELECT display_label
+        FROM (
+            SELECT *
+            FROM tax_label_totals_long
+            PIVOT (MAX(anc_total) FOR anc_rank IN (
+                'kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'
+            ))
+        )
+        ORDER BY
+            kingdom DESC NULLS LAST,
+            phylum DESC NULLS LAST,
+            class DESC NULLS LAST,
+            "order" DESC NULLS LAST,
+            family DESC NULLS LAST,
+            genus DESC NULLS LAST,
+            species DESC NULLS LAST,
+            display_label
+        """
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def _ann_predicate(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[str, list]:
     if ann_filter is None:
         return "TRUE", []
@@ -152,6 +213,7 @@ def build_chord_from_duckdb(
         """
         rows = conn.execute(pair_sql, [tax_level, ann_level]).fetchall()
         pairs = [(r[0], r[1], float(r[2])) for r in rows]
-        return build_chord_matrix(pairs)
+        tax_order = _fetch_tax_order(conn, tax_level, ann_level)
+        return build_chord_matrix(pairs, tax_order=tax_order or None)
     finally:
         conn.close()

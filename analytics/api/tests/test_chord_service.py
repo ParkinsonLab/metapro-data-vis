@@ -100,3 +100,19 @@ def test_chord_pairs_unchanged_after_prefix_refactor(case, fake_rpkm_db):
         taxon_filter=normalise_taxon_filter(case.get("selected_taxon")),
     )
     assert_pairs_close(extract_chord_pairs(out), case["pairs"])
+
+
+@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
+def test_phylum_rank_tax_order_by_abundance_not_alphabetical(fake_rpkm_db):
+    out = build_chord_from_duckdb(
+        sample_id="fake_rpkm",
+        tax_level="phylum",
+        ann_level="superpathway",
+        ann_filter=None,
+        taxon_filter=None,
+    )
+    gap2 = out["index"].index("gap_2")
+    tax_labels = out["index"][gap2 + 1 : -1]
+    # Alphabetical would start with Actinomycetota; abundance sort puts Bacillota first
+    assert tax_labels[0] == "Bacillota"
+    assert tax_labels != sorted(tax_labels)
