@@ -19,6 +19,9 @@ type ChannelHandler = (value: unknown) => void
 
 const channelHandlers: Partial<Record<Channel, ChannelHandler>> = {}
 
+/** TEMPORARY: remove before merge — routes chord via Express → FastAPI DuckDB backend. */
+const CHORD_BACKEND_QUERY = '?backend=duckdb'
+
 export const registerChannelHandler = (channel: Channel, handler: ChannelHandler): void => {
   channelHandlers[channel] = handler
 }
@@ -31,7 +34,7 @@ const endpointFor = (channel: Channel): { method: string; url: string } => {
     overview: { method: 'POST', url: '/api/viz/overview' },
     counts: { method: 'POST', url: '/api/viz/counts' },
     krona: { method: 'POST', url: '/api/viz/krona' },
-    chord: { method: 'POST', url: '/api/viz/chord' },
+    chord: { method: 'POST', url: `/api/viz/chord${CHORD_BACKEND_QUERY}` },
     network: { method: 'POST', url: '/api/viz/network' },
     pathway_list: { method: 'POST', url: '/api/viz/pathway-list' }
   }

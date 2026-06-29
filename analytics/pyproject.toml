@@ -11,6 +11,9 @@ dependencies = [
     "dbt-core==1.12.0b1",
     "dbt-duckdb>=1.10.1",
     "mashumaro>=3.17,<3.18",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.28",
 ]
 
 [dependency-groups]
@@ -18,11 +21,12 @@ dev = [
     "pytest>=8.0",
     "numpy>=2.5.0",
     "pandas>=3.0.3",
+    "pyyaml>=6.0",
 ]
 
 [tool.uv]
 prerelease = "allow"
 
 [tool.pytest.ini_options]
-testpaths = ["exploration/scripts", "transform/tests/python"]
+testpaths = ["exploration/scripts", "transform/tests/python", "api/tests"]
 pythonpath = [".."]

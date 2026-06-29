@@ -69,3 +69,17 @@ DBT_DUCKDB_PATH=transform/runs/my_sample/sample.duckdb \
 ## Design spec
 
 `docs/superpowers/specs/2026-06-15-rpkm-transform-design.md`
+
+## Chord API (FastAPI sidecar)
+
+Requires `runs/{sample_id}/sample.duckdb` with `int_tax_rollup_resolved`.
+
+Run the chord API in a third terminal alongside `npm run dev` (Express + Vite):
+
+```bash
+# Terminal A — chord FastAPI sidecar (or: npm run dev:chord-api)
+cd analytics && uv run uvicorn api.main:app --port 8001
+
+# Terminal B — Express proxy
+curl -X POST 'http://localhost:3001/api/viz/chord?backend=duckdb' ...
+```

@@ -1,0 +1,694 @@
+sample_id: fake_rpkm
+chord_unfiltered:
+- case_id: species_pathway_node
+  tax_level: species
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 1.0
+- case_id: species_pathway
+  tax_level: species
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Staphylococcus aureus
+    - 1.0
+  - - Methane metabolism
+    - Staphylococcus aureus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - Oxidative phosphorylation
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - Oxidative phosphorylation
+    - Pectinatus frisingensis
+    - 1.0
+  - - Oxidative phosphorylation
+    - Staphylococcus aureus
+    - 2.0
+  - - Oxidative phosphorylation
+    - Staphylococcus epidermidis
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 1.0
+- case_id: species_superpathway
+  tax_level: species
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcus aureus
+    - 1.0
+  - - Energy metabolism
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - Energy metabolism
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - Energy metabolism
+    - Pectinatus frisingensis
+    - 1.0
+  - - Energy metabolism
+    - Staphylococcus aureus
+    - 3.0
+  - - Energy metabolism
+    - Staphylococcus epidermidis
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 1.0
+- case_id: genus_pathway_node
+  tax_level: genus
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus
+    - 2.0
+  - - 2.7.4.1
+    - Staphylococcus
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 1.0
+- case_id: genus_pathway
+  tax_level: genus
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Staphylococcus
+    - 1.0
+  - - Methane metabolism
+    - Staphylococcus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Clavibacter
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Mammaliicoccus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Pectinatus
+    - 1.0
+  - - Oxidative phosphorylation
+    - Staphylococcus
+    - 3.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 1.0
+- case_id: genus_superpathway
+  tax_level: genus
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcus
+    - 1.0
+  - - Energy metabolism
+    - Bacillus
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Clavibacter
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillus
+    - 1.0
+  - - Energy metabolism
+    - Mammaliicoccus
+    - 1.0
+  - - Energy metabolism
+    - Pectinatus
+    - 1.0
+  - - Energy metabolism
+    - Staphylococcus
+    - 4.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 1.0
+- case_id: family_pathway_node
+  tax_level: family
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcaceae
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcaceae
+    - 1.0
+  - - 1.6.5.9
+    - Bacillaceae
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillaceae
+    - 1.0
+  - - 1.6.5.9
+    - Microbacteriaceae
+    - 1.0
+  - - 1.6.5.9
+    - Selenomonadaceae
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcaceae
+    - 3.0
+  - - 2.7.4.1
+    - Staphylococcaceae
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcaceae
+    - 1.0
+- case_id: family_pathway
+  tax_level: family
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Staphylococcaceae
+    - 1.0
+  - - Methane metabolism
+    - Staphylococcaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Lactobacillaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Microbacteriaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Selenomonadaceae
+    - 1.0
+  - - Oxidative phosphorylation
+    - Staphylococcaceae
+    - 4.0
+  - - Unmapped EC
+    - Staphylococcaceae
+    - 1.0
+- case_id: family_superpathway
+  tax_level: family
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcaceae
+    - 1.0
+  - - Energy metabolism
+    - Bacillaceae
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillaceae
+    - 1.0
+  - - Energy metabolism
+    - Microbacteriaceae
+    - 1.0
+  - - Energy metabolism
+    - Selenomonadaceae
+    - 1.0
+  - - Energy metabolism
+    - Staphylococcaceae
+    - 5.0
+  - - Unmapped EC
+    - Staphylococcaceae
+    - 1.0
+- case_id: order_pathway_node
+  tax_level: order
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Caryophanales
+    - 1.0
+  - - 1.5.8.1
+    - Caryophanales
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Caryophanales
+    - 4.0
+  - - 1.6.5.9
+    - Lactobacillales
+    - 1.0
+  - - 1.6.5.9
+    - Micrococcales
+    - 1.0
+  - - 1.6.5.9
+    - Selenomonadales
+    - 1.0
+  - - 2.7.4.1
+    - Caryophanales
+    - 1.0
+  - - Unmapped EC
+    - Caryophanales
+    - 1.0
+- case_id: order_pathway
+  tax_level: order
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Caryophanales
+    - 1.0
+  - - Methane metabolism
+    - Caryophanales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Caryophanales
+    - 5.0
+  - - Oxidative phosphorylation
+    - Lactobacillales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Micrococcales
+    - 1.0
+  - - Oxidative phosphorylation
+    - Selenomonadales
+    - 1.0
+  - - Unmapped EC
+    - Caryophanales
+    - 1.0
+- case_id: order_superpathway
+  tax_level: order
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Caryophanales
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Caryophanales
+    - 6.0
+  - - Energy metabolism
+    - Lactobacillales
+    - 1.0
+  - - Energy metabolism
+    - Micrococcales
+    - 1.0
+  - - Energy metabolism
+    - Selenomonadales
+    - 1.0
+  - - Unmapped EC
+    - Caryophanales
+    - 1.0
+- case_id: class_pathway_node
+  tax_level: class
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Bacilli
+    - 1.0
+  - - 1.5.8.1
+    - Bacilli
+    - 1.0
+  - - 1.6.5.9
+    - Actinomycetes
+    - 1.0
+  - - 1.6.5.9
+    - Bacilli
+    - 5.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Negativicutes
+    - 1.0
+  - - 2.7.4.1
+    - Bacilli
+    - 1.0
+  - - Unmapped EC
+    - Bacilli
+    - 1.0
+- case_id: class_pathway
+  tax_level: class
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Bacilli
+    - 1.0
+  - - Methane metabolism
+    - Bacilli
+    - 1.0
+  - - Oxidative phosphorylation
+    - Actinomycetes
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacilli
+    - 6.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Oxidative phosphorylation
+    - Negativicutes
+    - 1.0
+  - - Unmapped EC
+    - Bacilli
+    - 1.0
+- case_id: class_superpathway
+  tax_level: class
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacilli
+    - 1.0
+  - - Energy metabolism
+    - Actinomycetes
+    - 1.0
+  - - Energy metabolism
+    - Bacilli
+    - 7.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Negativicutes
+    - 1.0
+  - - Unmapped EC
+    - Bacilli
+    - 1.0
+- case_id: phylum_pathway_node
+  tax_level: phylum
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Bacillota
+    - 1.0
+  - - 1.5.8.1
+    - Bacillota
+    - 1.0
+  - - 1.6.5.9
+    - Actinomycetota
+    - 1.0
+  - - 1.6.5.9
+    - Bacillota
+    - 6.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 2.7.4.1
+    - Bacillota
+    - 1.0
+  - - Unmapped EC
+    - Bacillota
+    - 1.0
+- case_id: phylum_pathway
+  tax_level: phylum
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Bacillota
+    - 1.0
+  - - Methane metabolism
+    - Bacillota
+    - 1.0
+  - - Oxidative phosphorylation
+    - Actinomycetota
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillota
+    - 7.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Unmapped EC
+    - Bacillota
+    - 1.0
+- case_id: phylum_superpathway
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 1.0
+  - - Energy metabolism
+    - Actinomycetota
+    - 1.0
+  - - Energy metabolism
+    - Bacillota
+    - 8.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Unmapped EC
+    - Bacillota
+    - 1.0
+- case_id: kingdom_pathway_node
+  tax_level: kingdom
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Bacillati
+    - 1.0
+  - - 1.5.8.1
+    - Bacillati
+    - 1.0
+  - - 1.6.5.9
+    - Bacillati
+    - 7.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 2.7.4.1
+    - Bacillati
+    - 1.0
+  - - Unmapped EC
+    - Bacillati
+    - 1.0
+- case_id: kingdom_pathway
+  tax_level: kingdom
+  ann_level: pathway
+  pairs:
+  - - Aflatoxin biosynthesis
+    - Bacillati
+    - 1.0
+  - - Methane metabolism
+    - Bacillati
+    - 1.0
+  - - Oxidative phosphorylation
+    - Bacillati
+    - 8.0
+  - - Oxidative phosphorylation
+    - Bacteria
+    - 1.0
+  - - Unmapped EC
+    - Bacillati
+    - 1.0
+- case_id: kingdom_superpathway
+  tax_level: kingdom
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillati
+    - 1.0
+  - - Energy metabolism
+    - Bacillati
+    - 9.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Unmapped EC
+    - Bacillati
+    - 1.0
+chord_filtered:
+- case_id: taxon_filter_focal_species
+  tax_level: genus
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcus
+    - 1.0
+  - - Energy metabolism
+    - Staphylococcus
+    - 3.0
+  - - Unmapped EC
+    - Staphylococcus
+    - 1.0
+  selected_taxon:
+    level: species
+    name: Staphylococcus aureus
+- case_id: ann_filter_superpathway
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Energy metabolism
+    - Actinomycetota
+    - 1.0
+  - - Energy metabolism
+    - Bacillota
+    - 8.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  selected_ann_cat: Energy metabolism
+edge_cases:
+- case_id: unmapped_ec_snapshot
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 1.0
+  - - Energy metabolism
+    - Actinomycetota
+    - 1.0
+  - - Energy metabolism
+    - Bacillota
+    - 8.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Unmapped EC
+    - Bacillota
+    - 1.0
+- case_id: unclassified_tax_snapshot
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Bacillota
+    - 1.0
+  - - Energy metabolism
+    - Actinomycetota
+    - 1.0
+  - - Energy metabolism
+    - Bacillota
+    - 8.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Unmapped EC
+    - Bacillota
+    - 1.0
+- case_id: fallback_species_request
+  tax_level: species
+  ann_level: superpathway
+  pairs:
+  - - Biosynthesis of other secondary metabolites
+    - Staphylococcus aureus
+    - 1.0
+  - - Energy metabolism
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Energy metabolism
+    - Bacteria
+    - 1.0
+  - - Energy metabolism
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - Energy metabolism
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - Energy metabolism
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - Energy metabolism
+    - Pectinatus frisingensis
+    - 1.0
+  - - Energy metabolism
+    - Staphylococcus aureus
+    - 3.0
+  - - Energy metabolism
+    - Staphylococcus epidermidis
+    - 1.0
+  - - Unmapped EC
+    - Staphylococcus aureus
+    - 1.0

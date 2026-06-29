@@ -1,0 +1,128 @@
+fixture:
+  sample_id: fake_rpkm
+  tsv: fake_rpkm.tsv
+  focal_ec: 1.6.5.9
+  focal_tax_id: 1280
+  roles:
+    fallback_tax_id: 2
+    unknown_tax_id: 999999999
+    ec_focal: 1.6.5.9
+    ec_same_pathway: 2.7.4.1
+    ec_alt: 1.5.8.1
+    ec_diff_superpathway: 1.1.1.349
+    focal_superpathway: Energy metabolism
+    col_tax_focal: 1280
+    col_tax_sibling_genus: 1282
+    col_tax_cousin_family: 1296
+    col_tax_cousin_order: 904523
+    col_tax_cousin_class: 131157
+    col_tax_cousin_phylum: 865
+    col_tax_cousin_kingdom: 857891
+    col_tax_fallback_kingdom: 2
+    col_tax_unknown_header: 999999999
+rollup_grid:
+- requested_rank: class
+  pathway_level: pathway
+  pathway_label: Oxidative phosphorylation
+  resolved_tax_label: Bacilli
+  value: 1.0
+- requested_rank: class
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Bacilli
+  value: 1.0
+- requested_rank: class
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Bacilli
+  value: 1.0
+- requested_rank: family
+  pathway_level: pathway
+  pathway_label: Oxidative phosphorylation
+  resolved_tax_label: Staphylococcaceae
+  value: 1.0
+- requested_rank: family
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Staphylococcaceae
+  value: 1.0
+- requested_rank: family
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Staphylococcaceae
+  value: 1.0
+- requested_rank: genus
+  pathway_level: pathway
+  pathway_label: Oxidative phosphorylation
+  resolved_tax_label: Staphylococcus
+  value: 1.0
+- requested_rank: genus
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Staphylococcus
+  value: 1.0
+- requested_rank: genus
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Staphylococcus
+  value: 1.0
+- requested_rank: kingdom
+  pathway_level: pathway
+  pathway_label: Oxidative phosphorylation
+  resolved_tax_label: Bacillati
+  value: 1.0
+- requested_rank: kingdom
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Bacillati
+  value: 1.0
+- requested_rank: kingdom
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Bacillati
+  value: 1.0
+- requested_rank: order
+  pathway_level: pathway
+  pathway_label: Oxidative phosphorylation
+  resolved_tax_label: Caryophanales
+  value: 1.0
+- requested_rank: order
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Caryophanales
+  value: 1.0
+- requested_rank: order
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Caryophanales
+  value: 1.0
+- requested_rank: phylum
+  pathway_level: pathway
+  pathway_label: Oxidative phosphorylation
+  resolved_tax_label: Bacillota
+  value: 1.0
+- requested_rank: phylum
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Bacillota
+  value: 1.0
+- requested_rank: phylum
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Bacillota
+  value: 1.0
+- requested_rank: species
+  pathway_level: pathway
+  pathway_label: Oxidative phosphorylation
+  resolved_tax_label: Staphylococcus aureus
+  value: 1.0
+- requested_rank: species
+  pathway_level: pathway_node
+  pathway_label: Unmapped EC
+  resolved_tax_label: Staphylococcus aureus
+  value: 1.0
+- requested_rank: species
+  pathway_level: superpathway
+  pathway_label: Energy metabolism
+  resolved_tax_label: Staphylococcus aureus
+  value: 1.0

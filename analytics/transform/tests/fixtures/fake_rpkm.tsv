@@ -1,0 +1,14 @@
+GeneID	Length	Reads	EC#	RPKM	Unclassified	1280	1282	1296	904523	131157	865	857891	2	999999999
+row_ec_focal__col_tax_focal	100	1	1.6.5.9	1	0	1	0	0	0	0	0	0	0	0
+row_ec_focal__col_tax_sibling_genus	100	1	1.6.5.9	1	0	0	1	0	0	0	0	0	0	0
+row_ec_focal__col_tax_cousin_family	100	1	1.6.5.9	1	0	0	0	1	0	0	0	0	0	0
+row_ec_focal__col_tax_cousin_order	100	1	1.6.5.9	1	0	0	0	0	1	0	0	0	0	0
+row_ec_focal__col_tax_cousin_class	100	1	1.6.5.9	1	0	0	0	0	0	1	0	0	0	0
+row_ec_focal__col_tax_cousin_phylum	100	1	1.6.5.9	1	0	0	0	0	0	0	1	0	0	0
+row_ec_focal__col_tax_cousin_kingdom	100	1	1.6.5.9	1	0	0	0	0	0	0	0	1	0	0
+row_ec_focal__col_tax_fallback_kingdom	100	1	1.6.5.9	1	0	0	0	0	0	0	0	0	1	0
+row_ec_focal__col_tax_unknown_header	100	1	1.6.5.9	1	0	0	0	0	0	0	0	0	0	1
+row_ec_same_pathway__col_tax_focal	100	1	2.7.4.1	1	0	1	0	0	0	0	0	0	0	0
+row_ec_alt_pathway__col_tax_focal	100	1	1.5.8.1	1	0	1	0	0	0	0	0	0	0	0
+row_ec_diff_superpathway__col_tax_focal	100	1	1.1.1.349	1	0	1	0	0	0	0	0	0	0	0
+row_ec_unmapped__col_tax_focal	100	1		1	0	1	0	0	0	0	0	0	0	0

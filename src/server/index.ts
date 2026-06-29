@@ -14,6 +14,7 @@ import {
   initialize
 } from './data_functions'
 import { wrapHandler } from './envelope'
+import { createChordHandler } from './chord_handler'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } })
 
@@ -21,7 +22,6 @@ const vizRoutes: Array<{ path: string; handler: (params?: unknown) => unknown }>
   { path: '/api/viz/overview', handler: parse_overview },
   { path: '/api/viz/counts', handler: parse_counts },
   { path: '/api/viz/krona', handler: parse_krona },
-  { path: '/api/viz/chord', handler: parse_ec_chord },
   { path: '/api/viz/network', handler: parse_network },
   { path: '/api/viz/pathway-list', handler: parse_pathway_list }
 ]
@@ -42,6 +42,16 @@ export const createApp = (): Express => {
       res.status(200).json(envelope)
     })
   }
+
+  const chordHandler = createChordHandler({ legacyHandler: parse_ec_chord })
+
+  app.post('/api/viz/chord', async (req, res) => {
+    const envelope = await chordHandler({
+      query: req.query as Record<string, string | undefined>,
+      body: req.body
+    })
+    res.status(200).json(envelope)
+  })
 
   app.post('/api/data', upload.single('file'), (req, res) => {
     const name = req.body.name as string

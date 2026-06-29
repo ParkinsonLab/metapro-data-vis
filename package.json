@@ -14,6 +14,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck:server": "tsc --noEmit -p tsconfig.server.json",
     "typecheck": "npm run typecheck:server && npm run typecheck:web",
+    "dev:chord-api": "cd analytics && uv run uvicorn api.main:app --port 8001 --reload",
     "dev:api": "tsx watch src/server/index.ts",
     "dev:web": "vite",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
