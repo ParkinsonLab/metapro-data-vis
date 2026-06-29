@@ -188,10 +188,56 @@ body{
         flex-grow: 1;
     }
     #chord-top-bar{
-        display:flex;
-        flex-direction: row;
-        justify-content: space-evenly;
-        width: 100%
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        max-width: 900px;
+    }
+    .chord-rank-slot--tax {
+        flex: 1;
+    }
+    .chord-rank-slot--tax .sub-selector-container {
+        justify-content: flex-start;
+    }
+    .chord-rank-slot--pathway {
+        flex: 1;
+    }
+    .chord-rank-slot--pathway .sub-selector-container {
+        justify-content: flex-end;
+    }
+    #chord-filter-chips {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        max-width: 900px;
+        margin: 6px 0;
+    }
+    .chord-filter-chip-slot--tax {
+        flex: 1;
+        text-align: left;
+    }
+    .chord-filter-chip-slot--pathway {
+        flex: 1;
+        text-align: right;
+    }
+    .chord-filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px;
+        border: 1px solid #666;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    .chord-filter-chip button {
+        border: 0;
+        background: inherit;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 2px;
     }
     #chord-container {
         display: flex;

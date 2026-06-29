@@ -3,20 +3,19 @@
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
-import { useEffect, useRef } from 'react'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons'
+import { useCallback, useEffect, useRef } from 'react'
+import { request } from '../api'
+import {
+  isFilterActive,
+  toApiFilter,
+} from '../chordFilters'
 
 //global
 const t_ranks = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus']
 const a_ranks = ['pathway', 'superpathway']
 
 const ChordSVG = () => {
-  // Function to create the SVG element for the chord diagram
-  const parsed_data = useAppStore((state) => state.chord_data)
-  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
-  const selected_taxon = useAppStore((state) => state.selected_taxon)
-  const tax_rank = useAppStore((state) => state.tax_rank)
+  const chord_data = useAppStore((state) => state.chord_data)
   const ref = useRef<SVGSVGElement>(null)
 
   const width = 900
@@ -24,17 +23,20 @@ const ChordSVG = () => {
   const base_radius = Math.min(width, height) * 0.5 - 50 // the inner radius of the inner ring
   const rad_step = 20
 
-  const draw_chord = () => {
+  const draw_chord = useCallback(() => {
     const {
       count_matrix,
       index,
       colors
-    } = parsed_data
+    } = chord_data
 
     if (!Array.isArray(index) || !Array.isArray(count_matrix)) {
-      console.error('[Chord] expected chord_data { count_matrix, index, colors }', parsed_data)
+      console.error('[Chord] expected chord_data { count_matrix, index, colors }', chord_data)
       return
     }
+
+    const { selected_ann_cat } = useAppStore.getState()
+    const ann_name = isFilterActive(selected_ann_cat) ? selected_ann_cat.name : ''
 
     const gaps = ['gap_1', 'gap_2', 'gap_3']
     const outer_gap_idc = gaps.map((e) => index.indexOf(e))
@@ -43,28 +45,29 @@ const ChordSVG = () => {
       // d.index is the matrix row/col (0..n-1); matrix_labels[d.index] is the label string.
       const selected_name = String(index[d.index] ?? '')
       if (selected_name.substring(0, 3) === 'gap') return
+      const state = useAppStore.getState()
+      const ann = state.selected_ann_cat
+      const tax = state.selected_taxon
       if (
         d.index > outer_gap_idc[0] &&
         d.index < outer_gap_idc[1] &&
-        selected_name !== selected_ann_cat
+        selected_name !== (isFilterActive(ann) ? ann.name : '')
       ) {
-        console.log('set selected_ann_cat to ' + selected_name)
         useAppStore.setState({
-          selected_ann_cat: selected_name,
+          selected_ann_cat: { level: state.ann_rank, name: selected_name },
           selected_annotations: []
         })
       } else if (
         d.index > outer_gap_idc[1] &&
         d.index < outer_gap_idc[2] &&
-        selected_name !== (selected_taxon as { name?: string }).name
+        selected_name !== (isFilterActive(tax) ? tax.name : '')
       ) {
-        console.log('set selected_taxon to ' + selected_name)
         const next_rank =
-          tax_rank === t_ranks[t_ranks.length - 1]
-            ? tax_rank
-            : (t_ranks[t_ranks.indexOf(tax_rank) + 1] as typeof tax_rank)
+          state.tax_rank === t_ranks[t_ranks.length - 1]
+            ? state.tax_rank
+            : (t_ranks[t_ranks.indexOf(state.tax_rank) + 1] as typeof state.tax_rank)
         useAppStore.setState({
-          selected_taxon: { level: tax_rank, name: selected_name },
+          selected_taxon: { level: state.tax_rank, name: selected_name },
           tax_rank: next_rank
         })
       }
@@ -116,7 +119,7 @@ const ChordSVG = () => {
       .append('path') // draw arc
       .attr('fill', (d) => colors[index[d.index]])
       .attr('d', outer_arc)
-      .attr('stroke', (d) => (index[d.index] === selected_ann_cat ? 'blue' : 'black'))
+      .attr('stroke', (d) => (index[d.index] === ann_name ? 'blue' : 'black'))
       .on('click', handle_arc_click)
     outer_nodes
       .append('title') // mouseover text
@@ -173,14 +176,13 @@ const ChordSVG = () => {
         (d) =>
           `${index[d.target.index]} → ${index[d.source.index]} [${Math.trunc(d.source.value)}]`
       )
-  }
+  }, [chord_data])
 
   useEffect(() => {
-    console.log(parsed_data)
-    if (parsed_data !== null && !_.isEmpty(parsed_data)) {
+    if (chord_data !== null && !_.isEmpty(chord_data)) {
       draw_chord()
     }
-  }, [parsed_data, selected_ann_cat])
+  }, [chord_data, draw_chord])
 
   return <svg width={width} height={height} id="chord" ref={ref} />
 }
@@ -218,27 +220,82 @@ const RankSelector = () => {
 
   return (
     <div id="chord-top-bar">
-      <div className="sub-selector-container">{t_elements}</div>
-      <div className="sub-selector-container">{a_elements}</div>
+      <div className="chord-rank-slot chord-rank-slot--tax">
+        <div className="sub-selector-container">{t_elements}</div>
+      </div>
+      <div className="chord-rank-slot chord-rank-slot--pathway">
+        <div className="sub-selector-container">{a_elements}</div>
+      </div>
+    </div>
+  )
+}
+
+const FilterChips = (): React.JSX.Element | null => {
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
+  const ann_active = isFilterActive(selected_ann_cat)
+  const tax_active = isFilterActive(selected_taxon)
+
+  if (!ann_active && !tax_active) return null
+
+  return (
+    <div id="chord-filter-chips">
+      <div className="chord-filter-chip-slot chord-filter-chip-slot--tax">
+        {tax_active && (
+          <span className="chord-filter-chip">
+            Taxon: {selected_taxon.name} ({selected_taxon.level})
+            <button
+              type="button"
+              aria-label="Clear taxon filter"
+              onClick={() => useAppStore.setState({ selected_taxon: {} })}
+            >
+              ×
+            </button>
+          </span>
+        )}
+      </div>
+      <div className="chord-filter-chip-slot chord-filter-chip-slot--pathway">
+        {ann_active && (
+          <span className="chord-filter-chip">
+            Pathway: {selected_ann_cat.name} ({selected_ann_cat.level})
+            <button
+              type="button"
+              aria-label="Clear pathway filter"
+              onClick={() => useAppStore.setState({ selected_ann_cat: {}, selected_annotations: [] })}
+            >
+              ×
+            </button>
+          </span>
+        )}
+      </div>
     </div>
   )
 }
 
 const Chord = (): React.JSX.Element => {
-  const reset_taxon = () => {
-    useAppStore.setState({ selected_taxon: {} })
-  }
-  const reset_ann = () => {
-    useAppStore.setState({ selected_ann_cat: '' })
-  }
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
+  const tax_rank = useAppStore((state) => state.tax_rank)
+  const ann_rank = useAppStore((state) => state.ann_rank)
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
+
+  useEffect(() => {
+    if (selected_file_list.length === 0) return
+    request('chord', {
+      names: selected_file_list,
+      tax_level: tax_rank,
+      ann_level: ann_rank,
+      selected_ann_cat: toApiFilter(selected_ann_cat),
+      selected_taxon: toApiFilter(selected_taxon)
+    })
+  }, [selected_file_list, tax_rank, ann_rank, selected_ann_cat, selected_taxon])
 
   return (
     <div id="chord-container">
       <RankSelector />
+      <FilterChips />
       <div id="chord-inner-container">
-        <button className="chord-reset-button" onClick={reset_taxon}><FontAwesomeIcon icon={faArrowRotateLeft} /></button>
         <ChordSVG />
-        <button className="chord-reset-button" onClick={reset_ann}><FontAwesomeIcon icon={faArrowRotateLeft} /></button>
       </div>
     </div>
   )
