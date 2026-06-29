@@ -88,6 +88,10 @@ def ensure_pipeline_built() -> Path:
     return DB_PATH
 
 
+def extract_chord_index(chord_result: dict) -> list[str]:
+    return list(chord_result["index"])
+
+
 def extract_chord_pairs(chord_result: dict) -> list[tuple[str, str, float]]:
     """Return sorted (pathway_label, resolved_tax_label, value) from matrix output."""
     index = chord_result["index"]

@@ -16,6 +16,7 @@ from testing.fake_rpkm_fixture import (
     RANKS,
     SAMPLE_ID,
     ensure_pipeline_built,
+    extract_chord_index,
     extract_chord_pairs,
 )
 
@@ -82,6 +83,7 @@ def dump_chord_case(tax_level: str, ann_level: str, **filters) -> dict:
         "ann_level": ann_level,
         "pairs": [[a, t, v] for a, t, v in pairs],
     }
+    case["expected_index"] = extract_chord_index(out)
     for key in ("selected_ann_cat", "selected_taxon"):
         if key in filters:
             case[key] = filters[key]

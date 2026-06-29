@@ -5,9 +5,24 @@ from api.colors import get_color
 GAPS = ("gap_1", "gap_2", "gap_3")
 
 
-def build_chord_matrix(pairs: list[tuple[str, str, float]]) -> dict:
-    ann_cats = sorted({ann for ann, _, _ in pairs})
-    tax_cats = sorted({tax for _, tax, _ in pairs})
+def _apply_order(unique_labels: set[str], order_list: list[str] | None) -> list[str]:
+    if order_list is None:
+        return sorted(unique_labels)
+    ordered = [label for label in order_list if label in unique_labels]
+    extras = sorted(unique_labels - set(ordered))
+    return ordered + extras
+
+
+def build_chord_matrix(
+    pairs: list[tuple[str, str, float]],
+    tax_order: list[str] | None = None,
+    ann_order: list[str] | None = None,
+) -> dict:
+    ann_cats = _apply_order({ann for ann, _, _ in pairs}, ann_order)
+    tax_cats = _apply_order({tax for _, tax, _ in pairs}, tax_order)
+    # D3 chord lays out index clockwise from 12 o'clock; the tax arc starts near
+    # the bottom (after ann labels). Reverse so highest-priority labels sit at top.
+    tax_cats = list(reversed(tax_cats))
     index = ["gap_1", *ann_cats, "gap_2", *tax_cats, "gap_3"]
     n = len(index)
     pos = {name: i for i, name in enumerate(index)}
