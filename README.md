@@ -41,6 +41,37 @@ npm run build
 npm start     # production on :8080
 ```
 
+### Git LFS
+
+Large data files are tracked with [Git LFS](https://git-lfs.com/) (see `.gitattributes`):
+
+- `resources/db/parquet/*.parquet` — reference table dumps for analytics
+- `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs
+
+`taxonomy.db` is **not** in LFS (local/gitignored). To regenerate Parquet without LFS blobs, see [analytics/exploration/README.md](analytics/exploration/README.md).
+
+**One-time setup** (per machine):
+
+```bash
+brew install git-lfs   # or your package manager
+git lfs install
+```
+
+**New clone:**
+
+```bash
+git clone git@github.com:ParkinsonLab/metapro-data-vis.git
+cd metapro-data-vis
+git lfs pull
+```
+
+**Existing clone** (e.g. repo cloned before LFS was added, or after pulling LFS-tracked changes):
+
+```bash
+git pull
+git lfs pull
+```
+
 ### Database
 
 When released, the installer will fetch the supporting databases from our server.

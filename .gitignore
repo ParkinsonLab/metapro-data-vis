@@ -8,11 +8,23 @@ build
 .vscode
 .editorconfig
 
+.worktrees
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
 # python scripts
 resources/*
 !resources/scripts
 !resources/demo_gif.gif
 !resources/icon.png
+!resources/db/parquet/**
+!resources/example_data/
+!resources/example_data/test_rpkm_1.tsv
+!resources/example_data/test_rpkm_2.tsv
 
 resources/scripts/*
 !resources/scripts/*.py
