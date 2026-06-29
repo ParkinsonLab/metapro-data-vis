@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: stg_rpkm_long
+    description: "Wide RPKM TSV unpivoted to long form. One row per (gene, tax_id) where value > 0."
+    columns:
+      - name: sample_id
+        description: "Sample identifier from dbt var"
+        tests:
+          - not_null
+      - name: gene_id
+        tests:
+          - not_null
+      - name: ec_normalized
+        description: "Normalized EC string; 0.0.0.0 for unmapped genes"
+        tests:
+          - not_null
+      - name: source_tax_id
+        description: "RPKM column header as integer NCBI tax_id"
+        tests:
+          - not_null
+      - name: value
+        description: "Per-taxon column value (nonzero only)"
+        tests:
+          - not_null

@@ -1,0 +1,13 @@
+# dbt per-user anonymous ID
+transform/.user.yml
+
+# dbt + DuckDB transform runtime outputs
+transform/runs/
+transform/data/
+transform/target/
+transform/dbt_packages/
+transform/logs/
+transform/**/*.duckdb
+
+# Distribution-time bridge artifacts — built by build_reference.py, not committed
+transform/reference/parquet/*.parquet

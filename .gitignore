@@ -29,3 +29,11 @@ resources/*
 resources/scripts/*
 !resources/scripts/*.py
 !resources/scripts/*.ipynb
+
+# analytics/transform — dbt + DuckDB runtime outputs
+analytics/transform/runs/
+analytics/transform/data/
+analytics/transform/target/
+analytics/transform/dbt_packages/
+analytics/transform/logs/
+analytics/transform/**/*.duckdb

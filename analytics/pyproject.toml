@@ -8,12 +8,21 @@ dependencies = [
     "jupysql>=0.11",
     "jupyter>=1.1",
     "ipykernel>=6.29",
+    "dbt-core==1.12.0b1",
+    "dbt-duckdb>=1.10.1",
+    "mashumaro>=3.17,<3.18",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "numpy>=2.5.0",
+    "pandas>=3.0.3",
 ]
 
+[tool.uv]
+prerelease = "allow"
+
 [tool.pytest.ini_options]
-testpaths = ["exploration/scripts"]
+testpaths = ["exploration/scripts", "transform/tests/python"]
+pythonpath = [".."]

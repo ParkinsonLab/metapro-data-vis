@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: reference
+    description: "Pre-built bridge Parquet files from build_reference.py (distribution artifact)"
+    tables:
+      - name: bridge_ec_pathway
+        description: "EC-to-pathway mapping — one row per (ec_normalized, pathway_node_id)"
+        meta:
+          external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_ec_pathway.parquet')"
+
+      - name: bridge_tax_rollup
+        description: "Pre-resolved taxonomy rollup — one row per (source_tax_id, requested_rank)"
+        meta:
+          external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_tax_rollup.parquet')"
