@@ -1,6 +1,6 @@
 # Overview API via dbt Intermediates — Design Spec
 
-> **Status:** Approved (2026-06-29)  
+> **Status:** Approved (2026-06-29; revised 2026-06-30 — exclude unmapped EC from overview vectors)  
 > **Goal:** Reimplement `POST /api/viz/overview` to derive overview pie-chart vectors from precomputed dbt intermediate tables (`int_tax_rollup_resolved`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract. Express keeps legacy handlers when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
@@ -39,6 +39,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Pinned dimensions | `requested_rank = 'phylum'`, `pathway_level = 'superpathway'` for both vectors | Avoids 7×3 double-counting; totals invariant across rank at fixed pathway level |
 | `counts_data` ordering | Alphabetical by **ancestor name chain** (kingdom → phylum) | Phyla colocated under their kingdom; not flat phylum alphabetical |
 | `ann_data` ordering | Alphabetical by superpathway label ASC | Deliberate simplification (legacy uses SQLite EC insertion order) |
+| Unmapped EC | **Excluded** — `pathway_key IS NOT NULL` on both vectors | Overview pies show mapped metabolism only; unmapped mass omitted from phylum totals too |
 | Comparison mode | Error on duckdb path when `names.length > 1` | Deferred follow-up (same as chord v1) |
 | Verification | Golden tests: `overview_expectations.yaml` + parametrized pytest on `fake_rpkm` | Mirrors chord golden pattern |
 | Response typing | Pydantic `OverviewResponse` model in Python | Documents contract; used in service return type and tests |
@@ -202,10 +203,10 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 
 ```
 int_tax_rollup_resolved
-  → counts: WHERE requested_rank='phylum' AND pathway_level='superpathway'
+  → counts: WHERE requested_rank='phylum' AND pathway_level='superpathway' AND pathway_key IS NOT NULL
             GROUP BY resolved_tax_label (int_tax_rollup_resolved)
             ORDER BY kingdom/phylum labels from bridge_tax_rollup Parquet only
-  → ann:    WHERE requested_rank='phylum' AND pathway_level='superpathway'
+  → ann:    WHERE requested_rank='phylum' AND pathway_level='superpathway' AND pathway_key IS NOT NULL
             GROUP BY pathway_label → ORDER BY pathway_label ASC
   → OverviewResponse
 ```
@@ -214,13 +215,9 @@ Both vectors pin the same `(requested_rank, pathway_level)` pair. Totals are inv
 
 ### 5.2 SQL details
 
-**Pathway label (overview ann_data only):** Overview always aggregates at `pathway_level = 'superpathway'`, where `pathway_label` is the superpathway name. Unmapped ECs are the only special case:
+**Unmapped EC filter (both vectors):** Rows with `pathway_key IS NULL` (ECs absent from `bridge_ec_pathway`) are **excluded**. Overview does not surface an `'Unmapped EC'` slice or include that mass in phylum expression totals.
 
-```sql
-CASE WHEN pathway_key IS NULL THEN 'Unmapped EC' ELSE pathway_label END
-```
-
-No `COALESCE(..., ec_normalized)` — that fallback is for finer pathway levels (e.g. `pathway_node`) where `pathway_label` may be NULL; it does not apply here.
+**ann_data:** Aggregate at `pathway_level = 'superpathway'` using `pathway_label` directly (always non-null when `pathway_key IS NOT NULL`).
 
 **counts_data:**
 
@@ -232,6 +229,7 @@ WITH phylum_totals AS (
     FROM int_tax_rollup_resolved
     WHERE requested_rank = 'phylum'
       AND pathway_level = 'superpathway'
+      AND pathway_key IS NOT NULL
     GROUP BY resolved_tax_label
 ),
 phylum_map AS (
@@ -263,13 +261,12 @@ ORDER BY COALESCE(k.kingdom_label, ''), p.phylum_label ASC
 **ann_data:**
 
 ```sql
-SELECT
-    CASE WHEN pathway_key IS NULL THEN 'Unmapped EC' ELSE pathway_label END AS label,
-    SUM(value) AS total
+SELECT pathway_label AS label, SUM(value) AS total
 FROM int_tax_rollup_resolved
 WHERE requested_rank = 'phylum'
   AND pathway_level = 'superpathway'
-GROUP BY 1
+  AND pathway_key IS NOT NULL
+GROUP BY pathway_label
 ORDER BY label ASC
 ```
 
@@ -292,7 +289,7 @@ def _build_vector(rows: list[tuple[str, float]]) -> OverviewVector:
 | Area | Legacy (Node) | DuckDB path |
 |---|---|---|
 | Tax rollup | `get_parents_at_level` — exact rank only | `bridge_tax_rollup` — exact → coarser fallback → `'Unclassified'` |
-| Unmapped ECs | `0.0.0.0` / SQLite pathway map | `pathway_key IS NULL` → label `'Unmapped EC'` |
+| Unmapped ECs | Included via `0.0.0.0` / SQLite pathway map (may appear in totals) | **Excluded** — `pathway_key IS NOT NULL` filter on both vectors |
 | Comparison mode | `get_delta` for two files | Not supported (v1) |
 | `counts_data` index order | Flat alphabetical on phylum label (`_.sortBy`) | Hierarchical: kingdom name, then phylum name |
 | `ann_data` index order | First-encounter order from SQLite `pathway_nodes` scan | Alphabetical by superpathway label ASC |

@@ -60,6 +60,7 @@ def _fetch_counts_data(conn) -> OverviewVector:
             FROM int_tax_rollup_resolved
             WHERE requested_rank = 'phylum'
               AND pathway_level = 'superpathway'
+              AND pathway_key IS NOT NULL
             GROUP BY resolved_tax_label
         ),
         phylum_map AS (
@@ -90,13 +91,12 @@ def _fetch_counts_data(conn) -> OverviewVector:
 def _fetch_ann_data(conn) -> OverviewVector:
     rows = conn.execute(
         """
-        SELECT
-            CASE WHEN pathway_key IS NULL THEN 'Unmapped EC' ELSE pathway_label END AS label,
-            SUM(value) AS total
+        SELECT pathway_label AS label, SUM(value) AS total
         FROM int_tax_rollup_resolved
         WHERE requested_rank = 'phylum'
           AND pathway_level = 'superpathway'
-        GROUP BY 1
+          AND pathway_key IS NOT NULL
+        GROUP BY pathway_label
         ORDER BY label ASC
         """
     ).fetchall()

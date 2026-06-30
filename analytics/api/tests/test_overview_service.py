@@ -34,3 +34,4 @@ def test_overview_vectors_match_golden(fake_rpkm_db):
     out = build_overview_from_duckdb(names=[f"{SAMPLE_ID}.tsv"])
     assert out.counts_data.model_dump() == expected["counts_data"]
     assert out.ann_data.model_dump() == expected["ann_data"]
+    assert "Unmapped EC" not in out.ann_data.index
