@@ -34,10 +34,11 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Default backend | Legacy Node `parse_overview` | Safe rollout |
 | Opt-in backend | `POST /api/viz/overview?backend=duckdb` (Express) or direct on FastAPI `:8001` | Explicit testing switch; mirrors chord |
 | Sidecar env var | **`ANALYTICS_API_URL`** (default `http://localhost:8001`); chord handler updated in same PR | One FastAPI process serves all viz routes |
-| Proxy helper | Shared `src/server/duckdb_proxy.ts` | Avoid duplicating chord/overview proxy logic |
+| Migration proxy | Shared `src/server/fastapi_sidecar_proxy.ts` | Temporary Express→FastAPI bridge during viz migration; delete when Express viz routes are retired |
 | Data source | Query `int_tax_rollup_resolved` at request time | Consistent with chord; no new dbt mart |
 | Pinned dimensions | `requested_rank = 'phylum'`, `pathway_level = 'superpathway'` for both vectors | Avoids 7×3 double-counting; totals invariant across rank at fixed pathway level |
-| Index ordering | **Alphabetical ascending** for both `counts_data` and `ann_data` | `counts_data` matches legacy; `ann_data` is a deliberate simplification (legacy uses SQLite EC insertion order) |
+| `counts_data` ordering | Alphabetical by **ancestor name chain** (kingdom → phylum) | Phyla colocated under their kingdom; not flat phylum alphabetical |
+| `ann_data` ordering | Alphabetical by superpathway label ASC | Deliberate simplification (legacy uses SQLite EC insertion order) |
 | Comparison mode | Error on duckdb path when `names.length > 1` | Deferred follow-up (same as chord v1) |
 | Verification | Golden tests: `overview_expectations.yaml` + parametrized pytest on `fake_rpkm` | Mirrors chord golden pattern |
 | Response typing | Pydantic `OverviewResponse` model in Python | Documents contract; used in service return type and tests |
@@ -66,8 +67,8 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 
 | Component | Location | Role |
 |---|---|---|
-| Shared proxy | `src/server/duckdb_proxy.ts` | `createDuckdbProxyHandler({ legacyHandler, apiPath })` — used by chord + overview |
-| Express routes | `src/server/index.ts` | Overview uses proxy helper; chord refactored to same helper |
+| Migration proxy | `src/server/fastapi_sidecar_proxy.ts` | `createSidecarProxyHandler({ legacyHandler, apiPath, label })` — forwards `?backend=duckdb` to FastAPI; temporary until Express retirement |
+| Express routes | `src/server/index.ts` | Overview uses sidecar proxy; chord refactored to same helper |
 | Env var | `ANALYTICS_API_URL` | Default `http://localhost:8001`; replaces `CHORD_API_URL` |
 | FastAPI route | `analytics/api/main.py` | `POST /api/viz/overview` |
 | Service | `analytics/api/overview_service.py` | DuckDB queries + vector assembly |
@@ -76,7 +77,9 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 
 **Route parity (required):** FastAPI exposes `POST /api/viz/overview` (not a shortened internal path) so future cutover is a host/port change only.
 
-### 3.1 Express proxy behaviour
+### 3.1 Express sidecar proxy behaviour
+
+**Naming:** `fastapi_sidecar_proxy.ts` (not `duckdb_proxy`) — the proxy targets the **FastAPI analytics server**, not DuckDB directly. DuckDB is an implementation detail inside Python. This module is a **temporary migration bridge**; delete it when Express viz routes are retired and the UI talks to FastAPI directly.
 
 When `?backend=duckdb` is present:
 
@@ -116,8 +119,8 @@ Future:    React → FastAPI :8080 /api/viz/overview   (Express removed)
 
 | Block | Semantics | Index ordering |
 |---|---|---|
-| `counts_data` | Total RPKM per **phylum** (all ECs, all tax columns) | Alphabetical by `resolved_tax_label` ASC |
-| `ann_data` | Total RPKM per **superpathway** (row-wise sum per EC, grouped) | Alphabetical by pathway label ASC |
+| `counts_data` | Total RPKM per **phylum** (all ECs, all tax columns) | Alphabetical by ancestor names coarse→fine: `kingdom_label ASC`, then `phylum_label ASC` |
+| `ann_data` | Total RPKM per **superpathway** (row-wise sum per EC, grouped) | Alphabetical by `pathway_label` ASC |
 
 Frontend (`Overview.tsx`) consumes `counts_data.index`, `counts_data.counts`, `ann_data.index`, `ann_data.counts` only. Pie colors are index-position-based (`get_color(i, n)`), so `ann_data` slice order will differ from legacy when toggling backends — accepted for v1.
 
@@ -155,9 +158,11 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 ```
 int_tax_rollup_resolved
   → counts: WHERE requested_rank='phylum' AND pathway_level='superpathway'
-            GROUP BY resolved_tax_label → ORDER BY resolved_tax_label ASC
+            GROUP BY resolved_tax_label
+            JOIN bridge_tax_rollup for kingdom ancestor label
+            ORDER BY kingdom_label ASC, phylum_label ASC
   → ann:    WHERE requested_rank='phylum' AND pathway_level='superpathway'
-            GROUP BY pathway_label → ORDER BY label ASC
+            GROUP BY pathway_label → ORDER BY pathway_label ASC
   → OverviewResponse
 ```
 
@@ -165,34 +170,57 @@ Both vectors pin the same `(requested_rank, pathway_level)` pair. Totals are inv
 
 ### 5.2 SQL details
 
-**Pathway label expression** (reuse chord convention):
+**Pathway label (overview ann_data only):** Overview always aggregates at `pathway_level = 'superpathway'`, where `pathway_label` is the superpathway name. Unmapped ECs are the only special case:
 
 ```sql
-CASE
-  WHEN ec_normalized = '0.0.0.0' OR pathway_key IS NULL THEN 'Unmapped EC'
-  ELSE COALESCE(pathway_label, ec_normalized)
-END
+CASE WHEN pathway_key IS NULL THEN 'Unmapped EC' ELSE pathway_label END
 ```
+
+No `COALESCE(..., ec_normalized)` — that fallback is for finer pathway levels (e.g. `pathway_node`) where `pathway_label` may be NULL; it does not apply here.
 
 **counts_data:**
 
+Aggregate phylum totals, then sort by kingdom ancestor name (via `bridge_tax_rollup` Parquet) before phylum label:
+
 ```sql
-SELECT resolved_tax_label AS label, SUM(value) AS total
-FROM int_tax_rollup_resolved
-WHERE requested_rank = 'phylum'
-  AND pathway_level = 'superpathway'
-GROUP BY resolved_tax_label
-ORDER BY resolved_tax_label ASC
+WITH phylum_totals AS (
+    SELECT resolved_tax_label AS phylum_label, SUM(value) AS total
+    FROM int_tax_rollup_resolved
+    WHERE requested_rank = 'phylum'
+      AND pathway_level = 'superpathway'
+    GROUP BY resolved_tax_label
+),
+kingdom_for_phylum AS (
+    -- One kingdom label per phylum display label (MIN for stable tie-break when multiple source_tax_ids share a phylum)
+    SELECT
+        t.resolved_tax_label AS phylum_label,
+        MIN(k.resolved_tax_label) AS kingdom_label
+    FROM int_tax_rollup_resolved t
+    JOIN read_parquet('<bridge_tax_rollup>') k
+      ON k.source_tax_id = t.source_tax_id
+     AND k.requested_rank = 'kingdom'
+    WHERE t.requested_rank = 'phylum'
+      AND t.pathway_level = 'superpathway'
+    GROUP BY t.resolved_tax_label
+)
+SELECT p.phylum_label, p.total
+FROM phylum_totals p
+LEFT JOIN kingdom_for_phylum k ON k.phylum_label = p.phylum_label
+ORDER BY COALESCE(k.kingdom_label, ''), p.phylum_label ASC
 ```
+
+`'Unclassified'` phylum labels sort under `COALESCE(kingdom_label, '')` then their phylum label.
 
 **ann_data:**
 
 ```sql
-SELECT <pathway_label_expr> AS label, SUM(value) AS total
+SELECT
+    CASE WHEN pathway_key IS NULL THEN 'Unmapped EC' ELSE pathway_label END AS label,
+    SUM(value) AS total
 FROM int_tax_rollup_resolved
 WHERE requested_rank = 'phylum'
   AND pathway_level = 'superpathway'
-GROUP BY <pathway_label_expr>
+GROUP BY 1
 ORDER BY label ASC
 ```
 
@@ -217,7 +245,8 @@ def _build_vector(rows: list[tuple[str, float]]) -> OverviewVector:
 | Tax rollup | `get_parents_at_level` — exact rank only | `bridge_tax_rollup` — exact → coarser fallback → `'Unclassified'` |
 | Unmapped ECs | `0.0.0.0` / SQLite pathway map | `pathway_key IS NULL` → label `'Unmapped EC'` |
 | Comparison mode | `get_delta` for two files | Not supported (v1) |
-| `ann_data` index order | First-encounter order from SQLite `pathway_nodes` scan | Alphabetical by label ASC |
+| `counts_data` index order | Flat alphabetical on phylum label (`_.sortBy`) | Hierarchical: kingdom name, then phylum name |
+| `ann_data` index order | First-encounter order from SQLite `pathway_nodes` scan | Alphabetical by superpathway label ASC |
 | Unknown-header tax_ids | Column included in wide-matrix sums | Mass excluded from `WHERE requested_rank = 'phylum'` (NULL bridge join) |
 | TSV `Unclassified` column | Included as KEY_COL in wide matrix | Excluded from pipeline unpivot (unchanged) |
 
@@ -245,9 +274,9 @@ analytics/
     └── dump_fake_rpkm_expectations.py   # extend to dump overview goldens
 
 src/server/
-├── duckdb_proxy.ts                 # shared proxy (chord + overview)
-├── chord_handler.ts                # thin wrapper or removed in favour of duckdb_proxy
-└── index.ts                        # wire overview proxy route
+├── fastapi_sidecar_proxy.ts        # temporary Express→FastAPI migration proxy (chord + overview)
+├── chord_handler.ts                # thin wrapper or removed in favour of sidecar proxy
+└── index.ts                        # wire overview sidecar route
 ```
 
 ## 8. Testing
@@ -264,13 +293,13 @@ Reuse shared `fake_rpkm` fixture (`analytics/conftest.py`, `testing/fake_rpkm_fi
 
 Tests skip when bridges/sample.duckdb unavailable (same guard as chord).
 
-### 8.2 Express proxy tests
+### 8.2 Express sidecar proxy tests
 
-Extend `src/tests/chord_handler.test.ts` or add `duckdb_proxy.test.ts`:
+Extend `src/tests/chord_handler.test.ts` or add `fastapi_sidecar_proxy.test.ts`:
 
 - Default (no query param) → legacy handler
-- `?backend=duckdb` → fetch to `ANALYTICS_API_URL/api/viz/overview`
-- Fetch failure → error envelope
+- `?backend=duckdb` → fetch to `ANALYTICS_API_URL` + route path
+- Fetch failure → error envelope with route-specific prefix (`chord` / `overview`)
 
 ### 8.3 Node integration test
 
@@ -310,7 +339,7 @@ curl -X POST 'http://localhost:3001/api/viz/overview?backend=duckdb' \
 - [ ] `analytics/api/schemas.py` — `OverviewRequest`, `OverviewVector`, `OverviewResponse`
 - [ ] `analytics/api/main.py` — `POST /api/viz/overview`
 - [ ] `overview_expectations.yaml` + `test_overview_service.py`
-- [ ] `src/server/duckdb_proxy.ts` — shared proxy; refactor chord to use it
+- [ ] `src/server/fastapi_sidecar_proxy.ts` — temporary migration proxy; refactor chord to use it
 - [ ] `src/server/index.ts` — overview route with proxy
 - [ ] `ANALYTICS_API_URL` env var (update chord, docs, README)
 - [ ] `src/renderer/src/api.ts` — `OVERVIEW_BACKEND_QUERY` toggle
