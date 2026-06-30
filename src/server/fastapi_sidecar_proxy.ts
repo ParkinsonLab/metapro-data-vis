@@ -34,13 +34,3 @@ export const createSidecarProxyHandler = (deps: {
     }
   }
 }
-
-export const createChordHandler = (deps: {
-  legacyHandler: (params?: unknown) => unknown
-  fetchFn?: typeof fetch
-}) =>
-  createSidecarProxyHandler({
-    ...deps,
-    apiPath: '/api/viz/chord',
-    label: 'chord',
-  })
