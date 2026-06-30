@@ -70,16 +70,45 @@ DBT_DUCKDB_PATH=transform/runs/my_sample/sample.duckdb \
 
 `docs/superpowers/specs/2026-06-15-rpkm-transform-design.md`
 
-## Chord API (FastAPI sidecar)
+## Analytics API (FastAPI sidecar)
 
 Requires `runs/{sample_id}/sample.duckdb` with `int_tax_rollup_resolved`.
 
-Run the chord API in a third terminal alongside `npm run dev` (Express + Vite):
+Express proxies migrated viz routes to the FastAPI sidecar when the request
+includes `?backend=duckdb`. Set `ANALYTICS_API_URL` (default
+`http://localhost:8001`) to point Express at the sidecar.
+
+Run the analytics API in a third terminal alongside `npm run dev` (Express + Vite):
 
 ```bash
-# Terminal A — chord FastAPI sidecar (or: npm run dev:chord-api)
+# Terminal A — FastAPI sidecar (or: npm run dev:chord-api)
 cd analytics && uv run uvicorn api.main:app --port 8001
 
-# Terminal B — Express proxy
-curl -X POST 'http://localhost:3001/api/viz/chord?backend=duckdb' ...
+# Terminal B — Express + Vite
+npm run dev
+```
+
+Endpoints served by the sidecar:
+
+- `POST /api/viz/chord` — chord matrix from DuckDB intermediates
+- `POST /api/viz/overview` — overview pie-chart vectors from DuckDB intermediates
+
+Via Express proxy (`?backend=duckdb`):
+
+```bash
+curl -X POST 'http://localhost:3001/api/viz/chord?backend=duckdb' \
+  -H 'Content-Type: application/json' \
+  -d '{"names": ["fake_rpkm.tsv"], "tax_level": "phylum", "ann_level": "superpathway"}'
+
+curl -X POST 'http://localhost:3001/api/viz/overview?backend=duckdb' \
+  -H 'Content-Type: application/json' \
+  -d '{"names": ["fake_rpkm.tsv"]}'
+```
+
+**Renderer backend toggle:** the UI defaults to the sidecar for migrated channels
+(`chord`, `overview`). In the browser console:
+
+```js
+localStorage.setItem('vizBackend', 'legacy')    // opt out to Node handlers
+localStorage.removeItem('vizBackend')           // reset to sidecar default
 ```
