@@ -17,6 +17,7 @@ TSV_PATH = FIXTURES_DIR / "fake_rpkm.tsv"
 DB_PATH = TRANSFORM_DIR / f"runs/{SAMPLE_ID}/sample.duckdb"
 PIPELINE_YAML = FIXTURES_DIR / "fake_rpkm_pipeline_expectations.yaml"
 CHORD_YAML = ANALYTICS_DIR / "api/tests/fixtures/chord_expectations.yaml"
+OVERVIEW_YAML = ANALYTICS_DIR / "api/tests/fixtures/overview_expectations.yaml"
 
 REQUIRED_BRIDGES = (
     REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet",
@@ -47,6 +48,10 @@ def load_pipeline_expectations() -> dict[str, Any]:
 
 def load_chord_expectations() -> dict[str, Any]:
     return load_yaml(CHORD_YAML)
+
+
+def load_overview_expectations() -> dict[str, Any]:
+    return load_yaml(OVERVIEW_YAML)
 
 
 def ensure_pipeline_built() -> Path:

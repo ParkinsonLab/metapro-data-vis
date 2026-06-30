@@ -1,0 +1,20 @@
+sample_id: fake_rpkm
+overview:
+  counts_data:
+    index:
+    - Actinomycetota
+    - Bacillota
+    - Bacteria
+    counts:
+    - 1.0
+    - 10.0
+    - 1.0
+  ann_data:
+    index:
+    - Biosynthesis of other secondary metabolites
+    - Energy metabolism
+    - Unmapped EC
+    counts:
+    - 1.0
+    - 10.0
+    - 1.0
