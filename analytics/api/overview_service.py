@@ -42,9 +42,62 @@ def build_overview_from_duckdb(*, names: list[str]) -> OverviewResponse:
         conn.close()
 
 
+def _rows_to_vector(rows: list[tuple[str, float]]) -> OverviewVector:
+    return OverviewVector(
+        index=[r[0] for r in rows],
+        counts=[float(r[1]) for r in rows],
+    )
+
+
 def _fetch_counts_data(conn) -> OverviewVector:
-    raise NotImplementedError
+    if not BRIDGE_TAX_PATH.exists():
+        raise FileNotFoundError(f"bridge parquet missing: {BRIDGE_TAX_PATH}")
+    bridge = BRIDGE_TAX_PATH.as_posix()
+    rows = conn.execute(
+        f"""
+        WITH phylum_totals AS (
+            SELECT resolved_tax_label AS phylum_label, SUM(value) AS total
+            FROM int_tax_rollup_resolved
+            WHERE requested_rank = 'phylum'
+              AND pathway_level = 'superpathway'
+            GROUP BY resolved_tax_label
+        ),
+        phylum_map AS (
+            SELECT DISTINCT source_tax_id, resolved_tax_label AS phylum_label
+            FROM read_parquet('{bridge}')
+            WHERE requested_rank = 'phylum'
+        ),
+        kingdom_map AS (
+            SELECT source_tax_id, resolved_tax_label AS kingdom_label
+            FROM read_parquet('{bridge}')
+            WHERE requested_rank = 'kingdom'
+        ),
+        phylum_to_kingdom AS (
+            SELECT p.phylum_label, MIN(k.kingdom_label) AS kingdom_label
+            FROM phylum_map p
+            JOIN kingdom_map k USING (source_tax_id)
+            GROUP BY p.phylum_label
+        )
+        SELECT p.phylum_label, p.total
+        FROM phylum_totals p
+        LEFT JOIN phylum_to_kingdom k ON k.phylum_label = p.phylum_label
+        ORDER BY COALESCE(k.kingdom_label, ''), p.phylum_label ASC
+        """
+    ).fetchall()
+    return _rows_to_vector(rows)
 
 
 def _fetch_ann_data(conn) -> OverviewVector:
-    raise NotImplementedError
+    rows = conn.execute(
+        """
+        SELECT
+            CASE WHEN pathway_key IS NULL THEN 'Unmapped EC' ELSE pathway_label END AS label,
+            SUM(value) AS total
+        FROM int_tax_rollup_resolved
+        WHERE requested_rank = 'phylum'
+          AND pathway_level = 'superpathway'
+        GROUP BY 1
+        ORDER BY label ASC
+        """
+    ).fetchall()
+    return _rows_to_vector(rows)
