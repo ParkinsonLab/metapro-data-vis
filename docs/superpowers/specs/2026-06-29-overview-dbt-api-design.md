@@ -42,6 +42,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Comparison mode | Error on duckdb path when `names.length > 1` | Deferred follow-up (same as chord v1) |
 | Verification | Golden tests: `overview_expectations.yaml` + parametrized pytest on `fake_rpkm` | Mirrors chord golden pattern |
 | Response typing | Pydantic `OverviewResponse` model in Python | Documents contract; used in service return type and tests |
+| Renderer backend toggle | **Global** `localStorage` key; **migrated channels only**; no dev UI in v1 | Runtime switch without Vite restart or code edits; dev UI deferred |
 
 ## 3. Architecture
 
@@ -73,7 +74,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | FastAPI route | `analytics/api/main.py` | `POST /api/viz/overview` |
 | Service | `analytics/api/overview_service.py` | DuckDB queries + vector assembly |
 | Schemas | `analytics/api/schemas.py` | `OverviewRequest`, `OverviewVector`, `OverviewResponse` |
-| UI toggle | `src/renderer/src/api.ts` | `OVERVIEW_BACKEND_QUERY = '?backend=duckdb'` (same pattern as chord) |
+| Renderer toggle | `src/renderer/src/vizBackend.ts` + `api.ts` | Reads global `localStorage` at request time; appends `?backend=duckdb` for migrated channels only |
 
 **Route parity (required):** FastAPI exposes `POST /api/viz/overview` (not a shortened internal path) so future cutover is a host/port change only.
 
@@ -87,7 +88,51 @@ When `?backend=duckdb` is present:
 2. Return FastAPI's JSON envelope to the client unchanged.
 3. On connection failure, return `{ ok: false, error: "overview duckdb backend unavailable: ..." }` with HTTP 200.
 
-### 3.2 Future Express retirement (out of scope v1)
+### 3.2 Renderer backend toggle (v1)
+
+During migration, developers switch between legacy Node handlers and the FastAPI sidecar **at runtime** — no Vite restart and no source edits.
+
+| Decision | Choice |
+|---|---|
+| Scope | **Global** — one setting for all migrated viz channels |
+| Channels affected | **Migrated endpoints only** (`chord`, `overview` initially; extend set as routes migrate) |
+| Unaffected | `handshake`, `load`, `load_test`, `counts`, `krona`, `network`, `pathway_list` — always legacy Express |
+| Storage | `localStorage` key `vizBackend`: `'legacy'` (default) or `'sidecar'` |
+| Dev UI | **Deferred** — console/localStorage only in v1 |
+
+**Module:** `src/renderer/src/vizBackend.ts`
+
+```typescript
+const STORAGE_KEY = 'vizBackend'
+const MIGRATED_CHANNELS = new Set<Channel>(['chord', 'overview'])
+
+export type VizBackend = 'legacy' | 'sidecar'
+
+export function getVizBackend(): VizBackend {
+  return localStorage.getItem(STORAGE_KEY) === 'sidecar' ? 'sidecar' : 'legacy'
+}
+
+export function sidecarQuery(channel: Channel): string {
+  return MIGRATED_CHANNELS.has(channel) && getVizBackend() === 'sidecar'
+    ? '?backend=duckdb'
+    : ''
+}
+```
+
+**`api.ts`:** remove hardcoded `CHORD_BACKEND_QUERY`; use `sidecarQuery(channel)` in `endpointFor()`.
+
+**Console usage (no page reload required for next fetch):**
+
+```javascript
+localStorage.setItem('vizBackend', 'sidecar')   // FastAPI sidecar for chord + overview
+localStorage.setItem('vizBackend', 'legacy')    // default Node handlers
+```
+
+Re-fetch by navigating tabs or changing filters — e.g. revisit Overview or change chord rank. A soft page reload also works.
+
+**Follow-up (out of scope v1):** dev-only UI control bound to the same `localStorage` key.
+
+### 3.3 Future Express retirement (out of scope v1)
 
 ```
 Today:     React → Express :3001 /api/viz/overview?backend=duckdb → FastAPI :8001 /api/viz/overview
@@ -158,9 +203,8 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 ```
 int_tax_rollup_resolved
   → counts: WHERE requested_rank='phylum' AND pathway_level='superpathway'
-            GROUP BY resolved_tax_label
-            JOIN bridge_tax_rollup for kingdom ancestor label
-            ORDER BY kingdom_label ASC, phylum_label ASC
+            GROUP BY resolved_tax_label (int_tax_rollup_resolved)
+            ORDER BY kingdom/phylum labels from bridge_tax_rollup Parquet only
   → ann:    WHERE requested_rank='phylum' AND pathway_level='superpathway'
             GROUP BY pathway_label → ORDER BY pathway_label ASC
   → OverviewResponse
@@ -180,7 +224,7 @@ No `COALESCE(..., ec_normalized)` — that fallback is for finer pathway levels 
 
 **counts_data:**
 
-Aggregate phylum totals, then sort by kingdom ancestor name (via `bridge_tax_rollup` Parquet) before phylum label:
+Aggregate phylum totals from sample data; resolve kingdom sort keys from **reference bridge only** (no sample values in the hierarchy lookup):
 
 ```sql
 WITH phylum_totals AS (
@@ -190,24 +234,29 @@ WITH phylum_totals AS (
       AND pathway_level = 'superpathway'
     GROUP BY resolved_tax_label
 ),
-kingdom_for_phylum AS (
-    -- One kingdom label per phylum display label (MIN for stable tie-break when multiple source_tax_ids share a phylum)
-    SELECT
-        t.resolved_tax_label AS phylum_label,
-        MIN(k.resolved_tax_label) AS kingdom_label
-    FROM int_tax_rollup_resolved t
-    JOIN read_parquet('<bridge_tax_rollup>') k
-      ON k.source_tax_id = t.source_tax_id
-     AND k.requested_rank = 'kingdom'
-    WHERE t.requested_rank = 'phylum'
-      AND t.pathway_level = 'superpathway'
-    GROUP BY t.resolved_tax_label
+phylum_map AS (
+    SELECT DISTINCT source_tax_id, resolved_tax_label AS phylum_label
+    FROM read_parquet('<bridge_tax_rollup>')
+    WHERE requested_rank = 'phylum'
+),
+kingdom_map AS (
+    SELECT source_tax_id, resolved_tax_label AS kingdom_label
+    FROM read_parquet('<bridge_tax_rollup>')
+    WHERE requested_rank = 'kingdom'
+),
+phylum_to_kingdom AS (
+    SELECT p.phylum_label, MIN(k.kingdom_label) AS kingdom_label
+    FROM phylum_map p
+    JOIN kingdom_map k USING (source_tax_id)
+    GROUP BY p.phylum_label
 )
 SELECT p.phylum_label, p.total
 FROM phylum_totals p
-LEFT JOIN kingdom_for_phylum k ON k.phylum_label = p.phylum_label
+LEFT JOIN phylum_to_kingdom k ON k.phylum_label = p.phylum_label
 ORDER BY COALESCE(k.kingdom_label, ''), p.phylum_label ASC
 ```
+
+`phylum_to_kingdom` is reference-sized (taxonomy only); `phylum_totals` is the only query that touches sample mass.
 
 `'Unclassified'` phylum labels sort under `COALESCE(kingdom_label, '')` then their phylum label.
 
@@ -277,6 +326,10 @@ src/server/
 ├── fastapi_sidecar_proxy.ts        # temporary Express→FastAPI migration proxy (chord + overview)
 ├── chord_handler.ts                # thin wrapper or removed in favour of sidecar proxy
 └── index.ts                        # wire overview sidecar route
+
+src/renderer/src/
+├── vizBackend.ts                   # localStorage global toggle; migrated channel set
+└── api.ts                          # sidecarQuery(channel) in endpointFor()
 ```
 
 ## 8. Testing
@@ -327,7 +380,10 @@ cd analytics && uv run uvicorn api.main:app --port 8001
 # Terminal 2 — Express + Vite
 npm run dev
 
-# Via Express proxy (duckdb backend)
+# Browser console — switch viz backend (migrated channels only: chord, overview)
+localStorage.setItem('vizBackend', 'sidecar')
+
+# Via Express proxy (duckdb backend) — curl equivalent
 curl -X POST 'http://localhost:3001/api/viz/overview?backend=duckdb' \
   -H 'Content-Type: application/json' \
   -d '{"names": ["fake_rpkm.tsv"]}'
@@ -342,5 +398,6 @@ curl -X POST 'http://localhost:3001/api/viz/overview?backend=duckdb' \
 - [ ] `src/server/fastapi_sidecar_proxy.ts` — temporary migration proxy; refactor chord to use it
 - [ ] `src/server/index.ts` — overview route with proxy
 - [ ] `ANALYTICS_API_URL` env var (update chord, docs, README)
-- [ ] `src/renderer/src/api.ts` — `OVERVIEW_BACKEND_QUERY` toggle
+- [ ] `src/renderer/src/vizBackend.ts` — global `localStorage` toggle; migrated channel set
+- [ ] `src/renderer/src/api.ts` — remove `CHORD_BACKEND_QUERY`; use `sidecarQuery(channel)`
 - [ ] Proxy unit tests
