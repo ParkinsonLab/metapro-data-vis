@@ -1,9 +1,29 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppStore } from '../store/AppStore'
 import { request } from '../api'
 
+/** TEMPORARY: remove before merge — always selectable for local DuckDB dev. */
+const PINNED_DEV_FILES = [
+  'fake_rpkm.tsv',
+  'stress_rpkm_1.tsv',
+  'stress_rpkm_2.tsv',
+]
+
+function mergeDropdownFiles(file_list: string[]): string[] {
+  const seen = new Set<string>()
+  const merged: string[] = []
+  for (const name of [...PINNED_DEV_FILES, ...file_list]) {
+    if (!seen.has(name)) {
+      seen.add(name)
+      merged.push(name)
+    }
+  }
+  return merged
+}
+
 const DataSelector = () => {
   const file_list = useAppStore((state) => state.file_list)
+  const dropdown_files = useMemo(() => mergeDropdownFiles(file_list), [file_list])
   const [f1, set_f1] = useState('')
   const [f2, set_f2] = useState('')
 
@@ -22,16 +42,16 @@ const DataSelector = () => {
     <div>
       <select value={f1} onChange={handleDropdown_1}>
         <option value="">Select File 1</option>
-        {file_list.map((file, idx) => (
-          <option key={idx} value={file}>
+        {dropdown_files.map((file) => (
+          <option key={file} value={file}>
             {file}
           </option>
         ))}
       </select>
       <select value={f2} onChange={handleDropdown_2}>
         <option value="">Select File 2</option>
-        {file_list.map((file, idx) => (
-          <option key={idx} value={file}>
+        {dropdown_files.map((file) => (
+          <option key={file} value={file}>
             {file}
           </option>
         ))}
