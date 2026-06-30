@@ -1,7 +1,7 @@
 # Overview API via dbt Intermediates — Design Spec
 
 > **Status:** Approved (2026-06-29)  
-> **Goal:** Reimplement `POST /api/viz/overview` to derive overview pie-chart vectors from precomputed dbt intermediate tables (`int_tax_rollup_resolved`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract so no frontend changes are required. Legacy Node implementation remains the default; opt-in via query param.
+> **Goal:** Reimplement `POST /api/viz/overview` to derive overview pie-chart vectors from precomputed dbt intermediate tables (`int_tax_rollup_resolved`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract. Express keeps legacy handlers when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
 
@@ -42,7 +42,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Comparison mode | Error on duckdb path when `names.length > 1` | Deferred follow-up (same as chord v1) |
 | Verification | Golden tests: `overview_expectations.yaml` + parametrized pytest on `fake_rpkm` | Mirrors chord golden pattern |
 | Response typing | Pydantic `OverviewResponse` model in Python | Documents contract; used in service return type and tests |
-| Renderer backend toggle | **Global** `localStorage` key; **migrated channels only**; no dev UI in v1 | Runtime switch without Vite restart or code edits; dev UI deferred |
+| Renderer backend toggle | **Global** `localStorage` key; **migrated channels only**; **sidecar default**; no dev UI in v1 | FastAPI path unless explicitly opted out; no Vite restart |
 
 ## 3. Architecture
 
@@ -97,7 +97,7 @@ During migration, developers switch between legacy Node handlers and the FastAPI
 | Scope | **Global** — one setting for all migrated viz channels |
 | Channels affected | **Migrated endpoints only** (`chord`, `overview` initially; extend set as routes migrate) |
 | Unaffected | `handshake`, `load`, `load_test`, `counts`, `krona`, `network`, `pathway_list` — always legacy Express |
-| Storage | `localStorage` key `vizBackend`: `'legacy'` (default) or `'sidecar'` |
+| Storage | `localStorage` key `vizBackend`: `'sidecar'` (default) or `'legacy'` |
 | Dev UI | **Deferred** — console/localStorage only in v1 |
 
 **Module:** `src/renderer/src/vizBackend.ts`
@@ -109,7 +109,7 @@ const MIGRATED_CHANNELS = new Set<Channel>(['chord', 'overview'])
 export type VizBackend = 'legacy' | 'sidecar'
 
 export function getVizBackend(): VizBackend {
-  return localStorage.getItem(STORAGE_KEY) === 'sidecar' ? 'sidecar' : 'legacy'
+  return localStorage.getItem(STORAGE_KEY) === 'legacy' ? 'legacy' : 'sidecar'
 }
 
 export function sidecarQuery(channel: Channel): string {
@@ -124,8 +124,8 @@ export function sidecarQuery(channel: Channel): string {
 **Console usage (no page reload required for next fetch):**
 
 ```javascript
-localStorage.setItem('vizBackend', 'sidecar')   // FastAPI sidecar for chord + overview
-localStorage.setItem('vizBackend', 'legacy')    // default Node handlers
+localStorage.setItem('vizBackend', 'legacy')    // opt out to Node handlers for chord + overview
+localStorage.removeItem('vizBackend')           // reset to sidecar default
 ```
 
 Re-fetch by navigating tabs or changing filters — e.g. revisit Overview or change chord rank. A soft page reload also works.
@@ -380,8 +380,8 @@ cd analytics && uv run uvicorn api.main:app --port 8001
 # Terminal 2 — Express + Vite
 npm run dev
 
-# Browser console — switch viz backend (migrated channels only: chord, overview)
-localStorage.setItem('vizBackend', 'sidecar')
+# Browser console — opt out to legacy Node (migrated channels: chord, overview)
+localStorage.setItem('vizBackend', 'legacy')
 
 # Via Express proxy (duckdb backend) — curl equivalent
 curl -X POST 'http://localhost:3001/api/viz/overview?backend=duckdb' \
