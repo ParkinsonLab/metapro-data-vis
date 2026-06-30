@@ -41,3 +41,6 @@ analytics/transform/**/*.duckdb
 # stress RPKM generator outputs (also under resources/*)
 resources/example_data/stress_rpkm_*.tsv
 resources/example_data/stress_rpkm_manifest.json
+
+# Personal Cursor rules (repo-specific; agent reads locally; not committed)
+.cursor/
