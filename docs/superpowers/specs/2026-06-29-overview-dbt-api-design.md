@@ -1,6 +1,6 @@
 # Overview API via dbt Intermediates — Design Spec
 
-> **Status:** Approved (2026-06-29; revised 2026-06-30 — exclude unmapped EC from overview vectors)  
+> **Status:** Approved (2026-06-29; revised 2026-06-30 — exclude unmapped EC; pie arc layout follows backend index order)  
 > **Goal:** Reimplement `POST /api/viz/overview` to derive overview pie-chart vectors from precomputed dbt intermediate tables (`int_tax_rollup_resolved`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract. Express keeps legacy handlers when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
@@ -39,6 +39,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Pinned dimensions | `requested_rank = 'phylum'`, `pathway_level = 'superpathway'` for both vectors | Avoids 7×3 double-counting; totals invariant across rank at fixed pathway level |
 | `counts_data` ordering | Alphabetical by **ancestor name chain** (kingdom → phylum) | Phyla colocated under their kingdom; not flat phylum alphabetical |
 | `ann_data` ordering | Alphabetical by superpathway label ASC | Deliberate simplification (legacy uses SQLite EC insertion order) |
+| Pie arc layout | Clockwise in **`index` array order** (D3 `pie.sort(null)`) | Backend ordering is visible on the circle; not re-sorted by slice size |
 | Unmapped EC | **Excluded** — `pathway_key IS NOT NULL` on both vectors | Overview pies show mapped metabolism only; unmapped mass omitted from phylum totals too |
 | Comparison mode | Error on duckdb path when `names.length > 1` | Deferred follow-up (same as chord v1) |
 | Verification | Golden tests: `overview_expectations.yaml` + parametrized pytest on `fake_rpkm` | Mirrors chord golden pattern |
@@ -168,7 +169,11 @@ Future:    React → FastAPI :8080 /api/viz/overview   (Express removed)
 | `counts_data` | Total RPKM per **phylum** (all ECs, all tax columns) | Alphabetical by ancestor names coarse→fine: `kingdom_label ASC`, then `phylum_label ASC` |
 | `ann_data` | Total RPKM per **superpathway** (row-wise sum per EC, grouped) | Alphabetical by `pathway_label` ASC |
 
-Frontend (`Overview.tsx`) consumes `counts_data.index`, `counts_data.counts`, `ann_data.index`, `ann_data.counts` only. Pie colors are index-position-based (`get_color(i, n)`), so `ann_data` slice order will differ from legacy when toggling backends — accepted for v1.
+Frontend (`Overview.tsx`) consumes `counts_data.index`, `counts_data.counts`, `ann_data.index`, `ann_data.counts` only.
+
+**Pie layout:** Arcs are drawn clockwise starting at 12 o'clock in the same order as each vector's `index` array. D3's default pie sort (descending by value) is disabled via `pie.sort(null)` so backend ordering — kingdom→phylum for expression, alphabetical superpathway for metabolism — determines where each slice sits on the circle, not slice size.
+
+**Colors:** Index-position-based (`get_color(i, n)` via `scaleOrdinal` domain = `index`). `ann_data` slice order (and thus colors relative to labels) may differ from legacy when toggling backends — accepted for v1.
 
 ### 4.3 Pydantic models
 
