@@ -15,11 +15,11 @@ import {
 } from './data_functions'
 import { wrapHandler } from './envelope'
 import { createChordHandler } from './chord_handler'
+import { createSidecarProxyHandler } from './fastapi_sidecar_proxy'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } })
 
 const vizRoutes: Array<{ path: string; handler: (params?: unknown) => unknown }> = [
-  { path: '/api/viz/overview', handler: parse_overview },
   { path: '/api/viz/counts', handler: parse_counts },
   { path: '/api/viz/krona', handler: parse_krona },
   { path: '/api/viz/network', handler: parse_network },
@@ -42,6 +42,20 @@ export const createApp = (): Express => {
       res.status(200).json(envelope)
     })
   }
+
+  const overviewHandler = createSidecarProxyHandler({
+    legacyHandler: parse_overview,
+    apiPath: '/api/viz/overview',
+    label: 'overview',
+  })
+
+  app.post('/api/viz/overview', async (req, res) => {
+    const envelope = await overviewHandler({
+      query: req.query as Record<string, string | undefined>,
+      body: req.body,
+    })
+    res.status(200).json(envelope)
+  })
 
   const chordHandler = createChordHandler({ legacyHandler: parse_ec_chord })
 
