@@ -1,4 +1,5 @@
 import { useAppStore } from './store/AppStore'
+import { sidecarQuery } from './vizBackend'
 
 export type ApiEnvelope<T = unknown> =
   | { ok: true; value: T }
@@ -19,9 +20,6 @@ type ChannelHandler = (value: unknown) => void
 
 const channelHandlers: Partial<Record<Channel, ChannelHandler>> = {}
 
-/** TEMPORARY: remove before merge — routes chord via Express → FastAPI DuckDB backend. */
-const CHORD_BACKEND_QUERY = '?backend=duckdb'
-
 export const registerChannelHandler = (channel: Channel, handler: ChannelHandler): void => {
   channelHandlers[channel] = handler
 }
@@ -31,10 +29,10 @@ const endpointFor = (channel: Channel): { method: string; url: string } => {
     handshake: { method: 'GET', url: '/api/health' },
     load: { method: 'POST', url: '/api/data' },
     load_test: { method: 'POST', url: '/api/data/test' },
-    overview: { method: 'POST', url: '/api/viz/overview' },
+    overview: { method: 'POST', url: `/api/viz/overview${sidecarQuery('overview')}` },
     counts: { method: 'POST', url: '/api/viz/counts' },
     krona: { method: 'POST', url: '/api/viz/krona' },
-    chord: { method: 'POST', url: `/api/viz/chord${CHORD_BACKEND_QUERY}` },
+    chord: { method: 'POST', url: `/api/viz/chord${sidecarQuery('chord')}` },
     network: { method: 'POST', url: '/api/viz/network' },
     pathway_list: { method: 'POST', url: '/api/viz/pathway-list' }
   }
