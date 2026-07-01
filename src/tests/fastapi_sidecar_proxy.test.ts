@@ -58,4 +58,19 @@ describe('createSidecarProxyHandler', () => {
       error: 'chord duckdb backend unavailable: connection refused',
     })
   })
+
+  it('returns krona error envelope when fetch fails', async () => {
+    const fetchFn = vi.fn().mockRejectedValue(new Error('connection refused'))
+    const handler = createSidecarProxyHandler({
+      legacyHandler: vi.fn(),
+      apiPath: '/api/viz/krona',
+      label: 'krona',
+      fetchFn,
+    })
+    const out = await handler({ query: { backend: 'duckdb' }, body: {} })
+    expect(out).toEqual({
+      ok: false,
+      error: 'krona duckdb backend unavailable: connection refused',
+    })
+  })
 })
