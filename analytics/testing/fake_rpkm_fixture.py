@@ -11,6 +11,7 @@ ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 FIXTURES_DIR = TRANSFORM_DIR / "tests/fixtures"
 REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
+REPO_ROOT = ANALYTICS_DIR.parent
 
 SAMPLE_ID = "fake_rpkm"
 TSV_PATH = FIXTURES_DIR / "fake_rpkm.tsv"
@@ -18,6 +19,8 @@ DB_PATH = TRANSFORM_DIR / f"runs/{SAMPLE_ID}/sample.duckdb"
 PIPELINE_YAML = FIXTURES_DIR / "fake_rpkm_pipeline_expectations.yaml"
 CHORD_YAML = ANALYTICS_DIR / "api/tests/fixtures/chord_expectations.yaml"
 OVERVIEW_YAML = ANALYTICS_DIR / "api/tests/fixtures/overview_expectations.yaml"
+KRONA_YAML = ANALYTICS_DIR / "api/tests/fixtures/krona_expectations.yaml"
+NAMES_PATH = REPO_ROOT / "resources/db/parquet/names.parquet"
 
 REQUIRED_BRIDGES = (
     REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet",
@@ -37,6 +40,18 @@ def skip_reason() -> str:
     return f"Reference parquet not built ({', '.join(missing)}); run build_reference.py"
 
 
+def krona_fixtures_available() -> bool:
+    return bridges_available() and NAMES_PATH.exists()
+
+
+def krona_skip_reason() -> str:
+    if not bridges_available():
+        return skip_reason()
+    if not NAMES_PATH.exists():
+        return f"names parquet missing ({NAMES_PATH.name}); build resources/db/parquet"
+    return ""
+
+
 def load_yaml(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -52,6 +67,10 @@ def load_chord_expectations() -> dict[str, Any]:
 
 def load_overview_expectations() -> dict[str, Any]:
     return load_yaml(OVERVIEW_YAML)
+
+
+def load_krona_expectations() -> dict[str, Any]:
+    return load_yaml(KRONA_YAML)
 
 
 def ensure_pipeline_built() -> Path:

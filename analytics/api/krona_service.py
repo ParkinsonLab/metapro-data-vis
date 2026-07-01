@@ -137,6 +137,7 @@ def _fetch_taxa(conn, *, levels: tuple[str, ...]) -> list:
     order_by = _order_by_clause(levels)
     bridge = BRIDGE_TAX_PATH.as_posix()
     names = NAMES_PATH.as_posix()
+    pivot_cols = ", ".join(f"w.{rank}" for rank in levels)
     sql = f"""
     WITH totals AS (
         SELECT source_tax_id, SUM(value) AS total
@@ -171,7 +172,7 @@ def _fetch_taxa(conn, *, levels: tuple[str, ...]) -> list:
         )
         PIVOT (MAX(label) FOR requested_rank IN ({rank_in}))
     )
-    SELECT d.name, d.total, w.*
+    SELECT d.name, d.total, {pivot_cols}
     FROM named d
     LEFT JOIN bridge_wide w USING (source_tax_id)
     ORDER BY

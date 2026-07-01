@@ -9,10 +9,12 @@ import yaml
 
 from api.chord_service import build_chord_from_duckdb
 from api.filters import normalise_ann_filter, normalise_taxon_filter
+from api.krona_service import build_krona_from_duckdb
 from api.overview_service import build_overview_from_duckdb
 from testing.fake_rpkm_fixture import (
     ANN_LEVELS,
     CHORD_YAML,
+    KRONA_YAML,
     OVERVIEW_YAML,
     PIPELINE_YAML,
     RANKS,
@@ -68,6 +70,14 @@ def dump_rollup_grid(conn, focal_ec: str, focal_tax_id: int) -> list[dict]:
     ]
 
 
+def dump_krona_case(tax_rank: str) -> dict:
+    return build_krona_from_duckdb(
+        names=[f"{SAMPLE_ID}.tsv"],
+        tax_rank=tax_rank,
+        selected_taxon={},
+    ).model_dump(exclude_none=True)
+
+
 def dump_chord_case(tax_level: str, ann_level: str, **filters) -> dict:
     ann = normalise_ann_filter(filters.get("selected_ann_cat"), ann_level)
     tax = normalise_taxon_filter(filters.get("selected_taxon"))
@@ -92,6 +102,18 @@ def dump_chord_case(tax_level: str, ann_level: str, **filters) -> dict:
     return case
 
 
+def dump_krona_expectations() -> None:
+    ensure_pipeline_built()
+    krona_doc = {
+        "sample_id": SAMPLE_ID,
+        "krona_phylum": dump_krona_case("phylum"),
+        "krona_genus": dump_krona_case("genus"),
+    }
+    KRONA_YAML.parent.mkdir(parents=True, exist_ok=True)
+    KRONA_YAML.write_text(yaml.safe_dump(krona_doc, sort_keys=False), encoding="utf-8")
+    print(f"Wrote {KRONA_YAML}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -99,7 +121,16 @@ def main() -> None:
         default="Staphylococcus aureus",
         help="Species label for taxon-filter edge case",
     )
+    parser.add_argument(
+        "--krona",
+        action="store_true",
+        help="Write krona_expectations.yaml only",
+    )
     args = parser.parse_args()
+
+    if args.krona:
+        dump_krona_expectations()
+        return
 
     db = ensure_pipeline_built()
     conn = duckdb.connect(str(db), read_only=True)
