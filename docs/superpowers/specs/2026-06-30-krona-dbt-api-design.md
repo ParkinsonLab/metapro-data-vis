@@ -344,7 +344,21 @@ def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
 
 #### 5.4.3 `upsert_segment` and main loop
 
-`Segment.value` carries the leaf mass (`row.total` from SQL). Internals have `value is None`. Mass accumulation for internals is **inside** `upsert_segment` (no separate `add_mass` helper).
+`Segment.value` carries the leaf mass (`row.total` from SQL). Internals have `value is None`. Mass accumulation is **inside** `upsert_segment` (no separate `add_mass` helper).
+
+**What the query guarantees (and does not):**
+
+| Invariant | Guaranteed? | Why |
+|---|---|---|
+| One SQL row per `source_tax_id` | Yes | `totals` CTE `GROUP BY source_tax_id` |
+| One SQL row per leaf `name` | **No** | `name` comes from `names` lookup; different `tax_id`s can share the same string (e.g. `"Cavernicola"` → 3 tax_ids in `names.parquet`) |
+| Unique leaf `id` among siblings | **No** | two columns with the same display `name` can land under the same parent |
+
+**No internal/leaf `id` collision among siblings:** when an early leaf fires and `row[rank]` is set, `segments_for_row` appends an internal at that rank and places the `U_{name}` leaf **one level below** it (e.g. `[Internal(Bacillota), Leaf U_{name}]`, not both at the same depth). A genus-named column whose bridge resolves `row[genus]` stops at genus, producing `[Internal(Bacillota), Internal(Staphylococcus), Leaf U_{Staphylococcus}]` — the leaf is a child of `Internal(Staphylococcus)`, not its sibling. Rank-label internals and `U_{name}` leaves therefore never compete for the same slot in `parent.children`.
+
+The naive `c.id == seg.id` lookup still fails for **duplicate leaf `id`:** a second row with the same `name` under the same parent hits an existing leaf and returns without merging mass → data loss.
+
+**Matching rule:** `id`-only lookup (sibling kind is unambiguous). Duplicate leaves merge `value`; duplicate internals merge `subtotal`.
 
 ```python
 def upsert_segment(
@@ -355,6 +369,9 @@ def upsert_segment(
         if seg.value is None:
             existing.subtotal += row_total
             existing.percentage = existing.subtotal / grand_total
+        else:
+            existing.value += seg.value
+            existing.percentage = existing.value / grand_total
         return existing
     if seg.value is not None:
         child = KronaNode(
@@ -393,7 +410,7 @@ for row in rows:
 
 - **Root** is initialized with `subtotal=grand_total` and `percentage=1.0` — never updated in the loop.
 - **Internals:** `subtotal` / `percentage` updated on every row that walks through (new or existing node).
-- **Leaves:** `percentage = value / grand_total` set once at creation; no subtotal on leaves.
+- **Leaves:** `percentage = value / grand_total` at creation; duplicate leaf `id` under the same parent merges `value` (covers same `name` from different `source_tax_id`s).
 - Internal **`percentage` may be partial mid-insert**; correct after all rows. No finalize pass.
 
 ### 5.5 Sample lookup
