@@ -50,9 +50,9 @@ Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The 
 | Early-leaf `label` | `U_{name}` | Matches legacy (`U_` prefixes leaf's own `id`, not parent label) |
 | Species-leaf `label` | same as `id` (= `name`) | Matches legacy |
 | Early-leaf grouping | If `row[rank]` resolved, append **internal at current rank** before `U_{name}` leaf — even at first rank | Early stop joins existing phylum bucket (e.g. `Bacillota` internal shared with rows that have genus); only skip internal when `row[rank]` is NULL |
-| Sibling ordering | SQL `ORDER BY` on rank labels; upsert appends in encounter order | No Python re-sort; order visible on sunburst |
-| Sunburst layout | Clockwise in **`children` array order** (D3 `hierarchy.sort(null)`) | Backend ordering is visible; not re-sorted by value |
-| Percentages | **`add_mass(node, value, grand_total)`** on each node in the path: `subtotal += value`; `percentage = subtotal / grand_total` | Correct after all rows; no finalize pass |
+| Sibling ordering | SQL `ORDER BY` → upsert append order = **sunburst arc order** (`hierarchy.sort(null)`) | Rank columns ASC; leaves (incl. species) alphabetical by `name` |
+| Sunburst layout | Clockwise in **`children` array order** (D3 `hierarchy.sort(null)`) | Insertion order is display order; not re-sorted by value |
+| Percentages | **`upsert_segment`** accumulates `subtotal` on internals; sets leaf `percentage` from `value` | Correct after all rows; no finalize pass |
 | Comparison mode | Error when `names.length > 1` | Deferred follow-up (same as chord/overview v1) |
 | Taxon filter | Error when non-empty `{ level, name }` passed | Krona UI sends `{}` today; fail loudly rather than silently ignore |
 | Error wording | Feature gaps say **"analytics API"**, not "duckdb backend" | Avoid implying DuckDB limitation |
@@ -278,14 +278,15 @@ LEFT JOIN bridge_wide w USING (source_tax_id)
 ORDER BY
     COALESCE(w.phylum, 'Unclassified ' || d.name),
     COALESCE(w.genus, ''),
-    d.name
+    d.name ASC
 ```
 
-**`ORDER BY` rationale:**
+**`ORDER BY` = sunburst arc order:** upsert appends children in SQL row order; `Krona.tsx` uses `hierarchy.sort(null)`, so **`ORDER BY` is the pie layout contract**. Python builds this clause dynamically from `krona_levels(tax_rank)` (same as `{rank_in}`):
 
-- **Rank columns first** (`w.phylum`, `w.genus`, …) — built dynamically from `krona_levels(tax_rank)` so rows that share a phylum/genus prefix are adjacent; upsert then appends siblings in encounter order.
-- **Final tie-breaker is `d.name`**, not `w.species` — `name` is always present and matches leaf `id` sort order. Early leaves (`U_{name}`) often have `w.species IS NULL`; ordering by species would cluster NULLs unpredictably and sort by bridge label instead of column identity.
-- **`COALESCE(w.genus, '')`** — optional but keeps NULL-genus rows in a deterministic bucket (empty string sorts before named genera in ASC). Alternative: omit genus from `ORDER BY` when null and rely on `d.name` only; either is fine if golden insertion order is stable. Python builds the `ORDER BY` clause from `levels` the same way as `{rank_in}`.
+1. **Each rank column ASC** (`w.phylum`, `w.genus`, …) — internal siblings alphabetical at that level.
+2. **Final key `d.name ASC`** — leaf siblings alphabetical by column name. Full species leaves (`label = name`) sort A→Z; early `U_{name}` leaves use the same key (NULL `w.species` does not need a separate sort column).
+
+Do **not** rely on `w.species` alone as the final key — early leaves have `w.species IS NULL`. When species is resolved, `d.name` and `w.species` usually agree; `d.name` is always present.
 
 **Exact-rank gating:** bridge `'Unclassified'` and coarser fallbacks become `NULL` in pivot columns → Python treats as missing next rank (early leaf).
 
@@ -341,20 +342,19 @@ def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
 
 **Shared internals across rows:** upsert merges paths — e.g. `Bacillota` internal created by one row is reused when another row stops early under the same phylum.
 
-#### 5.4.3 `add_mass`, `upsert_segment`, and main loop
+#### 5.4.3 `upsert_segment` and main loop
 
-`Segment.value` carries the leaf mass (`row.total` from SQL). Internals have `value is None`.
+`Segment.value` carries the leaf mass (`row.total` from SQL). Internals have `value is None`. Mass accumulation for internals is **inside** `upsert_segment` (no separate `add_mass` helper).
 
 ```python
-def add_mass(node: KronaNode, value: float, grand_total: float) -> None:
-    node.subtotal += value
-    node.percentage = node.subtotal / grand_total
-
-
-def upsert_segment(parent: KronaNode, seg: Segment, grand_total: float) -> KronaNode:
-    """Find or append child by seg.id. Leaf (seg.value set) gets value + percentage; internal does not."""
+def upsert_segment(
+    parent: KronaNode, seg: Segment, row_total: float, grand_total: float
+) -> KronaNode:
     existing = next((c for c in parent.children if c.id == seg.id), None)
     if existing is not None:
+        if seg.value is None:
+            existing.subtotal += row_total
+            existing.percentage = existing.subtotal / grand_total
         return existing
     if seg.value is not None:
         child = KronaNode(
@@ -364,7 +364,13 @@ def upsert_segment(parent: KronaNode, seg: Segment, grand_total: float) -> Krona
             percentage=seg.value / grand_total,
         )
     else:
-        child = KronaNode(id=seg.id, label=seg.label, children=[], subtotal=0.0, percentage=0.0)
+        child = KronaNode(
+            id=seg.id,
+            label=seg.label,
+            children=[],
+            subtotal=row_total,
+            percentage=row_total / grand_total,
+        )
     parent.children.append(child)
     return child
 
@@ -382,13 +388,12 @@ for row in rows:
     path = segments_for_row(row, levels)
     node = root
     for seg in path:
-        node = upsert_segment(node, seg, grand_total)
-        if seg.value is None:
-            add_mass(node, row.total, grand_total)
+        node = upsert_segment(node, seg, row.total, grand_total)
 ```
 
-- **Root** is initialized with `subtotal=grand_total` and `percentage=1.0` — no per-row `add_mass` on root and no trailing `root.percentage = 1.0`.
-- **`add_mass` on internals only** (`seg.value is None`). Leaf `percentage` is set in `upsert_segment` from `seg.value / grand_total`.
+- **Root** is initialized with `subtotal=grand_total` and `percentage=1.0` — never updated in the loop.
+- **Internals:** `subtotal` / `percentage` updated on every row that walks through (new or existing node).
+- **Leaves:** `percentage = value / grand_total` set once at creation; no subtotal on leaves.
 - Internal **`percentage` may be partial mid-insert**; correct after all rows. No finalize pass.
 
 ### 5.5 Sample lookup
@@ -403,7 +408,7 @@ for row in rows:
 | Display names | `add_data` → `get_name_from_id` on upload | `COALESCE(names.name, source_tax_id)` in SQL |
 | Comparison mode | `get_delta` for two files | Not supported (v1) |
 | Taxon filter | `subset_data` column filter | Error if non-empty filter passed |
-| Sibling order | First-encounter column order, then D3 re-sorted by value | SQL `ORDER BY` rank labels; D3 preserves order (`hierarchy.sort(null)`) |
+| Sibling order | First-encounter column order, then D3 re-sorted by value | SQL `ORDER BY` → insertion order = sunburst arcs; species leaves alphabetical by `name` |
 | Unknown-header tax_ids | Raw id as `name`; `U_{name}` when early leaf | Same via names fallback |
 | Early leaf under resolved rank | Legacy `no_children` may return leaf direct to root even when rank label exists (SQLite backfill) | **`if row[rank]:`** adds internal at current rank before `U_{name}` leaf — groups under phylum/genus bucket |
 | Kingdom/domain columns (e.g. tax_id `2`) | SQLite backfill may self-match `"Bacteria"` at phylum rank → legacy `U_Bacteria` direct under root | Exact-rank gating leaves `row[phylum]` NULL → `[Leaf U_Bacteria]` under root (same shape, different reason) |
