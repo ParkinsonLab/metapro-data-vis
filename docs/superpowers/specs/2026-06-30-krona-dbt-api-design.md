@@ -1,6 +1,6 @@
 # Krona API via dbt Intermediates — Design Spec
 
-> **Status:** Draft (2026-06-30; revised — upsert tree builder, PIVOT SQL, `name` via names lookup, unified path segments)  
+> **Status:** Draft (2026-06-30; revised — upsert tree builder, PIVOT SQL, `name` via names lookup, lineage segments)  
 > **Goal:** Reimplement `POST /api/viz/krona` to derive the Krona sunburst taxonomy tree from precomputed dbt intermediate tables (`int_rpkm_by_ec_tax` + `bridge_tax_rollup` + `names`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract. Express keeps legacy handlers when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
@@ -41,15 +41,15 @@ Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The 
 | Sidecar env var | **`ANALYTICS_API_URL`** (default `http://localhost:8001`) | One FastAPI process serves all viz routes |
 | Migration proxy | Shared `src/server/fastapi_sidecar_proxy.ts` | Temporary Express→FastAPI bridge during viz migration |
 | Data source | `int_rpkm_by_ec_tax` + `bridge_tax_rollup` + `names` Parquet | Column totals + ancestry + name lookup |
-| Tree builder | **Single-pass upsert** — one SQL row → path segments → upsert | Simpler than porting recursive `parse_tax_tree`; shared internals emerge when siblings share a prefix |
-| Path model | **`segments_for_row()`** returns an ordered path; **last segment is always the leaf** | Internal and leaf nodes use the same segment type; leaf carries `value` |
+| Tree builder | **Single-pass upsert** — one SQL row → lineage segments → upsert | Simpler than porting recursive `parse_tax_tree`; shared internals emerge when siblings share a prefix |
+| Path model | **`lineage_segments()`** returns an ordered rank path; **last segment is always the leaf** | Internal and leaf nodes share one segment type; leaf flagged with `is_leaf=True` |
 | Tree levels | `dedupe([tax_rank, 'genus', 'species'])` | Matches legacy `parse_krona` |
 | Ancestry exactness | SQL returns rank label **only when `resolved_tax_rank = requested_rank`**; else `NULL` | Preserves legacy early-leaf depth; avoids bridge `'Unclassified'` in grouping |
 | Column `name` | SQL row field **`name`** = `COALESCE(names.name, CAST(source_tax_id AS VARCHAR))` | Matches legacy `get_name_from_id`; not a new term — same as `names.name` / renamed column header |
 | Leaf `id` | `name` | Matches legacy column key after `add_data` rename |
 | Early-leaf `label` | `U_{name}` | Matches legacy (`U_` prefixes leaf's own `id`, not parent label) |
 | Species-leaf `label` | same as `id` (= `name`) | Matches legacy |
-| Early-leaf grouping | If `row[rank]` resolved, append **internal at current rank** before `U_{name}` leaf — even at first rank | Early stop joins existing phylum bucket (e.g. `Bacillota` internal shared with rows that have genus); only skip internal when `row[rank]` is NULL |
+| Early-leaf grouping | If `taxon[rank]` resolved, append **internal at current rank** before `U_{name}` leaf — even at first rank | Early stop joins existing phylum bucket (e.g. `Bacillota` internal shared with taxa that have genus); only skip internal when `taxon[rank]` is NULL |
 | Sibling ordering | SQL `ORDER BY` → upsert append order = **sunburst arc order** (`hierarchy.sort(null)`) | Rank columns ASC; leaf tie-break `COALESCE(w.species, d.name)` |
 | Sunburst layout | Clockwise in **`children` array order** (D3 `hierarchy.sort(null)`) | Insertion order is display order; not re-sorted by value |
 | Percentages | **`upsert_segment`** accumulates `subtotal` on internals; sets leaf `percentage` from `value` | Correct after all rows; no finalize pass |
@@ -210,7 +210,7 @@ int_rpkm_by_ec_tax
   → JOIN names → name
   → JOIN bridge_tax_rollup (PIVOT, exact-rank-gated labels)
   → ORDER BY rank labels (insertion order)
-  → segments_for_row() + upsert per row
+  → lineage_segments() + upsert per taxon
   → KronaNode root
 ```
 
@@ -292,7 +292,7 @@ Do **not** sort leaves by `d.name` alone — `d.name` is the column display name
 
 ### 5.4 Python tree builder — single-pass upsert
 
-No recursive port of `parse_tax_tree`. Each SQL row (already ordered) becomes an ordered path of segments; the **last segment is always the leaf**.
+No recursive port of `parse_tax_tree`. Each SQL row (already ordered) becomes a lineage of segments via `lineage_segments()`; the **last segment is always the leaf**.
 
 #### 5.4.1 Segment type
 
@@ -301,53 +301,52 @@ No recursive port of `parse_tax_tree`. Each SQL row (already ordered) becomes an
 class Segment:
     id: str
     label: str
-    value: float | None = None  # non-None marks leaf segment; amount comes from taxon_value in upsert
+    is_leaf: bool = False
 ```
 
-Internal segment: `value is None`. Leaf segment: any non-None `value` (use `_LEAF` sentinel in `segments_for_row`).
+Internal segment: `is_leaf=False` (default). Leaf segment: `is_leaf=True`. Wedge amounts come from `taxon_value` in `upsert_segment`, not from `Segment`.
 
-#### 5.4.2 `segments_for_row(row, levels)`
+#### 5.4.2 `lineage_segments(taxon, levels)`
+
+Build the ordered rank-by-rank lineage for one SQL result record (one `source_tax_id`) — internals at resolved ranks, leaf last.
 
 ```python
-_LEAF = 1.0  # sentinel; upsert uses seg.value is not None only to distinguish leaf vs internal
-
-
-def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
+def lineage_segments(taxon, levels: tuple[str, ...]) -> list[Segment]:
     segments: list[Segment] = []
     for i, rank in enumerate(levels):
         is_last = i == len(levels) - 1
         if is_last:
-            return segments + [Segment(row.name, row.name, _LEAF)]
+            return segments + [Segment(taxon.name, taxon.name, is_leaf=True)]
 
-        rank_label = row[rank] if row[rank] else f"Unclassified {row.name}"
-        if row[levels[i + 1]] is None:
+        rank_label = taxon[rank] if taxon[rank] else f"Unclassified {taxon.name}"
+        if taxon[levels[i + 1]] is None:
             # Next rank unavailable — path ends with early leaf (label U_{name}).
-            if row[rank]:
+            if taxon[rank]:
                 # Current rank resolved exactly (exact-rank gating): add internal so
-                # early leaves share the bucket with rows that continue deeper
+                # early leaves share the bucket with taxa that continue deeper
                 # (e.g. Bacillota internal, then U_{name}; not Bacillota and U_{name} both at root).
                 segments.append(Segment(rank_label, rank_label))
-            # row[rank] NULL: leaf attaches at current depth only (e.g. 999999999 under root).
-            return segments + [Segment(row.name, f"U_{row.name}", _LEAF)]
+            # taxon[rank] NULL: leaf attaches at current depth only (e.g. 999999999 under root).
+            return segments + [Segment(taxon.name, f"U_{taxon.name}", is_leaf=True)]
 
         segments.append(Segment(rank_label, rank_label))
 
     raise RuntimeError("unreachable")
 ```
 
-**Early-leaf branch:** when the next rank is `NULL`, append internal at **current** rank if `row[rank]` is set (exact-rank match from SQL), then return the `U_{name}` leaf as the final segment. **`if row[rank]:` only** — no `i > 0` guard: exact-rank gating prevents kingdom/domain fallback (e.g. Bacteria) from populating `row[phylum]`, while true phylum matches (e.g. Bacillota with null genus) must create `Internal(Bacillota)` so upsert merges with sibling rows that have genera beneath the same phylum.
+**Early-leaf branch:** when the next rank is `NULL`, append internal at **current** rank if `taxon[rank]` is set (exact-rank match from SQL), then return the `U_{name}` leaf as the final segment. **`if taxon[rank]:` only** — no `i > 0` guard: exact-rank gating prevents kingdom/domain fallback (e.g. Bacteria) from populating `taxon[phylum]`, while true phylum matches (e.g. Bacillota with null genus) must create `Internal(Bacillota)` so upsert merges with sibling taxa that have genera beneath the same phylum.
 
-| `row[phylum]` | `row[genus]` | Path segments |
+| `taxon[phylum]` | `taxon[genus]` | Path segments |
 |---|---|---|
 | null | (any) | `[Leaf U_{name}]` under root |
 | Bacillota | null | `[Internal(Bacillota), Leaf U_{name}]` |
 | Bacillota | Staphylococcus (species null) | `[Internal(Bacillota), Internal(Staphylococcus), Leaf U_{name}]` |
 
-**Shared internals across rows:** upsert merges paths — e.g. `Bacillota` internal created by one row is reused when another row stops early under the same phylum.
+**Shared internals across rows:** upsert merges paths — e.g. `Bacillota` internal created by one taxon is reused when another stops early under the same phylum.
 
 #### 5.4.3 `upsert_segment` and main loop
 
-`Segment.value` is a **leaf marker only** (`None` = internal, non-None = leaf). All wedge amounts come from **`taxon_value`** — the SQL `total` for one `source_tax_id` (summed RPKM across ECs for that tax column). Accumulation is **inside** `upsert_segment` (no separate helper).
+`Segment.is_leaf` distinguishes leaf from internal segments. All wedge amounts come from **`taxon_value`** — the SQL `total` for one `source_tax_id` (summed RPKM across ECs for that tax column). Accumulation is **inside** `upsert_segment` (no separate helper).
 
 **What the query guarantees (and does not):**
 
@@ -357,7 +356,7 @@ def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
 | One SQL row per leaf `name` | **No** | `name` comes from `names` lookup; different `tax_id`s can share the same string (e.g. `"Cavernicola"` → 3 tax_ids in `names.parquet`) |
 | Unique leaf `id` among siblings | **No** | two columns with the same display `name` can land under the same parent |
 
-**No internal/leaf `id` collision among siblings:** when an early leaf fires and `row[rank]` is set, `segments_for_row` appends an internal at that rank and places the `U_{name}` leaf **one level below** it (e.g. `[Internal(Bacillota), Leaf U_{name}]`, not both at the same depth). A genus-named column whose bridge resolves `row[genus]` stops at genus, producing `[Internal(Bacillota), Internal(Staphylococcus), Leaf U_{Staphylococcus}]` — the leaf is a child of `Internal(Staphylococcus)`, not its sibling. Rank-label internals and `U_{name}` leaves therefore never compete for the same slot in `parent.children`.
+**No internal/leaf `id` collision among siblings:** when an early leaf fires and `taxon[rank]` is set, `lineage_segments` appends an internal at that rank and places the `U_{name}` leaf **one level below** it (e.g. `[Internal(Bacillota), Leaf U_{name}]`, not both at the same depth). A genus-named column whose bridge resolves `taxon[genus]` stops at genus, producing `[Internal(Bacillota), Internal(Staphylococcus), Leaf U_{Staphylococcus}]` — the leaf is a child of `Internal(Staphylococcus)`, not its sibling. Rank-label internals and `U_{name}` leaves therefore never compete for the same slot in `parent.children`.
 
 The naive `c.id == seg.id` lookup still fails for **duplicate leaf `id`:** a second row with the same `name` under the same parent hits an existing leaf and returns without merging `taxon_value` → data loss.
 
@@ -367,17 +366,13 @@ The naive `c.id == seg.id` lookup still fails for **duplicate leaf `id`:** a sec
 def upsert_segment(
     parent: KronaNode, seg: Segment, taxon_value: float, grand_total: float
 ) -> KronaNode:
-    is_leaf = seg.value is not None
     existing = next((c for c in parent.children if c.id == seg.id), None)
-    if existing is not None:
-        if is_leaf:
+
+    if seg.is_leaf:
+        if existing is not None:
             existing.value += taxon_value
             existing.percentage = existing.value / grand_total
-        else:
-            existing.subtotal += taxon_value
-            existing.percentage = existing.subtotal / grand_total
-        return existing
-    if is_leaf:
+            return existing
         child = KronaNode(
             id=seg.id,
             label=seg.label,
@@ -385,6 +380,10 @@ def upsert_segment(
             percentage=taxon_value / grand_total,
         )
     else:
+        if existing is not None:
+            existing.subtotal += taxon_value
+            existing.percentage = existing.subtotal / grand_total
+            return existing
         child = KronaNode(
             id=seg.id,
             label=seg.label,
@@ -392,11 +391,13 @@ def upsert_segment(
             subtotal=taxon_value,
             percentage=taxon_value / grand_total,
         )
+
     parent.children.append(child)
     return child
 
 
-grand_total = sum(row.total for row in rows)
+taxa = ...  # ordered SQL query result — one record per source_tax_id
+grand_total = sum(t.total for t in taxa)
 root = KronaNode(
     id="root",
     label="root",
@@ -405,11 +406,11 @@ root = KronaNode(
     percentage=1.0,
 )
 
-for row in rows:
-    path = segments_for_row(row, levels)
+for taxon in taxa:
+    segments = lineage_segments(taxon, levels)
     node = root
-    for seg in path:
-        node = upsert_segment(node, seg, row.total, grand_total)
+    for seg in segments:
+        node = upsert_segment(node, seg, taxon.total, grand_total)
 ```
 
 - **Root** is initialized with `subtotal=grand_total` and `percentage=1.0` — never updated in the loop.
@@ -431,8 +432,8 @@ for row in rows:
 | Taxon filter | `subset_data` column filter | Error if non-empty filter passed |
 | Sibling order | First-encounter column order, then D3 re-sorted by value | SQL `ORDER BY` → insertion order = sunburst arcs; leaves by `COALESCE(w.species, d.name)` |
 | Unknown-header tax_ids | Raw id as `name`; `U_{name}` when early leaf | Same via names fallback |
-| Early leaf under resolved rank | Legacy `no_children` may return leaf direct to root even when rank label exists (SQLite backfill) | **`if row[rank]:`** adds internal at current rank before `U_{name}` leaf — groups under phylum/genus bucket |
-| Kingdom/domain columns (e.g. tax_id `2`) | SQLite backfill may self-match `"Bacteria"` at phylum rank → legacy `U_Bacteria` direct under root | Exact-rank gating leaves `row[phylum]` NULL → `[Leaf U_Bacteria]` under root (same shape, different reason) |
+| Early leaf under resolved rank | Legacy `no_children` may return leaf direct to root even when rank label exists (SQLite backfill) | **`if taxon[rank]:`** adds internal at current rank before `U_{name}` leaf — groups under phylum/genus bucket |
+| Kingdom/domain columns (e.g. tax_id `2`) | SQLite backfill may self-match `"Bacteria"` at phylum rank → legacy `U_Bacteria` direct under root | Exact-rank gating leaves `taxon[phylum]` NULL → `[Leaf U_Bacteria]` under root (same shape, different reason) |
 
 ### 6.1 `'Unclassified'` grouping
 
@@ -442,7 +443,7 @@ When a rank label is `NULL` after gating, internal grouping uses `Unclassified {
 
 Legacy may emit `U_{name}` when the **next** rank is missing in SQLite ancestry (e.g. a species-named column grouped under the wrong genus internal with `U_Mammaliicoccus sciuri`). Bridge + exact-rank gating may resolve phylum → genus → species for the same tax_id when `resolved_tax_rank = 'species'` matches.
 
-**Expectation to validate:** if all three rank columns are non-null for a row, `segments_for_row` should produce `[phylum internal, genus internal, species leaf with label = name]` — not an early `U_{name}` leaf.
+**Expectation to validate:** if all three rank columns are non-null for a taxon, `lineage_segments` should produce `[phylum internal, genus internal, species leaf with label = name]` — not an early `U_{name}` leaf.
 
 **During golden test setup:** compare legacy vs analytics API trees for columns where bridge resolves full species ancestry. Document any intentional divergence in `krona_expectations.yaml` comments. Do not blindly match legacy `U_` placement if bridge data supports a deeper correct path.
 
