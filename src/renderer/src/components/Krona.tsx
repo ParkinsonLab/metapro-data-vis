@@ -52,7 +52,8 @@ const Krona = (): React.JSX.Element => {
     const hierarchy = d3
       .hierarchy(data)
       .sum((d) => d.value)
-      .sort(null)
+    // Skip .sort() — unlike pie.sort(null), hierarchy.sort(null) throws; default
+    // children order matches backend INSERT/upsert order (see krona design spec §4.2).
 
     const root = d3.partition().size([2 * Math.PI, hierarchy.height + 1])(hierarchy)
     root.each((d) => (d.current = d))
