@@ -301,20 +301,23 @@ No recursive port of `parse_tax_tree`. Each SQL row (already ordered) becomes an
 class Segment:
     id: str
     label: str
-    value: float | None = None  # set on leaf (last segment) only
+    value: float | None = None  # non-None marks leaf segment; amount comes from taxon_value in upsert
 ```
 
-Internal segment: `value is None`. Leaf segment: `value = row.total`.
+Internal segment: `value is None`. Leaf segment: any non-None `value` (use `_LEAF` sentinel in `segments_for_row`).
 
 #### 5.4.2 `segments_for_row(row, levels)`
 
 ```python
+_LEAF = 1.0  # sentinel; upsert uses seg.value is not None only to distinguish leaf vs internal
+
+
 def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
     segments: list[Segment] = []
     for i, rank in enumerate(levels):
         is_last = i == len(levels) - 1
         if is_last:
-            return segments + [Segment(row.name, row.name, row.total)]
+            return segments + [Segment(row.name, row.name, _LEAF)]
 
         rank_label = row[rank] if row[rank] else f"Unclassified {row.name}"
         if row[levels[i + 1]] is None:
@@ -325,7 +328,7 @@ def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
                 # (e.g. Bacillota internal, then U_{name}; not Bacillota and U_{name} both at root).
                 segments.append(Segment(rank_label, rank_label))
             # row[rank] NULL: leaf attaches at current depth only (e.g. 999999999 under root).
-            return segments + [Segment(row.name, f"U_{row.name}", row.total)]
+            return segments + [Segment(row.name, f"U_{row.name}", _LEAF)]
 
         segments.append(Segment(rank_label, rank_label))
 
@@ -344,7 +347,7 @@ def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
 
 #### 5.4.3 `upsert_segment` and main loop
 
-`Segment.value` carries the leaf mass (`row.total` from SQL). Internals have `value is None`. Mass accumulation is **inside** `upsert_segment` (no separate `add_mass` helper).
+`Segment.value` is a **leaf marker only** (`None` = internal, non-None = leaf). All wedge amounts come from **`taxon_value`** — the SQL `total` for one `source_tax_id` (summed RPKM across ECs for that tax column). Accumulation is **inside** `upsert_segment` (no separate helper).
 
 **What the query guarantees (and does not):**
 
@@ -356,37 +359,38 @@ def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
 
 **No internal/leaf `id` collision among siblings:** when an early leaf fires and `row[rank]` is set, `segments_for_row` appends an internal at that rank and places the `U_{name}` leaf **one level below** it (e.g. `[Internal(Bacillota), Leaf U_{name}]`, not both at the same depth). A genus-named column whose bridge resolves `row[genus]` stops at genus, producing `[Internal(Bacillota), Internal(Staphylococcus), Leaf U_{Staphylococcus}]` — the leaf is a child of `Internal(Staphylococcus)`, not its sibling. Rank-label internals and `U_{name}` leaves therefore never compete for the same slot in `parent.children`.
 
-The naive `c.id == seg.id` lookup still fails for **duplicate leaf `id`:** a second row with the same `name` under the same parent hits an existing leaf and returns without merging mass → data loss.
+The naive `c.id == seg.id` lookup still fails for **duplicate leaf `id`:** a second row with the same `name` under the same parent hits an existing leaf and returns without merging `taxon_value` → data loss.
 
 **Matching rule:** `id`-only lookup (sibling kind is unambiguous). Duplicate leaves merge `value`; duplicate internals merge `subtotal`.
 
 ```python
 def upsert_segment(
-    parent: KronaNode, seg: Segment, row_total: float, grand_total: float
+    parent: KronaNode, seg: Segment, taxon_value: float, grand_total: float
 ) -> KronaNode:
+    is_leaf = seg.value is not None
     existing = next((c for c in parent.children if c.id == seg.id), None)
     if existing is not None:
-        if seg.value is None:
-            existing.subtotal += row_total
-            existing.percentage = existing.subtotal / grand_total
-        else:
-            existing.value += seg.value
+        if is_leaf:
+            existing.value += taxon_value
             existing.percentage = existing.value / grand_total
+        else:
+            existing.subtotal += taxon_value
+            existing.percentage = existing.subtotal / grand_total
         return existing
-    if seg.value is not None:
+    if is_leaf:
         child = KronaNode(
             id=seg.id,
             label=seg.label,
-            value=seg.value,
-            percentage=seg.value / grand_total,
+            value=taxon_value,
+            percentage=taxon_value / grand_total,
         )
     else:
         child = KronaNode(
             id=seg.id,
             label=seg.label,
             children=[],
-            subtotal=row_total,
-            percentage=row_total / grand_total,
+            subtotal=taxon_value,
+            percentage=taxon_value / grand_total,
         )
     parent.children.append(child)
     return child
@@ -409,8 +413,8 @@ for row in rows:
 ```
 
 - **Root** is initialized with `subtotal=grand_total` and `percentage=1.0` — never updated in the loop.
-- **Internals:** `subtotal` / `percentage` updated on every row that walks through (new or existing node).
-- **Leaves:** `percentage = value / grand_total` at creation; duplicate leaf `id` under the same parent merges `value` (covers same `name` from different `source_tax_id`s).
+- **Internals:** `subtotal` / `percentage` updated on every row that walks through (new or existing node); each row contributes its full `taxon_value` at every internal on the path.
+- **Leaves:** `value = taxon_value` at creation; duplicate leaf `id` under the same parent merges `taxon_value` (covers same `name` from different `source_tax_id`s).
 - Internal **`percentage` may be partial mid-insert**; correct after all rows. No finalize pass.
 
 ### 5.5 Sample lookup
