@@ -1,6 +1,6 @@
 # Krona API via dbt Intermediates — Design Spec
 
-> **Status:** Draft (2026-06-30; revised — upsert tree builder, PIVOT SQL, `display_id` via names lookup)  
+> **Status:** Draft (2026-06-30; revised — upsert tree builder, PIVOT SQL, `name` via names lookup, unified path segments)  
 > **Goal:** Reimplement `POST /api/viz/krona` to derive the Krona sunburst taxonomy tree from precomputed dbt intermediate tables (`int_rpkm_by_ec_tax` + `bridge_tax_rollup` + `names`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract. Express keeps legacy handlers when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
@@ -14,9 +14,9 @@
 
 Metapro Viz renders a zoomable Krona sunburst of taxonomy (`Krona.tsx`, `d3.partition`). Today the Express handler `parse_krona` (`src/server/data_functions.ts`) loads wide TSV data in memory, sums RPKM **per tax column** across all ECs, and builds a nested tree via `get_parents_multilevel` → `parse_tax_tree` (`src/server/parse.ts`).
 
-**Legacy column rename (critical):** On upload, `add_data` renames tax_id column headers to scientific names via `get_name_from_id` (`src/server/db_functions.ts`). All downstream tree logic — including leaf `id` and `U_{id}` labels — uses these **display names**, not raw NCBI tax_ids. Unknown headers (e.g. `999999999` in `fake_rpkm.tsv`) keep the raw id string as fallback.
+**Legacy column rename (critical):** On upload, `add_data` renames tax_id column headers to scientific names via `get_name_from_id` (`src/server/db_functions.ts`). All downstream tree logic — including leaf `id` and `U_{id}` labels — uses these **names**, not raw NCBI tax_ids. Unknown headers (e.g. `999999999` in `fake_rpkm.tsv`) keep the raw id string as fallback.
 
-Tree depth is driven by `levels = dedupe([tax_rank, 'genus', 'species'])` — e.g. `phylum` → genus → species (3 ranks under root). Internal nodes use resolved taxon names at each rank; leaves use the renamed column key as `id`.
+Tree depth is driven by `levels = dedupe([tax_rank, 'genus', 'species'])` — e.g. `phylum` → genus → species (3 ranks under root). Internal nodes use resolved taxon names at each rank; leaves use the renamed column **name** as `id`.
 
 Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The correct value grain is per `(ec_normalized, source_tax_id)` summed to one total per column, which is exactly what `int_rpkm_by_ec_tax` materialises before the pathway join.
 
@@ -40,17 +40,19 @@ Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The 
 | Opt-in backend | `POST /api/viz/krona?backend=duckdb` (Express) or direct on FastAPI `:8001` | Explicit testing switch; mirrors chord/overview |
 | Sidecar env var | **`ANALYTICS_API_URL`** (default `http://localhost:8001`) | One FastAPI process serves all viz routes |
 | Migration proxy | Shared `src/server/fastapi_sidecar_proxy.ts` | Temporary Express→FastAPI bridge during viz migration |
-| Data source | `int_rpkm_by_ec_tax` + `bridge_tax_rollup` + `names` Parquet | Column totals + ancestry + display-name lookup |
-| Tree builder | **Single-pass upsert** — one SQL row → insert leaf + upsert ancestors | Simpler than porting recursive `parse_tax_tree`; shared internals emerge naturally |
+| Data source | `int_rpkm_by_ec_tax` + `bridge_tax_rollup` + `names` Parquet | Column totals + ancestry + name lookup |
+| Tree builder | **Single-pass upsert** — one SQL row → path segments → upsert | Simpler than porting recursive `parse_tax_tree`; shared internals emerge when siblings share a prefix |
+| Path model | **`segments_for_row()`** returns an ordered path; **last segment is always the leaf** | Internal and leaf nodes use the same segment type; leaf carries `value` |
 | Tree levels | `dedupe([tax_rank, 'genus', 'species'])` | Matches legacy `parse_krona` |
 | Ancestry exactness | SQL returns rank label **only when `resolved_tax_rank = requested_rank`**; else `NULL` | Preserves legacy early-leaf depth; avoids bridge `'Unclassified'` in grouping |
-| Leaf identity | `id` = **`display_id`** = `COALESCE(names.name, CAST(source_tax_id AS VARCHAR))` | Matches legacy `add_data` header rename |
-| Early-leaf label | `U_{display_id}` | Matches legacy `parse_tax_tree_recursive` (`U_` prefixes leaf's own `id`, not parent label) |
-| Species-leaf label | same as `id` (= `display_id`) | Matches legacy |
-| Early-leaf placement | Leaf attaches at walked depth; **no** extra internal wrapper for the stopping rank | Matches legacy `no_children` returning leaf directly to parent |
+| Column `name` | SQL row field **`name`** = `COALESCE(names.name, CAST(source_tax_id AS VARCHAR))` | Matches legacy `get_name_from_id`; not a new term — same as `names.name` / renamed column header |
+| Leaf `id` | `name` | Matches legacy column key after `add_data` rename |
+| Early-leaf `label` | `U_{name}` | Matches legacy (`U_` prefixes leaf's own `id`, not parent label) |
+| Species-leaf `label` | same as `id` (= `name`) | Matches legacy |
+| Early-leaf at first rank | Path is a **single leaf segment** (no internal prefix) | Matches legacy `no_children` at first level (e.g. `999999999`, `U_Bacteria` under root) |
 | Sibling ordering | SQL `ORDER BY` on rank labels; upsert appends in encounter order | No Python re-sort; order visible on sunburst |
 | Sunburst layout | Clockwise in **`children` array order** (D3 `hierarchy.sort(null)`) | Backend ordering is visible; not re-sorted by value |
-| Percentages | Leaf `percentage = value / grand_total` on insert; internal nodes accumulate `subtotal`, finalized after all rows | Single pass + cheap finalize |
+| Percentages | **`add_mass(node, value, grand_total)`** on each node in the path: `subtotal += value`; `percentage = subtotal / grand_total` | Correct after all rows; no finalize pass |
 | Comparison mode | Error when `names.length > 1` | Deferred follow-up (same as chord/overview v1) |
 | Taxon filter | Error when non-empty `{ level, name }` passed | Krona UI sends `{}` today; fail loudly rather than silently ignore |
 | Error wording | Feature gaps say **"analytics API"**, not "duckdb backend" | Avoid implying DuckDB limitation |
@@ -125,7 +127,7 @@ Add `'krona'` to `MIGRATED_CHANNELS` in `vizBackend.ts` (alongside `'chord'`, `'
 
 ### 4.2 Response `value` (unchanged nested tree)
 
-**Reference (legacy, `fake_rpkm`, `tax_rank = phylum`):** leaves use scientific names; early leaves use `U_{display_id}`; unknown column `999999999` stays numeric.
+**Reference (legacy, `fake_rpkm`, `tax_rank = phylum`):** leaves use scientific names; early leaves use `U_{name}`; unknown column `999999999` stays numeric.
 
 ```json
 {
@@ -162,8 +164,8 @@ Leaf nodes: `{ id, label, value, percentage }` — no `children`.
 
 | Leaf case | `id` | `label` |
 |---|---|---|
-| Species level reached (last rank in `levels`) | `display_id` | same as `id` |
-| Early leaf (next rank is `NULL`) | `display_id` | `U_{display_id}` |
+| Species level reached (last rank in `levels`) | `name` | same as `id` |
+| Early leaf (next rank is `NULL`) | `name` | `U_{name}` |
 
 **Sunburst layout:** Arc order follows `children` array order at each level. `Krona.tsx` must use `d3.hierarchy(data).sum(...).sort(null)` so the partition layout respects backend sibling order (mirrors overview's `pie.sort(null)`).
 
@@ -205,10 +207,10 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 ```
 int_rpkm_by_ec_tax
   → SUM(value) GROUP BY source_tax_id
-  → JOIN names → display_id
+  → JOIN names → name
   → JOIN bridge_tax_rollup (PIVOT, exact-rank-gated labels)
   → ORDER BY rank labels (insertion order)
-  → single-pass upsert tree builder
+  → segments_for_row() + upsert per row
   → KronaNode root
 ```
 
@@ -228,7 +230,7 @@ def krona_levels(tax_rank: str) -> tuple[str, ...]:
 
 Examples: `phylum` → `('phylum', 'genus', 'species')`; `genus` → `('genus', 'species')`; `species` → `('species',)`.
 
-### 5.3 SQL — single query (PIVOT + display_id + ORDER BY)
+### 5.3 SQL — single query (PIVOT + name + ORDER BY)
 
 Python builds dynamic rank lists from `krona_levels(tax_rank)` via `_sql_in_list()` (same helper as chord). Both the bridge `WHERE requested_rank IN (...)` and the `PIVOT ... FOR requested_rank IN (...)` clauses use the same list.
 
@@ -239,11 +241,11 @@ WITH totals AS (
     GROUP BY source_tax_id
     HAVING SUM(value) > 0
 ),
-display AS (
+named AS (
     SELECT
         t.source_tax_id,
         t.total,
-        COALESCE(n.name, CAST(t.source_tax_id AS VARCHAR)) AS display_id
+        COALESCE(n.name, CAST(t.source_tax_id AS VARCHAR)) AS name
     FROM totals t
     LEFT JOIN read_parquet('<resources/db/parquet/names.parquet>') n
            ON t.source_tax_id = n.tax_id
@@ -268,73 +270,91 @@ bridge_wide AS (
     PIVOT (MAX(label) FOR requested_rank IN ({rank_in}))
 )
 SELECT
-    d.display_id,
+    d.name,
     d.total,
     w.*
-FROM display d
+FROM named d
 LEFT JOIN bridge_wide w USING (source_tax_id)
 ORDER BY
-    COALESCE(w.phylum, 'Unclassified ' || d.display_id),
+    COALESCE(w.phylum, 'Unclassified ' || d.name),
     COALESCE(w.genus, ''),
-    d.display_id
+    d.name
 ```
 
-**Dynamic ranks:** `{rank_in}` is injected for both filter and pivot (e.g. `'phylum', 'genus', 'species'`). When `tax_rank = 'genus'`, pivot columns are only `genus` and `species`; `ORDER BY` uses only those rank columns + `display_id`.
+**Dynamic ranks:** `{rank_in}` is injected for both filter and pivot (e.g. `'phylum', 'genus', 'species'`). When `tax_rank = 'genus'`, pivot columns are only `genus` and `species`; `ORDER BY` uses only those rank columns + `name`.
 
 **Exact-rank gating:** bridge `'Unclassified'` and coarser fallbacks become `NULL` in pivot columns → Python treats as missing next rank (early leaf).
 
 ### 5.4 Python tree builder — single-pass upsert
 
-No recursive port of `parse_tax_tree`. For each SQL row (already ordered):
+No recursive port of `parse_tax_tree`. Each SQL row (already ordered) becomes an ordered path of segments; the **last segment is always the leaf**.
 
-#### 5.4.1 `path_and_leaf_for_row(row, levels)`
-
-Returns `(internal_segments, leaf_id, leaf_label, value)`:
+#### 5.4.1 Segment type
 
 ```python
-def path_and_leaf_for_row(row, levels: tuple[str, ...]):
-    segments: list[str] = []
+@dataclass
+class Segment:
+    id: str
+    label: str
+    value: float | None = None  # set on leaf (last segment) only
+```
+
+Internal segment: `value is None`. Leaf segment: `value = row.total`.
+
+#### 5.4.2 `segments_for_row(row, levels)`
+
+```python
+def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
+    segments: list[Segment] = []
     for i, rank in enumerate(levels):
         is_last = i == len(levels) - 1
-        label = row[rank] if row[rank] else f"Unclassified {row.display_id}"
-
         if is_last:
-            return segments, row.display_id, row.display_id, row.total
+            return segments + [Segment(row.name, row.name, row.total)]
 
-        next_rank = levels[i + 1]
-        if row[next_rank] is None:
-            # early leaf — attach here; no internal wrapper for stopping rank
-            segments.append(label)
-            return segments, row.display_id, f"U_{row.display_id}", row.total
+        rank_label = row[rank] if row[rank] else f"Unclassified {row.name}"
+        if row[levels[i + 1]] is None:
+            # early leaf — last segment of path
+            if segments and row[rank]:
+                # deeper stop: upsert current rank internal (e.g. Mammaliicoccus under Staphylococcus)
+                segments.append(Segment(rank_label, rank_label))
+            # first-rank stop: no internal prefix (e.g. 999999999, U_Bacteria under root)
+            return segments + [Segment(row.name, f"U_{row.name}", row.total)]
 
-        segments.append(label)
+        segments.append(Segment(rank_label, rank_label))
 
     raise RuntimeError("unreachable")
 ```
 
-#### 5.4.2 Upsert loop
+**Shared internals across rows:** a later row may upsert into an internal node created by an earlier row (e.g. `Staphylococcus` internal exists before `U_Mammaliicoccus sciuri` is inserted beneath it).
+
+#### 5.4.3 `add_mass` and upsert loop
 
 ```python
+def add_mass(node: KronaNode, value: float, grand_total: float) -> None:
+    node.subtotal += value
+    node.percentage = node.subtotal / grand_total
+
+
 grand_total = sum(row.total for row in rows)
-root = KronaNode(id="root", label="root", children=[], subtotal=0.0)
+root = KronaNode(id="root", label="root", children=[], subtotal=0.0, percentage=0.0)
 
 for row in rows:
-    segments, leaf_id, leaf_label, value = path_and_leaf_for_row(row, levels)
+    path = segments_for_row(row, levels)
     node = root
-    for seg in segments:
-        node = upsert_child(node, id=seg, label=seg)
-        node.subtotal += value
-    upsert_leaf(node, id=leaf_id, label=leaf_label, value=value,
-                percentage=value / grand_total)
-    root.subtotal += value
+    add_mass(root, row.total, grand_total)
+    for seg in path[:-1]:
+        node = upsert_child(node, seg)
+        add_mass(node, row.total, grand_total)
+    leaf = path[-1]
+    upsert_leaf(node, leaf)  # id, label, value; percentage = value / grand_total
 
 root.percentage = 1.0
-finalize_internal_percentages(root, grand_total)  # percentage = subtotal / grand_total
 ```
 
 - `upsert_child`: find existing child by `id`, else append (preserves SQL encounter order).
-- `upsert_leaf`: append leaf under current node (one leaf per `display_id`).
-- Internal `subtotal`s are partial during insert; correct after all rows. One finalize pass sets internal `percentage`.
+- `upsert_leaf`: append leaf under current node (one leaf per `name`); set `percentage = value / grand_total`.
+- **`add_mass` applies to root and internal nodes only.** Leaf `percentage` is set directly from `value`.
+- Internal **`percentage` may be partial mid-insert**; correct after all rows. No finalize pass.
 
 ### 5.5 Sample lookup
 
@@ -349,11 +369,11 @@ finalize_internal_percentages(root, grand_total)  # percentage = subtotal / gran
 | Comparison mode | `get_delta` for two files | Not supported (v1) |
 | Taxon filter | `subset_data` column filter | Error if non-empty filter passed |
 | Sibling order | First-encounter column order, then D3 re-sorted by value | SQL `ORDER BY` rank labels; D3 preserves order (`hierarchy.sort(null)`) |
-| Unknown-header tax_ids | Raw id as `display_id`; `U_{display_id}` when early leaf | Same via names fallback |
+| Unknown-header tax_ids | Raw id as `name`; `U_{name}` when early leaf | Same via names fallback |
 
 ### 6.1 `'Unclassified'` grouping
 
-When a rank label is `NULL` after gating, internal grouping uses `Unclassified {display_id}` (matches legacy `group_tax_tree_at_level`). Bridge `'Unclassified'` labels are never copied into pivot columns.
+When a rank label is `NULL` after gating, internal grouping uses `Unclassified {name}` (matches legacy `group_tax_tree_at_level`). Bridge `'Unclassified'` labels are never copied into pivot columns.
 
 ## 7. Repository Layout (additions)
 
