@@ -14,12 +14,11 @@ import {
   initialize
 } from './data_functions'
 import { wrapHandler } from './envelope'
-import { createChordHandler } from './chord_handler'
+import { createSidecarProxyHandler } from './fastapi_sidecar_proxy'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } })
 
 const vizRoutes: Array<{ path: string; handler: (params?: unknown) => unknown }> = [
-  { path: '/api/viz/overview', handler: parse_overview },
   { path: '/api/viz/counts', handler: parse_counts },
   { path: '/api/viz/krona', handler: parse_krona },
   { path: '/api/viz/network', handler: parse_network },
@@ -43,15 +42,25 @@ export const createApp = (): Express => {
     })
   }
 
-  const chordHandler = createChordHandler({ legacyHandler: parse_ec_chord })
+  const sidecarRoutes: Array<{
+    path: string
+    label: string
+    legacyHandler: (params?: unknown) => unknown
+  }> = [
+    { path: '/api/viz/overview', label: 'overview', legacyHandler: parse_overview },
+    { path: '/api/viz/chord', label: 'chord', legacyHandler: parse_ec_chord },
+  ]
 
-  app.post('/api/viz/chord', async (req, res) => {
-    const envelope = await chordHandler({
-      query: req.query as Record<string, string | undefined>,
-      body: req.body
+  for (const { path, label, legacyHandler } of sidecarRoutes) {
+    const handler = createSidecarProxyHandler({ legacyHandler, apiPath: path, label })
+    app.post(path, async (req, res) => {
+      const envelope = await handler({
+        query: req.query as Record<string, string | undefined>,
+        body: req.body,
+      })
+      res.status(200).json(envelope)
     })
-    res.status(200).json(envelope)
-  })
+  }
 
   app.post('/api/data', upload.single('file'), (req, res) => {
     const name = req.body.name as string

@@ -10,7 +10,8 @@ from api.filters import (
     normalise_taxon_filter,
     sample_id_from_names,
 )
-from api.schemas import ChordRequest
+from api.overview_service import build_overview_from_duckdb
+from api.schemas import ChordRequest, OverviewRequest
 
 app = FastAPI(title="Metapro Viz API (Python)")
 app.add_middleware(
@@ -40,5 +41,13 @@ def chord_endpoint(body: ChordRequest):
             taxon_filter=taxon_filter,
             names=body.names,
         )
+
+    return wrap_handler(_handle)
+
+
+@app.post("/api/viz/overview")
+def overview_endpoint(body: OverviewRequest):
+    def _handle():
+        return build_overview_from_duckdb(names=body.names).model_dump()
 
     return wrap_handler(_handle)

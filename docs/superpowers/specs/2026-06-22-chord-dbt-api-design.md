@@ -71,7 +71,7 @@ The rpkm-transform pipeline (`analytics/transform/`) materialises `int_tax_rollu
 | Shared SQL macro | `analytics/transform/macros/mart_pathway_taxonomy_agg.sql` | Mart model + API query share GROUP BY logic |
 | DuckDB access | read-only attach/open `sample.duckdb` | No writes at request time |
 
-**FastAPI port:** `8001` in dev (Express proxy target via `CHORD_API_URL`, default `http://localhost:8001`). FastAPI binds via uvicorn `--port`.
+**FastAPI port:** `8001` in dev (Express proxy target via `ANALYTICS_API_URL`, default `http://localhost:8001`). FastAPI binds via uvicorn `--port`.
 
 **Route parity (required):** FastAPI must not use a shortened internal path (e.g. `/chord`). It exposes the production route `POST /api/viz/chord` so that a future cutover is a host/port change only — no frontend or path rewrites.
 

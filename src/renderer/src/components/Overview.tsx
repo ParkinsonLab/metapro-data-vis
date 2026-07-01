@@ -57,7 +57,10 @@ const OverviewSection = ({
       .attr('style', 'max-width: 100%; height: auto; font: 10px sans-serif black; z-index: 10;')
 
     const data = index.map((e, i) => ({ id: e, value: counts[i] }))
-    const pie = d3.pie<{ id: string; value: number }>().value((d) => d.value)
+    const pie = d3
+      .pie<{ id: string; value: number }>()
+      .value((d) => d.value)
+      .sort(null) // preserve backend index order for arc position (see overview design spec §4.2)
     const colors = d3.scaleOrdinal(
       index,
       index.map((_, i, arr) => get_color(i, arr.length))

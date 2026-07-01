@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from api.chord_service import TRANSFORM_DIR
+from testing.fake_rpkm_fixture import bridges_available, skip_reason
 
 client = TestClient(app)
 FIXTURE_DB = TRANSFORM_DIR / "runs/test_rpkm_1/sample.duckdb"
@@ -38,6 +39,24 @@ def test_chord_comparison_error_envelope():
             "selected_taxon": {},
         },
     )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is False
+    assert "comparison mode" in body["error"]
+
+
+@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
+def test_overview_endpoint_envelope(fake_rpkm_db):
+    res = client.post("/api/viz/overview", json={"names": ["fake_rpkm.tsv"]})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert "counts_data" in body["value"]
+    assert "ann_data" in body["value"]
+
+
+def test_overview_comparison_error_envelope():
+    res = client.post("/api/viz/overview", json={"names": ["a.tsv", "b.tsv"]})
     assert res.status_code == 200
     body = res.json()
     assert body["ok"] is False

@@ -9,9 +9,11 @@ import yaml
 
 from api.chord_service import build_chord_from_duckdb
 from api.filters import normalise_ann_filter, normalise_taxon_filter
+from api.overview_service import build_overview_from_duckdb
 from testing.fake_rpkm_fixture import (
     ANN_LEVELS,
     CHORD_YAML,
+    OVERVIEW_YAML,
     PIPELINE_YAML,
     RANKS,
     SAMPLE_ID,
@@ -157,11 +159,24 @@ def main() -> None:
         "edge_cases": edge_cases,
     }
 
+    overview_out = build_overview_from_duckdb(names=[f"{SAMPLE_ID}.tsv"])
+    overview_doc = {
+        "sample_id": SAMPLE_ID,
+        "overview": {
+            "counts_data": overview_out.counts_data.model_dump(),
+            "ann_data": overview_out.ann_data.model_dump(),
+        },
+    }
+
     PIPELINE_YAML.write_text(yaml.safe_dump(pipeline_doc, sort_keys=False), encoding="utf-8")
     CHORD_YAML.parent.mkdir(parents=True, exist_ok=True)
     CHORD_YAML.write_text(yaml.safe_dump(chord_doc, sort_keys=False), encoding="utf-8")
+    OVERVIEW_YAML.write_text(
+        yaml.safe_dump(overview_doc, sort_keys=False), encoding="utf-8"
+    )
     print(f"Wrote {PIPELINE_YAML}")
     print(f"Wrote {CHORD_YAML}")
+    print(f"Wrote {OVERVIEW_YAML}")
 
 
 if __name__ == "__main__":

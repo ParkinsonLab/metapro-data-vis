@@ -814,7 +814,7 @@ describe('createChordHandler', () => {
 import { wrapHandler } from './envelope'
 import type { ApiEnvelope } from './envelope'
 
-const CHORD_API_URL = process.env.CHORD_API_URL ?? 'http://localhost:8001'
+const ANALYTICS_API_URL = process.env.ANALYTICS_API_URL ?? 'http://localhost:8001'
 
 type ChordBody = Record<string, unknown>
 
@@ -830,7 +830,7 @@ export const createChordHandler = (deps: {
     }
 
     try {
-      const url = `${CHORD_API_URL}/api/viz/chord`
+      const url = `${ANALYTICS_API_URL}/api/viz/chord`
       const res = await fetchImpl(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
