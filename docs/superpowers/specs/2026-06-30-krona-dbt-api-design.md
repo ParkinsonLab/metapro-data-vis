@@ -50,7 +50,7 @@ Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The 
 | Early-leaf `label` | `U_{name}` | Matches legacy (`U_` prefixes leaf's own `id`, not parent label) |
 | Species-leaf `label` | same as `id` (= `name`) | Matches legacy |
 | Early-leaf grouping | If `row[rank]` resolved, append **internal at current rank** before `U_{name}` leaf — even at first rank | Early stop joins existing phylum bucket (e.g. `Bacillota` internal shared with rows that have genus); only skip internal when `row[rank]` is NULL |
-| Sibling ordering | SQL `ORDER BY` → upsert append order = **sunburst arc order** (`hierarchy.sort(null)`) | Rank columns ASC; leaves (incl. species) alphabetical by `name` |
+| Sibling ordering | SQL `ORDER BY` → upsert append order = **sunburst arc order** (`hierarchy.sort(null)`) | Rank columns ASC; leaf tie-break `COALESCE(w.species, d.name)` |
 | Sunburst layout | Clockwise in **`children` array order** (D3 `hierarchy.sort(null)`) | Insertion order is display order; not re-sorted by value |
 | Percentages | **`upsert_segment`** accumulates `subtotal` on internals; sets leaf `percentage` from `value` | Correct after all rows; no finalize pass |
 | Comparison mode | Error when `names.length > 1` | Deferred follow-up (same as chord/overview v1) |
@@ -278,15 +278,15 @@ LEFT JOIN bridge_wide w USING (source_tax_id)
 ORDER BY
     COALESCE(w.phylum, 'Unclassified ' || d.name),
     COALESCE(w.genus, ''),
-    d.name ASC
+    COALESCE(w.species, d.name)
 ```
 
 **`ORDER BY` = sunburst arc order:** upsert appends children in SQL row order; `Krona.tsx` uses `hierarchy.sort(null)`, so **`ORDER BY` is the pie layout contract**. Python builds this clause dynamically from `krona_levels(tax_rank)` (same as `{rank_in}`):
 
-1. **Each rank column ASC** (`w.phylum`, `w.genus`, …) — internal siblings alphabetical at that level.
-2. **Final key `d.name ASC`** — leaf siblings alphabetical by column name. Full species leaves (`label = name`) sort A→Z; early `U_{name}` leaves use the same key (NULL `w.species` does not need a separate sort column).
+1. **Each rank column ASC** (`w.phylum`, `w.genus`, …) — internal siblings alphabetical at that level. First rank uses `'Unclassified ' || d.name` fallback; deeper ranks use `''`.
+2. **Final key `COALESCE(w.species, d.name) ASC`** — leaf sibling order within the deepest resolved rank. Use **`w.species`** when exact-rank gating resolves species (the label the tree places at species depth). Fall back to **`d.name`** when `w.species IS NULL` (early `U_{name}` leaves and columns whose `names.name` is not a species string — genus-level tax_id, unknown header, etc.).
 
-Do **not** rely on `w.species` alone as the final key — early leaves have `w.species IS NULL`. When species is resolved, `d.name` and `w.species` usually agree; `d.name` is always present.
+Do **not** sort leaves by `d.name` alone — `d.name` is the column display name from `names` lookup and may be any rank, not necessarily species.
 
 **Exact-rank gating:** bridge `'Unclassified'` and coarser fallbacks become `NULL` in pivot columns → Python treats as missing next rank (early leaf).
 
@@ -425,7 +425,7 @@ for row in rows:
 | Display names | `add_data` → `get_name_from_id` on upload | `COALESCE(names.name, source_tax_id)` in SQL |
 | Comparison mode | `get_delta` for two files | Not supported (v1) |
 | Taxon filter | `subset_data` column filter | Error if non-empty filter passed |
-| Sibling order | First-encounter column order, then D3 re-sorted by value | SQL `ORDER BY` → insertion order = sunburst arcs; species leaves alphabetical by `name` |
+| Sibling order | First-encounter column order, then D3 re-sorted by value | SQL `ORDER BY` → insertion order = sunburst arcs; leaves by `COALESCE(w.species, d.name)` |
 | Unknown-header tax_ids | Raw id as `name`; `U_{name}` when early leaf | Same via names fallback |
 | Early leaf under resolved rank | Legacy `no_children` may return leaf direct to root even when rank label exists (SQLite backfill) | **`if row[rank]:`** adds internal at current rank before `U_{name}` leaf — groups under phylum/genus bucket |
 | Kingdom/domain columns (e.g. tax_id `2`) | SQLite backfill may self-match `"Bacteria"` at phylum rank → legacy `U_Bacteria` direct under root | Exact-rank gating leaves `row[phylum]` NULL → `[Leaf U_Bacteria]` under root (same shape, different reason) |
