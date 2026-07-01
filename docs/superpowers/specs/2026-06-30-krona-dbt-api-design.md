@@ -281,7 +281,11 @@ ORDER BY
     d.name
 ```
 
-**Dynamic ranks:** `{rank_in}` is injected for both filter and pivot (e.g. `'phylum', 'genus', 'species'`). When `tax_rank = 'genus'`, pivot columns are only `genus` and `species`; `ORDER BY` uses only those rank columns + `name`.
+**`ORDER BY` rationale:**
+
+- **Rank columns first** (`w.phylum`, `w.genus`, …) — built dynamically from `krona_levels(tax_rank)` so rows that share a phylum/genus prefix are adjacent; upsert then appends siblings in encounter order.
+- **Final tie-breaker is `d.name`**, not `w.species` — `name` is always present and matches leaf `id` sort order. Early leaves (`U_{name}`) often have `w.species IS NULL`; ordering by species would cluster NULLs unpredictably and sort by bridge label instead of column identity.
+- **`COALESCE(w.genus, '')`** — optional but keeps NULL-genus rows in a deterministic bucket (empty string sorts before named genera in ASC). Alternative: omit genus from `ORDER BY` when null and rely on `d.name` only; either is fine if golden insertion order is stable. Python builds the `ORDER BY` clause from `levels` the same way as `{rank_in}`.
 
 **Exact-rank gating:** bridge `'Unclassified'` and coarser fallbacks become `NULL` in pivot columns → Python treats as missing next rank (early leaf).
 
@@ -337,7 +341,9 @@ def segments_for_row(row, levels: tuple[str, ...]) -> list[Segment]:
 
 **Shared internals across rows:** upsert merges paths — e.g. `Bacillota` internal created by one row is reused when another row stops early under the same phylum.
 
-#### 5.4.3 `add_mass` and upsert loop
+#### 5.4.3 `add_mass`, `upsert_segment`, and main loop
+
+`Segment.value` carries the leaf mass (`row.total` from SQL). Internals have `value is None`.
 
 ```python
 def add_mass(node: KronaNode, value: float, grand_total: float) -> None:
@@ -345,25 +351,44 @@ def add_mass(node: KronaNode, value: float, grand_total: float) -> None:
     node.percentage = node.subtotal / grand_total
 
 
+def upsert_segment(parent: KronaNode, seg: Segment, grand_total: float) -> KronaNode:
+    """Find or append child by seg.id. Leaf (seg.value set) gets value + percentage; internal does not."""
+    existing = next((c for c in parent.children if c.id == seg.id), None)
+    if existing is not None:
+        return existing
+    if seg.value is not None:
+        child = KronaNode(
+            id=seg.id,
+            label=seg.label,
+            value=seg.value,
+            percentage=seg.value / grand_total,
+        )
+    else:
+        child = KronaNode(id=seg.id, label=seg.label, children=[], subtotal=0.0, percentage=0.0)
+    parent.children.append(child)
+    return child
+
+
 grand_total = sum(row.total for row in rows)
-root = KronaNode(id="root", label="root", children=[], subtotal=0.0, percentage=0.0)
+root = KronaNode(
+    id="root",
+    label="root",
+    children=[],
+    subtotal=grand_total,
+    percentage=1.0,
+)
 
 for row in rows:
     path = segments_for_row(row, levels)
     node = root
-    add_mass(root, row.total, grand_total)
-    for seg in path[:-1]:
-        node = upsert_child(node, seg)
-        add_mass(node, row.total, grand_total)
-    leaf = path[-1]
-    upsert_leaf(node, leaf)  # id, label, value; percentage = value / grand_total
-
-root.percentage = 1.0
+    for seg in path:
+        node = upsert_segment(node, seg, grand_total)
+        if seg.value is None:
+            add_mass(node, row.total, grand_total)
 ```
 
-- `upsert_child`: find existing child by `id`, else append (preserves SQL encounter order).
-- `upsert_leaf`: append leaf under current node (one leaf per `name`); set `percentage = value / grand_total`.
-- **`add_mass` applies to root and internal nodes only.** Leaf `percentage` is set directly from `value`.
+- **Root** is initialized with `subtotal=grand_total` and `percentage=1.0` — no per-row `add_mass` on root and no trailing `root.percentage = 1.0`.
+- **`add_mass` on internals only** (`seg.value is None`). Leaf `percentage` is set in `upsert_segment` from `seg.value / grand_total`.
 - Internal **`percentage` may be partial mid-insert**; correct after all rows. No finalize pass.
 
 ### 5.5 Sample lookup
