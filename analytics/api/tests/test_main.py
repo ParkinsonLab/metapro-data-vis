@@ -61,3 +61,25 @@ def test_overview_comparison_error_envelope():
     body = res.json()
     assert body["ok"] is False
     assert "comparison mode" in body["error"]
+
+
+def test_krona_endpoint_envelope(fake_rpkm_db):
+    res = client.post(
+        "/api/viz/krona",
+        json={"names": ["fake_rpkm.tsv"], "tax_rank": "phylum", "selected_taxon": {}},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert body["value"]["id"] == "root"
+    assert "children" in body["value"]
+
+
+def test_krona_comparison_error_envelope():
+    res = client.post(
+        "/api/viz/krona",
+        json={"names": ["a.tsv", "b.tsv"], "tax_rank": "phylum", "selected_taxon": {}},
+    )
+    body = res.json()
+    assert body["ok"] is False
+    assert "comparison mode" in body["error"]
