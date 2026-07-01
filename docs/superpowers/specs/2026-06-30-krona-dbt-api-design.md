@@ -1,7 +1,7 @@
 # Krona API via dbt Intermediates — Design Spec
 
-> **Status:** Draft (2026-06-30)  
-> **Goal:** Reimplement `POST /api/viz/krona` to derive the Krona sunburst taxonomy tree from precomputed dbt intermediate tables (`int_rpkm_by_ec_tax` + `bridge_tax_rollup`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract. Express keeps legacy handlers when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
+> **Status:** Draft (2026-06-30; revised — upsert tree builder, PIVOT SQL, `display_id` via names lookup)  
+> **Goal:** Reimplement `POST /api/viz/krona` to derive the Krona sunburst taxonomy tree from precomputed dbt intermediate tables (`int_rpkm_by_ec_tax` + `bridge_tax_rollup` + `names`) in `runs/{sample_id}/sample.duckdb`, preserving the existing JSON contract. Express keeps legacy handlers when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
 
@@ -12,9 +12,11 @@
 
 ## 1. Context
 
-Metapro Viz renders a zoomable Krona sunburst of taxonomy (`Krona.tsx`, `d3.partition`). Today the Express handler `parse_krona` (`src/server/data_functions.ts`) loads wide TSV data in memory, sums RPKM **per tax column** (`source_tax_id`) across all ECs, and builds a nested tree via `get_parents_multilevel` → `parse_tax_tree` (`src/server/parse.ts`).
+Metapro Viz renders a zoomable Krona sunburst of taxonomy (`Krona.tsx`, `d3.partition`). Today the Express handler `parse_krona` (`src/server/data_functions.ts`) loads wide TSV data in memory, sums RPKM **per tax column** across all ECs, and builds a nested tree via `get_parents_multilevel` → `parse_tax_tree` (`src/server/parse.ts`).
 
-Tree depth is driven by `levels = dedupe([tax_rank, 'genus', 'species'])` — e.g. `phylum` → genus → species (3 levels under root). Leaves are always raw column ids (`source_tax_id` strings); internal nodes use resolved taxon names.
+**Legacy column rename (critical):** On upload, `add_data` renames tax_id column headers to scientific names via `get_name_from_id` (`src/server/db_functions.ts`). All downstream tree logic — including leaf `id` and `U_{id}` labels — uses these **display names**, not raw NCBI tax_ids. Unknown headers (e.g. `999999999` in `fake_rpkm.tsv`) keep the raw id string as fallback.
+
+Tree depth is driven by `levels = dedupe([tax_rank, 'genus', 'species'])` — e.g. `phylum` → genus → species (3 ranks under root). Internal nodes use resolved taxon names at each rank; leaves use the renamed column key as `id`.
 
 Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The correct value grain is per `(ec_normalized, source_tax_id)` summed to one total per column, which is exactly what `int_rpkm_by_ec_tax` materialises before the pathway join.
 
@@ -38,17 +40,22 @@ Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The 
 | Opt-in backend | `POST /api/viz/krona?backend=duckdb` (Express) or direct on FastAPI `:8001` | Explicit testing switch; mirrors chord/overview |
 | Sidecar env var | **`ANALYTICS_API_URL`** (default `http://localhost:8001`) | One FastAPI process serves all viz routes |
 | Migration proxy | Shared `src/server/fastapi_sidecar_proxy.ts` | Temporary Express→FastAPI bridge during viz migration |
-| Data source | `int_rpkm_by_ec_tax` for column totals; `bridge_tax_rollup` for multilevel ancestry | Krona sums per column, not pathway×taxonomy pairs; avoids rollup fan-out dedup |
+| Data source | `int_rpkm_by_ec_tax` + `bridge_tax_rollup` + `names` Parquet | Column totals + ancestry + display-name lookup |
+| Tree builder | **Single-pass upsert** — one SQL row → insert leaf + upsert ancestors | Simpler than porting recursive `parse_tax_tree`; shared internals emerge naturally |
 | Tree levels | `dedupe([tax_rank, 'genus', 'species'])` | Matches legacy `parse_krona` |
-| Ancestry exactness | SQL returns label **only when `resolved_tax_rank` matches requested rank**; else `NULL` | Preserves legacy early-leaf depth; avoids `'Unclassified'` bridge label in tree grouping |
-| Leaf identity | `id` = `source_tax_id` string; `label` = `id` at species level, `U_{id}` on early leaf | Matches `parse_tax_tree_recursive` |
-| Sibling ordering | Alphabetical by `label` ASC at each internal level | Predictable, testable; visible on sunburst |
+| Ancestry exactness | SQL returns rank label **only when `resolved_tax_rank = requested_rank`**; else `NULL` | Preserves legacy early-leaf depth; avoids bridge `'Unclassified'` in grouping |
+| Leaf identity | `id` = **`display_id`** = `COALESCE(names.name, CAST(source_tax_id AS VARCHAR))` | Matches legacy `add_data` header rename |
+| Early-leaf label | `U_{display_id}` | Matches legacy `parse_tax_tree_recursive` (`U_` prefixes leaf's own `id`, not parent label) |
+| Species-leaf label | same as `id` (= `display_id`) | Matches legacy |
+| Early-leaf placement | Leaf attaches at walked depth; **no** extra internal wrapper for the stopping rank | Matches legacy `no_children` returning leaf directly to parent |
+| Sibling ordering | SQL `ORDER BY` on rank labels; upsert appends in encounter order | No Python re-sort; order visible on sunburst |
 | Sunburst layout | Clockwise in **`children` array order** (D3 `hierarchy.sort(null)`) | Backend ordering is visible; not re-sorted by value |
+| Percentages | Leaf `percentage = value / grand_total` on insert; internal nodes accumulate `subtotal`, finalized after all rows | Single pass + cheap finalize |
 | Comparison mode | Error when `names.length > 1` | Deferred follow-up (same as chord/overview v1) |
 | Taxon filter | Error when non-empty `{ level, name }` passed | Krona UI sends `{}` today; fail loudly rather than silently ignore |
 | Error wording | Feature gaps say **"analytics API"**, not "duckdb backend" | Avoid implying DuckDB limitation |
-| Verification | Golden tests: `krona_expectations.yaml` + parametrized pytest on `fake_rpkm` | Mirrors overview/chord golden pattern |
-| Response typing | Pydantic `KronaNode` / `KronaResponse` models in Python | Documents contract; used in service return type and tests |
+| Verification | Golden tests: `krona_expectations.yaml` + parametrized pytest on `fake_rpkm` | Mirrors overview/chord golden pattern; expect scientific names |
+| Response typing | Pydantic `KronaNode` model in Python | Documents contract; used in service return type and tests |
 | Renderer backend toggle | Add `'krona'` to `MIGRATED_CHANNELS` in `vizBackend.ts` | Sidecar default for krona |
 
 ## 3. Architecture
@@ -72,6 +79,7 @@ Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The 
                                                                        runs/{sample_id}/sample.duckdb
                                                                        int_rpkm_by_ec_tax
                                                                        + bridge_tax_rollup (Parquet)
+                                                                       + names (Parquet)
 ```
 
 | Component | Location | Role |
@@ -79,8 +87,8 @@ Unlike chord/overview, Krona is **taxonomy-only** — no pathway dimension. The 
 | Migration proxy | `src/server/fastapi_sidecar_proxy.ts` | `createSidecarProxyHandler({ legacyHandler, apiPath, label: 'krona' })` |
 | Express routes | `src/server/index.ts` | Move krona from `vizRoutes` → `sidecarRoutes` |
 | FastAPI route | `analytics/api/main.py` | `POST /api/viz/krona` |
-| Service | `analytics/api/krona_service.py` | DuckDB query + tree assembly |
-| Schemas | `analytics/api/schemas.py` | `KronaRequest`, `KronaNode`, `KronaResponse` |
+| Service | `analytics/api/krona_service.py` | DuckDB PIVOT query + upsert tree builder |
+| Schemas | `analytics/api/schemas.py` | `KronaRequest`, `KronaNode` |
 | Filters helper | `analytics/api/filters.py` | Add `krona_levels(tax_rank)` |
 | Renderer toggle | `src/renderer/src/vizBackend.ts` | Add `'krona'` to `MIGRATED_CHANNELS` |
 | Renderer layout | `src/renderer/src/components/Krona.tsx` | Replace `hierarchy.sort((a,b) => b.value - a.value)` with `hierarchy.sort(null)` |
@@ -117,16 +125,36 @@ Add `'krona'` to `MIGRATED_CHANNELS` in `vizBackend.ts` (alongside `'chord'`, `'
 
 ### 4.2 Response `value` (unchanged nested tree)
 
-Root node:
+**Reference (legacy, `fake_rpkm`, `tax_rank = phylum`):** leaves use scientific names; early leaves use `U_{display_id}`; unknown column `999999999` stays numeric.
 
 ```json
 {
   "id": "root",
   "label": "root",
-  "children": [ ... ],
+  "children": [
+    { "id": "999999999", "label": "U_999999999", "value": 1, "percentage": 0.077 },
+    {
+      "id": "Bacillota", "label": "Bacillota",
+      "children": [
+        {
+          "id": "Staphylococcus", "label": "Staphylococcus",
+          "children": [
+            { "id": "Staphylococcus aureus", "label": "Staphylococcus aureus", "value": 5, "percentage": 0.385 },
+            { "id": "Staphylococcus epidermidis", "label": "Staphylococcus epidermidis", "value": 1, "percentage": 0.077 }
+          ],
+          "percentage": 0.462
+        },
+        { "id": "Mammaliicoccus sciuri", "label": "U_Mammaliicoccus sciuri", "value": 1, "percentage": 0.077 }
+      ],
+      "percentage": 0.769
+    },
+    { "id": "Bacteria", "label": "U_Bacteria", "value": 1, "percentage": 0.077 }
+  ],
   "percentage": 1.0
 }
 ```
+
+Root node: `{ id: "root", label: "root", children, percentage: 1.0 }`.
 
 Internal nodes: `{ id, label, children, percentage }` — `id` = `label` = group name.
 
@@ -134,8 +162,8 @@ Leaf nodes: `{ id, label, value, percentage }` — no `children`.
 
 | Leaf case | `id` | `label` |
 |---|---|---|
-| Species level reached (`levels` exhausted) | `source_tax_id` | same as `id` |
-| Early leaf (`no_children`) | `source_tax_id` | `U_{source_tax_id}` |
+| Species level reached (last rank in `levels`) | `display_id` | same as `id` |
+| Early leaf (next rank is `NULL`) | `display_id` | `U_{display_id}` |
 
 **Sunburst layout:** Arc order follows `children` array order at each level. `Krona.tsx` must use `d3.hierarchy(data).sum(...).sort(null)` so the partition layout respects backend sibling order (mirrors overview's `pie.sort(null)`).
 
@@ -167,7 +195,7 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 | Invalid `tax_rank` | 200 | `"invalid tax_rank: {value}"` |
 | DuckDB file missing | 200 | `"sample not found: {sample_id}"` |
 | `int_rpkm_by_ec_tax` missing | 200 | `"int_rpkm_by_ec_tax not materialized for sample: {sample_id}"` |
-| Bridge Parquet missing | 200 | `"bridge parquet missing: ..."` |
+| Bridge / names Parquet missing | 200 | `"reference parquet missing: ..."` |
 | FastAPI unreachable (Express proxy) | 200 | `"krona analytics API unavailable: ..."` |
 
 ## 5. Data Flow
@@ -176,9 +204,11 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 
 ```
 int_rpkm_by_ec_tax
-  → SUM(value) GROUP BY source_tax_id          # one total per TSV column
-  → JOIN bridge_tax_rollup at krona_levels     # one row per column, nullable labels per rank
-  → build_krona_tree() in Python               # port of parse_tax_tree_recursive
+  → SUM(value) GROUP BY source_tax_id
+  → JOIN names → display_id
+  → JOIN bridge_tax_rollup (PIVOT, exact-rank-gated labels)
+  → ORDER BY rank labels (insertion order)
+  → single-pass upsert tree builder
   → KronaNode root
 ```
 
@@ -198,74 +228,113 @@ def krona_levels(tax_rank: str) -> tuple[str, ...]:
 
 Examples: `phylum` → `('phylum', 'genus', 'species')`; `genus` → `('genus', 'species')`; `species` → `('species',)`.
 
-### 5.3 SQL — column totals + multilevel ancestry (single query)
+### 5.3 SQL — single query (PIVOT + display_id + ORDER BY)
 
-**Open during implementation:** whether to use per-rank `CASE`/`MAX` columns or DuckDB `PIVOT` for fully dynamic rank columns. Both are acceptable; pick based on readability and test coverage. The contract is the **output shape**, not the SQL style.
-
-**Required semantics:** for each rank `L` in `krona_levels(tax_rank)`, the query returns a nullable label column that is **non-null only when `resolved_tax_rank = L`** at the bridge row for `requested_rank = L`. Coarser fallbacks and `'Unclassified'` bridge labels must **not** appear in the label column — they become `NULL`, and Python applies the same rules as legacy (`no_children`, `Unclassified {id}` grouping).
-
-Illustrative SQL (CASE style; ranks injected via `_sql_in_list(levels)`):
+Python builds dynamic rank lists from `krona_levels(tax_rank)` via `_sql_in_list()` (same helper as chord). Both the bridge `WHERE requested_rank IN (...)` and the `PIVOT ... FOR requested_rank IN (...)` clauses use the same list.
 
 ```sql
 WITH totals AS (
-    SELECT CAST(source_tax_id AS VARCHAR) AS source_tax_id,
-           SUM(value) AS total
+    SELECT source_tax_id, SUM(value) AS total
     FROM int_rpkm_by_ec_tax
     GROUP BY source_tax_id
     HAVING SUM(value) > 0
 ),
-bridge AS (
-    SELECT source_tax_id,
-           requested_rank,
-           resolved_tax_rank,
-           resolved_tax_label
-    FROM read_parquet('<bridge_tax_rollup>')
-    WHERE requested_rank IN ({rank_in})   -- dynamic: krona_levels(tax_rank)
+display AS (
+    SELECT
+        t.source_tax_id,
+        t.total,
+        COALESCE(n.name, CAST(t.source_tax_id AS VARCHAR)) AS display_id
+    FROM totals t
+    LEFT JOIN read_parquet('<resources/db/parquet/names.parquet>') n
+           ON t.source_tax_id = n.tax_id
 ),
-ancestry AS (
-    SELECT source_tax_id,
-           -- repeat per rank L in levels:
-           MAX(CASE
-               WHEN requested_rank = 'genus'
-                AND resolved_tax_rank = 'genus'
-               THEN resolved_tax_label
-           END) AS genus
-           -- , MAX(CASE WHEN requested_rank = 'phylum' AND resolved_tax_rank = 'phylum'
-           --       THEN resolved_tax_label END) AS phylum
-           -- , ...
-    FROM bridge
-    GROUP BY source_tax_id
+bridge_gated AS (
+    SELECT
+        source_tax_id,
+        requested_rank,
+        CASE
+            WHEN resolved_tax_rank = requested_rank
+            THEN resolved_tax_label
+        END AS label
+    FROM read_parquet('<bridge_tax_rollup>')
+    WHERE requested_rank IN ({rank_in})
+),
+bridge_wide AS (
+    SELECT *
+    FROM (
+        SELECT source_tax_id, requested_rank, label
+        FROM bridge_gated
+    )
+    PIVOT (MAX(label) FOR requested_rank IN ({rank_in}))
 )
-SELECT t.source_tax_id, t.total, a.*
-FROM totals t
-LEFT JOIN ancestry a USING (source_tax_id)
+SELECT
+    d.display_id,
+    d.total,
+    w.*
+FROM display d
+LEFT JOIN bridge_wide w USING (source_tax_id)
+ORDER BY
+    COALESCE(w.phylum, 'Unclassified ' || d.display_id),
+    COALESCE(w.genus, ''),
+    d.display_id
 ```
 
-Dynamic rank list: built in Python via existing `_sql_in_list()` (same helper as chord). Dynamic label columns: generated in Python from `krona_levels(tax_rank)` for either CASE or PIVOT approach.
+**Dynamic ranks:** `{rank_in}` is injected for both filter and pivot (e.g. `'phylum', 'genus', 'species'`). When `tax_rank = 'genus'`, pivot columns are only `genus` and `species`; `ORDER BY` uses only those rank columns + `display_id`.
 
-### 5.4 Python tree builder
+**Exact-rank gating:** bridge `'Unclassified'` and coarser fallbacks become `NULL` in pivot columns → Python treats as missing next rank (early leaf).
 
-Port `parse_tax_tree` / `parse_tax_tree_recursive` / `group_tax_tree_at_level` from `src/server/parse.ts`:
+### 5.4 Python tree builder — single-pass upsert
 
-**Input per column row:** `{ id: source_tax_id, total, <rank>: label | null for each rank in levels }`
+No recursive port of `parse_tax_tree`. For each SQL row (already ordered):
 
-**Grouping key at level L:** `row[L] if row[L] else f"Unclassified {row.id}"` (matches legacy `group_tax_tree_at_level`).
+#### 5.4.1 `path_and_leaf_for_row(row, levels)`
 
-**Early leaf (`no_children`):** `len(subset) == 1 and not subset[0][levels[1]]` → leaf with `label = f"U_{id}"`.
-
-**Species leaf:** `len(levels) == 0` → leaf with `label = id`.
-
-**Sibling order:** sort `children` alphabetically by `label` ASC before returning each internal node.
-
-**Root assembly:**
+Returns `(internal_segments, leaf_id, leaf_label, value)`:
 
 ```python
-def build_krona_tree(rows, levels: tuple[str, ...]) -> KronaNode:
-    totals = {r.id: r.total for r in rows}
-    grand_total = sum(totals.values())
-    children = _build_level(rows, levels, grand_total)
-    return KronaNode(id="root", label="root", children=children, percentage=1.0)
+def path_and_leaf_for_row(row, levels: tuple[str, ...]):
+    segments: list[str] = []
+    for i, rank in enumerate(levels):
+        is_last = i == len(levels) - 1
+        label = row[rank] if row[rank] else f"Unclassified {row.display_id}"
+
+        if is_last:
+            return segments, row.display_id, row.display_id, row.total
+
+        next_rank = levels[i + 1]
+        if row[next_rank] is None:
+            # early leaf — attach here; no internal wrapper for stopping rank
+            segments.append(label)
+            return segments, row.display_id, f"U_{row.display_id}", row.total
+
+        segments.append(label)
+
+    raise RuntimeError("unreachable")
 ```
+
+#### 5.4.2 Upsert loop
+
+```python
+grand_total = sum(row.total for row in rows)
+root = KronaNode(id="root", label="root", children=[], subtotal=0.0)
+
+for row in rows:
+    segments, leaf_id, leaf_label, value = path_and_leaf_for_row(row, levels)
+    node = root
+    for seg in segments:
+        node = upsert_child(node, id=seg, label=seg)
+        node.subtotal += value
+    upsert_leaf(node, id=leaf_id, label=leaf_label, value=value,
+                percentage=value / grand_total)
+    root.subtotal += value
+
+root.percentage = 1.0
+finalize_internal_percentages(root, grand_total)  # percentage = subtotal / grand_total
+```
+
+- `upsert_child`: find existing child by `id`, else append (preserves SQL encounter order).
+- `upsert_leaf`: append leaf under current node (one leaf per `display_id`).
+- Internal `subtotal`s are partial during insert; correct after all rows. One finalize pass sets internal `percentage`.
 
 ### 5.5 Sample lookup
 
@@ -275,15 +344,16 @@ def build_krona_tree(rows, levels: tuple[str, ...]) -> KronaNode:
 
 | Area | Legacy (Node) | Analytics API path |
 |---|---|---|
-| Tax lookup | SQLite `get_parents_at_level` — exact rank via `parents.t_{rank}` | `bridge_tax_rollup` with **exact-rank gating** in SQL (`resolved_tax_rank = requested_rank`) |
+| Tax lookup | SQLite `get_parents_at_level` — exact rank via `parents.t_{rank}` | `bridge_tax_rollup` with **exact-rank gating** in SQL |
+| Display names | `add_data` → `get_name_from_id` on upload | `COALESCE(names.name, source_tax_id)` in SQL |
 | Comparison mode | `get_delta` for two files | Not supported (v1) |
 | Taxon filter | `subset_data` column filter | Error if non-empty filter passed |
-| Sibling order | First-encounter TSV column order, then D3 re-sorted by value | Alphabetical by sibling label; D3 preserves API order (`hierarchy.sort(null)`) |
-| Unknown-header tax_ids | Included as columns; null ancestry → `Unclassified {id}` | Included in `int_rpkm_by_ec_tax`; null gated label → same grouping |
+| Sibling order | First-encounter column order, then D3 re-sorted by value | SQL `ORDER BY` rank labels; D3 preserves order (`hierarchy.sort(null)`) |
+| Unknown-header tax_ids | Raw id as `display_id`; `U_{display_id}` when early leaf | Same via names fallback |
 
-### 6.1 `'Unclassified'` label semantics
+### 6.1 `'Unclassified'` grouping
 
-Bridge `'Unclassified'` (`resolved_tax_id IS NULL`) is **never surfaced** as an internal node label because SQL gates on `resolved_tax_rank = requested_rank` and `'Unclassified'` rows have `resolved_tax_rank IS NULL`. Columns with no exact match at a level get `NULL` → Python groups as `Unclassified {source_tax_id}`, matching legacy behavior for missing ancestry.
+When a rank label is `NULL` after gating, internal grouping uses `Unclassified {display_id}` (matches legacy `group_tax_tree_at_level`). Bridge `'Unclassified'` labels are never copied into pivot columns.
 
 ## 7. Repository Layout (additions)
 
@@ -291,7 +361,7 @@ Bridge `'Unclassified'` (`resolved_tax_id IS NULL`) is **never surfaced** as an 
 analytics/
 ├── api/
 │   ├── main.py                     # add POST /api/viz/krona
-│   ├── krona_service.py            # build_krona_from_duckdb(), build_krona_tree()
+│   ├── krona_service.py            # build_krona_from_duckdb(), upsert tree builder
 │   ├── filters.py                  # add krona_levels()
 │   ├── schemas.py                  # add KronaRequest, KronaNode
 │   └── tests/
@@ -317,13 +387,15 @@ Reuse shared `fake_rpkm` fixture (`analytics/conftest.py`, `testing/fake_rpkm_fi
 
 | Asset | Purpose |
 |---|---|
-| `krona_expectations.yaml` | Expected tree(s) for `fake_rpkm` at 2–3 `tax_rank` values (e.g. `phylum`, `genus`) |
+| `krona_expectations.yaml` | Expected tree(s) for `fake_rpkm` at 2–3 `tax_rank` values (e.g. `phylum`, `genus`); leaf `id`s are **scientific names** |
 | `test_krona_service.py` | Parametrized pytest via `build_krona_from_duckdb()` |
 | `dump_fake_rpkm_expectations.py` | Regenerate YAML after fixture or tree-logic changes |
 
-Tests skip when bridges/sample.duckdb unavailable (same guard as chord/overview).
+Tests skip when bridges/sample.duckdb/names Parquet unavailable (same guard as chord/overview).
 
 Tree comparison: deep equality on nested `{ id, label, value?, children?, percentage }` structure; float tolerance on `value` / `percentage`.
+
+Golden source of truth: legacy `POST /api/viz/krona` on loaded `fake_rpkm.tsv` (captures name-based leaf ids).
 
 ### 8.2 Express sidecar proxy tests
 
@@ -371,19 +443,12 @@ curl -X POST 'http://localhost:3001/api/viz/krona?backend=duckdb' \
 ## 10. Implementation Checklist
 
 - [ ] `analytics/api/filters.py` — `krona_levels(tax_rank)`
-- [ ] `analytics/api/krona_service.py` — `build_krona_from_duckdb()`, `build_krona_tree()`
+- [ ] `analytics/api/krona_service.py` — `build_krona_from_duckdb()`, PIVOT query, upsert tree builder
 - [ ] `analytics/api/schemas.py` — `KronaRequest`, `KronaNode`
 - [ ] `analytics/api/main.py` — `POST /api/viz/krona`
-- [ ] `krona_expectations.yaml` + `test_krona_service.py`
+- [ ] `krona_expectations.yaml` + `test_krona_service.py` (scientific-name leaf ids)
 - [ ] `src/server/index.ts` — krona sidecar route
 - [ ] `src/renderer/src/vizBackend.ts` — add `'krona'` to `MIGRATED_CHANNELS`
 - [ ] `src/renderer/src/components/Krona.tsx` — `hierarchy.sort(null)`
 - [ ] Proxy unit tests (krona label)
 - [ ] Extend `dump_fake_rpkm_expectations.py`
-
-## 11. Open Questions (resolve during implementation)
-
-| Question | Options | Notes |
-|---|---|---|
-| Dynamic rank columns in SQL | Per-rank `CASE`/`MAX` generated in Python vs DuckDB `PIVOT` | Output contract identical either way; pick based on clarity and test ergonomics |
-| Golden YAML tree depth | Full nested tree vs normalised flat node list | Full tree preferred for readability; flat list fallback if YAML gets unwieldy |
