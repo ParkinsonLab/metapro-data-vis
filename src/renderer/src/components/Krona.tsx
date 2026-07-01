@@ -52,7 +52,7 @@ const Krona = (): React.JSX.Element => {
     const hierarchy = d3
       .hierarchy(data)
       .sum((d) => d.value)
-      .sort((a, b) => b.value - a.value)
+      .sort(null)
 
     const root = d3.partition().size([2 * Math.PI, hierarchy.height + 1])(hierarchy)
     root.each((d) => (d.current = d))
