@@ -59,3 +59,62 @@ describe('createSidecarProxyHandler', () => {
     })
   })
 })
+
+describe('createSidecarProxyHandler (pathway_list)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('uses legacy handler when backend query param absent', async () => {
+    const legacy = vi.fn().mockReturnValue(['pathway-a', 'pathway-b'])
+    const handler = createSidecarProxyHandler({
+      legacyHandler: legacy,
+      apiPath: '/api/viz/pathway-list',
+      label: 'pathway_list',
+    })
+    const req = { query: {}, body: { superpathway: 'sp1' } }
+    const out = await handler(req)
+    expect(legacy).toHaveBeenCalledWith(req.body)
+    expect(out).toEqual({ ok: true, value: ['pathway-a', 'pathway-b'] })
+  })
+
+  it('proxies to FastAPI when backend=duckdb', async () => {
+    const legacy = vi.fn()
+    const envelope = { ok: true, value: ['pathway-a'] }
+    const fetchFn = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve(envelope),
+    })
+    const handler = createSidecarProxyHandler({
+      legacyHandler: legacy,
+      apiPath: '/api/viz/pathway-list',
+      label: 'pathway_list',
+      fetchFn,
+      baseUrl: 'http://test:8001',
+    })
+    const req = { query: { backend: 'duckdb' }, body: { superpathway: 'sp1' } }
+    const out = await handler(req)
+    expect(legacy).not.toHaveBeenCalled()
+    expect(fetchFn).toHaveBeenCalledWith('http://test:8001/api/viz/pathway-list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    })
+    expect(out).toEqual(envelope)
+  })
+
+  it('returns error envelope when fetch fails', async () => {
+    const fetchFn = vi.fn().mockRejectedValue(new Error('connection refused'))
+    const handler = createSidecarProxyHandler({
+      legacyHandler: vi.fn(),
+      apiPath: '/api/viz/pathway-list',
+      label: 'pathway_list',
+      fetchFn,
+    })
+    const req = { query: { backend: 'duckdb' }, body: {} }
+    const out = await handler(req)
+    expect(out).toEqual({
+      ok: false,
+      error: 'pathway_list duckdb backend unavailable: connection refused',
+    })
+  })
+})
