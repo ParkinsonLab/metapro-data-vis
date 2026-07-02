@@ -10,14 +10,14 @@ pathway_list:
     expected:
     - Methane metabolism
     - Oxidative phosphorylation
-  superpathway_energy_metabolism_kingdom_bacteria:
-    tax_level: phylum
+  superpathway_energy_metabolism_phylum_filter_actinomycetota_class_rank:
+    tax_level: class
     selected_ann_cat:
       level: superpathway
       name: Energy metabolism
     selected_taxon:
-      level: kingdom
-      name: Bacteria
+      level: phylum
+      name: Actinomycetota
     names:
     - fake_rpkm.tsv
     expected:
