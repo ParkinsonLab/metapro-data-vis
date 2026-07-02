@@ -1,0 +1,156 @@
+sample_id: fake_rpkm
+# §6.2: Mammaliicoccus sciuri resolves phylum→genus→species via bridge (not legacy U_ early leaf).
+krona_phylum:
+  id: root
+  label: root
+  percentage: 1.0
+  subtotal: 13.0
+  children:
+  - id: Actinomycetota
+    label: Actinomycetota
+    percentage: 0.07692307692307693
+    subtotal: 1.0
+    children:
+    - id: Clavibacter
+      label: Clavibacter
+      percentage: 0.07692307692307693
+      subtotal: 1.0
+      children:
+      - id: Clavibacter sp. OL-4
+        label: Clavibacter sp. OL-4
+        percentage: 0.07692307692307693
+        value: 1.0
+  - id: Bacillota
+    label: Bacillota
+    percentage: 0.7692307692307693
+    subtotal: 10.0
+    children:
+    - id: Bacillus
+      label: Bacillus
+      percentage: 0.07692307692307693
+      subtotal: 1.0
+      children:
+      - id: Bacillus sp. b107A(2010)
+        label: Bacillus sp. b107A(2010)
+        percentage: 0.07692307692307693
+        value: 1.0
+    - id: Lactobacillus
+      label: Lactobacillus
+      percentage: 0.07692307692307693
+      subtotal: 1.0
+      children:
+      - id: Lactobacillus sp. 100-5
+        label: Lactobacillus sp. 100-5
+        percentage: 0.07692307692307693
+        value: 1.0
+    - id: Mammaliicoccus
+      label: Mammaliicoccus
+      percentage: 0.07692307692307693
+      subtotal: 1.0
+      children:
+      - id: Mammaliicoccus sciuri
+        label: Mammaliicoccus sciuri
+        percentage: 0.07692307692307693
+        value: 1.0
+    - id: Pectinatus
+      label: Pectinatus
+      percentage: 0.07692307692307693
+      subtotal: 1.0
+      children:
+      - id: Pectinatus frisingensis
+        label: Pectinatus frisingensis
+        percentage: 0.07692307692307693
+        value: 1.0
+    - id: Staphylococcus
+      label: Staphylococcus
+      percentage: 0.46153846153846156
+      subtotal: 6.0
+      children:
+      - id: Staphylococcus aureus
+        label: Staphylococcus aureus
+        percentage: 0.38461538461538464
+        value: 5.0
+      - id: Staphylococcus epidermidis
+        label: Staphylococcus epidermidis
+        percentage: 0.07692307692307693
+        value: 1.0
+  - id: '999999999'
+    label: U_999999999
+    percentage: 0.07692307692307693
+    value: 1.0
+  - id: Bacteria
+    label: U_Bacteria
+    percentage: 0.07692307692307693
+    value: 1.0
+krona_genus:
+  id: root
+  label: root
+  percentage: 1.0
+  subtotal: 13.0
+  children:
+  - id: Bacillus
+    label: Bacillus
+    percentage: 0.07692307692307693
+    subtotal: 1.0
+    children:
+    - id: Bacillus sp. b107A(2010)
+      label: Bacillus sp. b107A(2010)
+      percentage: 0.07692307692307693
+      value: 1.0
+  - id: Clavibacter
+    label: Clavibacter
+    percentage: 0.07692307692307693
+    subtotal: 1.0
+    children:
+    - id: Clavibacter sp. OL-4
+      label: Clavibacter sp. OL-4
+      percentage: 0.07692307692307693
+      value: 1.0
+  - id: Lactobacillus
+    label: Lactobacillus
+    percentage: 0.07692307692307693
+    subtotal: 1.0
+    children:
+    - id: Lactobacillus sp. 100-5
+      label: Lactobacillus sp. 100-5
+      percentage: 0.07692307692307693
+      value: 1.0
+  - id: Mammaliicoccus
+    label: Mammaliicoccus
+    percentage: 0.07692307692307693
+    subtotal: 1.0
+    children:
+    - id: Mammaliicoccus sciuri
+      label: Mammaliicoccus sciuri
+      percentage: 0.07692307692307693
+      value: 1.0
+  - id: Pectinatus
+    label: Pectinatus
+    percentage: 0.07692307692307693
+    subtotal: 1.0
+    children:
+    - id: Pectinatus frisingensis
+      label: Pectinatus frisingensis
+      percentage: 0.07692307692307693
+      value: 1.0
+  - id: Staphylococcus
+    label: Staphylococcus
+    percentage: 0.46153846153846156
+    subtotal: 6.0
+    children:
+    - id: Staphylococcus aureus
+      label: Staphylococcus aureus
+      percentage: 0.38461538461538464
+      value: 5.0
+    - id: Staphylococcus epidermidis
+      label: Staphylococcus epidermidis
+      percentage: 0.07692307692307693
+      value: 1.0
+  - id: '999999999'
+    label: U_999999999
+    percentage: 0.07692307692307693
+    value: 1.0
+  - id: Bacteria
+    label: U_Bacteria
+    percentage: 0.07692307692307693
+    value: 1.0

@@ -22,6 +22,19 @@ def ranks_from_root_to(tax_level: str) -> tuple[str, ...]:
     return TAX_RANK_ORDER[: idx + 1]
 
 
+def krona_levels(tax_rank: str) -> tuple[str, ...]:
+    """dedupe preserving order: [tax_rank, genus, species]."""
+    validate_tax_level(tax_rank)
+    min_idx = TAX_RANK_ORDER.index(tax_rank)
+    seen: set[str] = set()
+    out: list[str] = []
+    for r in (tax_rank, "genus", "species"):
+        if TAX_RANK_ORDER.index(r) >= min_idx and r not in seen:
+            seen.add(r)
+            out.append(r)
+    return tuple(out)
+
+
 def ann_levels_from_root_to(ann_level: str) -> tuple[str, ...]:
     validate_ann_level(ann_level)
     idx = ANN_LEVEL_ORDER.index(ann_level)

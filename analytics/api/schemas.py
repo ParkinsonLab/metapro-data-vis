@@ -25,3 +25,18 @@ class OverviewResponse(BaseModel):
 
 class OverviewRequest(BaseModel):
     names: list[str] = Field(default_factory=list)
+
+
+class KronaNode(BaseModel):
+    id: str
+    label: str
+    percentage: float
+    value: float | None = None
+    subtotal: float | None = None  # internals during build; frontend ignores (D3 sums leaf value)
+    children: list["KronaNode"] | None = None
+
+
+class KronaRequest(BaseModel):
+    names: list[str] = Field(default_factory=list)
+    tax_rank: str
+    selected_taxon: Any = Field(default_factory=dict)

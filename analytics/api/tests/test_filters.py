@@ -1,5 +1,8 @@
+import pytest
+
 from api.filters import (
     ann_levels_from_root_to,
+    krona_levels,
     normalise_ann_filter,
     normalise_taxon_filter,
     ranks_from_root_to,
@@ -74,3 +77,21 @@ def test_taxon_filter_empty():
 def test_taxon_filter_set():
     f = normalise_taxon_filter({"level": "phylum", "name": "Bacillota"})
     assert f == {"level": "phylum", "name": "Bacillota"}
+
+
+class TestKronaLevels:
+    def test_phylum(self):
+        assert krona_levels("phylum") == ("phylum", "genus", "species")
+
+    def test_genus(self):
+        assert krona_levels("genus") == ("genus", "species")
+
+    def test_species(self):
+        assert krona_levels("species") == ("species",)
+
+    def test_dedupes_when_tax_rank_is_species(self):
+        assert krona_levels("species") == ("species",)
+
+    def test_invalid_rank(self):
+        with pytest.raises(ValueError, match="invalid tax_level"):
+            krona_levels("not_a_rank")

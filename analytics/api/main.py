@@ -10,8 +10,9 @@ from api.filters import (
     normalise_taxon_filter,
     sample_id_from_names,
 )
+from api.krona_service import build_krona_from_duckdb
 from api.overview_service import build_overview_from_duckdb
-from api.schemas import ChordRequest, OverviewRequest
+from api.schemas import ChordRequest, KronaRequest, OverviewRequest
 
 app = FastAPI(title="Metapro Viz API (Python)")
 app.add_middleware(
@@ -49,5 +50,17 @@ def chord_endpoint(body: ChordRequest):
 def overview_endpoint(body: OverviewRequest):
     def _handle():
         return build_overview_from_duckdb(names=body.names).model_dump()
+
+    return wrap_handler(_handle)
+
+
+@app.post("/api/viz/krona")
+def krona_endpoint(body: KronaRequest):
+    def _handle():
+        return build_krona_from_duckdb(
+            names=body.names,
+            tax_rank=body.tax_rank,
+            selected_taxon=body.selected_taxon,
+        ).model_dump(exclude_none=True)
 
     return wrap_handler(_handle)
