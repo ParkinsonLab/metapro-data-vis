@@ -34,7 +34,7 @@ const endpointFor = (channel: Channel): { method: string; url: string } => {
     krona: { method: 'POST', url: `/api/viz/krona${sidecarQuery('krona')}` },
     chord: { method: 'POST', url: `/api/viz/chord${sidecarQuery('chord')}` },
     network: { method: 'POST', url: '/api/viz/network' },
-    pathway_list: { method: 'POST', url: '/api/viz/pathway-list' }
+    pathway_list: { method: 'POST', url: `/api/viz/pathway-list${sidecarQuery('pathway_list')}` }
   }
   return map[channel]
 }

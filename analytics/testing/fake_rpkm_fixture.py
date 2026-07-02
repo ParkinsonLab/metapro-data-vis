@@ -20,6 +20,7 @@ PIPELINE_YAML = FIXTURES_DIR / "fake_rpkm_pipeline_expectations.yaml"
 CHORD_YAML = ANALYTICS_DIR / "api/tests/fixtures/chord_expectations.yaml"
 OVERVIEW_YAML = ANALYTICS_DIR / "api/tests/fixtures/overview_expectations.yaml"
 KRONA_YAML = ANALYTICS_DIR / "api/tests/fixtures/krona_expectations.yaml"
+PATHWAY_LIST_YAML = ANALYTICS_DIR / "api/tests/fixtures/pathway_list_expectations.yaml"
 NAMES_PATH = REPO_ROOT / "resources/db/parquet/names.parquet"
 
 REQUIRED_BRIDGES = (
@@ -71,6 +72,10 @@ def load_overview_expectations() -> dict[str, Any]:
 
 def load_krona_expectations() -> dict[str, Any]:
     return load_yaml(KRONA_YAML)
+
+
+def load_pathway_list_expectations() -> dict[str, Any]:
+    return load_yaml(PATHWAY_LIST_YAML)
 
 
 def ensure_pipeline_built() -> Path:

@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createSidecarProxyHandler } from '../server/fastapi_sidecar_proxy'
 
+// Generic proxy behaviour is tested once (chord as stand-in). New sidecar routes
+// do not need per-channel duplicate suites unless route-specific wiring differs.
+
 describe('createSidecarProxyHandler', () => {
   beforeEach(() => {
     vi.restoreAllMocks()

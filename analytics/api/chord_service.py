@@ -5,24 +5,14 @@ from pathlib import Path
 import duckdb
 
 from api.chord_matrix import build_chord_matrix
-from api.filters import ann_levels_from_root_to, ranks_from_root_to, validate_ann_level, validate_tax_level
+from api.filters import validate_ann_level, validate_tax_level
+from api.rollup_query import PATHWAY_LABEL_SQL, build_filtered_rollup_rows
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
 BRIDGE_EC_PATH = REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet"
 BRIDGE_TAX_PATH = REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet"
-
-PATHWAY_LABEL_SQL = (
-    "CASE "
-    "WHEN t.ec_normalized = '0.0.0.0' OR t.pathway_key IS NULL THEN 'Unmapped EC' "
-    "ELSE COALESCE(t.pathway_label, t.ec_normalized) "
-    "END"
-)
-
-
-def _sql_in_list(values: tuple[str, ...]) -> str:
-    return ", ".join(f"'{v}'" for v in values)
 
 
 def _db_path(sample_id: str) -> Path:
@@ -42,7 +32,7 @@ def _fetch_tax_order(conn, tax_level: str, ann_level: str) -> list[str]:
         """
         CREATE TEMP TABLE rank_totals AS
         SELECT requested_rank, resolved_tax_label, SUM(value) AS total
-        FROM chord_prefix_rows
+        FROM filtered_rollup_rows
         GROUP BY requested_rank, resolved_tax_label
         """
     )
@@ -55,7 +45,7 @@ def _fetch_tax_order(conn, tax_level: str, ann_level: str) -> list[str]:
             rt.total AS anc_total
         FROM (
             SELECT DISTINCT source_tax_id, resolved_tax_label AS display_label
-            FROM chord_prefix_rows
+            FROM filtered_rollup_rows
             WHERE requested_rank = ?
               AND pathway_level = ?
         ) d
@@ -103,7 +93,7 @@ def _fetch_ann_order(conn, tax_level: str, ann_level: str) -> list[str] | None:
         SELECT pathway_level, """
         + PATHWAY_LABEL_SQL.replace("t.", "cf.")
         + """ AS ann_label, SUM(value) AS total
-        FROM chord_prefix_rows cf
+        FROM filtered_rollup_rows cf
         GROUP BY pathway_level, """
         + PATHWAY_LABEL_SQL.replace("t.", "cf.")
     )
@@ -117,7 +107,7 @@ def _fetch_ann_order(conn, tax_level: str, ann_level: str) -> list[str] | None:
             SELECT d.display_label, 'superpathway' AS anc_level, lt.total AS anc_total
             FROM (
                 SELECT DISTINCT {label_sql} AS display_label
-                FROM chord_prefix_rows cf
+                FROM filtered_rollup_rows cf
                 WHERE cf.pathway_level = 'superpathway'
                   AND cf.requested_rank = ?
             ) d
@@ -133,7 +123,7 @@ def _fetch_ann_order(conn, tax_level: str, ann_level: str) -> list[str] | None:
             SELECT d.display_label, 'superpathway' AS anc_level, lt.total AS anc_total
             FROM (
                 SELECT DISTINCT {label_sql} AS display_label, b.superpathway_name
-                FROM chord_prefix_rows cf
+                FROM filtered_rollup_rows cf
                 LEFT JOIN bridge_ec b ON cf.ec_normalized = b.ec_normalized
                 WHERE cf.pathway_level = 'pathway' AND cf.requested_rank = ?
             ) d
@@ -143,7 +133,7 @@ def _fetch_ann_order(conn, tax_level: str, ann_level: str) -> list[str] | None:
             SELECT d.display_label, 'pathway' AS anc_level, lt.total AS anc_total
             FROM (
                 SELECT DISTINCT {label_sql} AS display_label
-                FROM chord_prefix_rows cf
+                FROM filtered_rollup_rows cf
                 WHERE cf.pathway_level = 'pathway' AND cf.requested_rank = ?
             ) d
             JOIN ann_level_totals lt
@@ -166,43 +156,6 @@ def _fetch_ann_order(conn, tax_level: str, ann_level: str) -> list[str] | None:
         """
     ).fetchall()
     return [r[0] for r in rows]
-
-
-def _ann_predicate(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[str, list]:
-    if ann_filter is None:
-        return "TRUE", []
-    level, name = ann_filter["level"], ann_filter["name"]
-    if ann_level == "superpathway":
-        return f"{PATHWAY_LABEL_SQL} = ?", [name]
-    if ann_level == "pathway_node":
-        if level == "pathway":
-            return (
-                "t.pathway_key IN ("
-                "  SELECT pathway_node_id FROM bridge_ec WHERE pathway_name = ?"
-                ")",
-                [name],
-            )
-        return (
-            "t.pathway_key IN ("
-            "  SELECT pathway_node_id FROM bridge_ec WHERE superpathway_name = ?"
-            ")",
-            [name],
-        )
-    if level == "pathway":
-        return (
-            "t.pathway_key IN ("
-            "  SELECT CAST(pathway_id AS VARCHAR) FROM bridge_ec "
-            "  WHERE pathway_name = ?"
-            ")",
-            [name],
-        )
-    return (
-        "t.pathway_key IN ("
-        "  SELECT CAST(pathway_id AS VARCHAR) FROM bridge_ec "
-        "  WHERE superpathway_name = ?"
-        ")",
-        [name],
-    )
 
 
 def build_chord_from_duckdb(
@@ -232,48 +185,12 @@ def build_chord_from_duckdb(
                 f"int_tax_rollup_resolved not materialized for sample: {sample_id}"
             )
 
-        rank_in = _sql_in_list(ranks_from_root_to(tax_level))
-        level_in = _sql_in_list(ann_levels_from_root_to(ann_level))
-
-        if BRIDGE_EC_PATH.exists():
-            conn.execute(
-                f"CREATE TEMP TABLE bridge_ec AS "
-                f"SELECT * FROM read_parquet('{BRIDGE_EC_PATH.as_posix()}')"
-            )
-
-        tax_subquery = "TRUE"
-        params: list = []
-        if taxon_filter:
-            tax_subquery = (
-                "t.source_tax_id IN ("
-                "  SELECT DISTINCT source_tax_id FROM int_tax_rollup_resolved"
-                "  WHERE requested_rank = ? AND resolved_tax_label = ?"
-                ")"
-            )
-            params.extend([taxon_filter["level"], taxon_filter["name"]])
-
-        ann_sql, ann_params = _ann_predicate(ann_filter, ann_level)
-
-        conn.execute(
-            f"""
-            CREATE TEMP TABLE chord_prefix_rows AS
-            SELECT
-                t.source_tax_id,
-                t.requested_rank,
-                t.resolved_tax_label,
-                t.resolved_tax_id,
-                t.pathway_key,
-                t.pathway_level,
-                t.pathway_label,
-                t.ec_normalized,
-                t.value
-            FROM int_tax_rollup_resolved t
-            WHERE t.requested_rank IN ({rank_in})
-              AND t.pathway_level IN ({level_in})
-              AND ({tax_subquery})
-              AND ({ann_sql})
-            """,
-            params + ann_params,
+        build_filtered_rollup_rows(
+            conn,
+            tax_level=tax_level,
+            ann_level=ann_level,
+            ann_filter=ann_filter,
+            taxon_filter=taxon_filter,
         )
 
         pair_sql = f"""
@@ -281,7 +198,7 @@ def build_chord_from_duckdb(
                 {PATHWAY_LABEL_SQL} AS pathway_label,
                 t.resolved_tax_label,
                 SUM(t.value) AS value
-            FROM chord_prefix_rows t
+            FROM filtered_rollup_rows t
             WHERE t.requested_rank = ?
               AND t.pathway_level = ?
             GROUP BY t.pathway_key, t.resolved_tax_id,

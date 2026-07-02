@@ -12,7 +12,8 @@ from api.filters import (
 )
 from api.krona_service import build_krona_from_duckdb
 from api.overview_service import build_overview_from_duckdb
-from api.schemas import ChordRequest, KronaRequest, OverviewRequest
+from api.pathway_list_service import build_pathway_list_from_duckdb
+from api.schemas import ChordRequest, KronaRequest, OverviewRequest, PathwayListRequest
 
 app = FastAPI(title="Metapro Viz API (Python)")
 app.add_middleware(
@@ -50,6 +51,19 @@ def chord_endpoint(body: ChordRequest):
 def overview_endpoint(body: OverviewRequest):
     def _handle():
         return build_overview_from_duckdb(names=body.names).model_dump()
+
+    return wrap_handler(_handle)
+
+
+@app.post("/api/viz/pathway-list")
+def pathway_list_endpoint(body: PathwayListRequest):
+    def _handle():
+        return build_pathway_list_from_duckdb(
+            names=body.names,
+            tax_level=body.tax_level,
+            selected_ann_cat=body.selected_ann_cat,
+            selected_taxon=body.selected_taxon,
+        )
 
     return wrap_handler(_handle)
 
