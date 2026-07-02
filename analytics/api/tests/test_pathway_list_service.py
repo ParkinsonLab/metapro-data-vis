@@ -65,7 +65,10 @@ def test_pathway_list_alphabetical_and_matches_chord_set(fake_rpkm_db):
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
-@pytest.mark.parametrize("case_key", ["case_0"])
+@pytest.mark.parametrize(
+    "case_key",
+    list(load_pathway_list_expectations()["pathway_list"].keys()),
+)
 def test_pathway_list_matches_golden(fake_rpkm_db, case_key):
     cases = load_pathway_list_expectations()["pathway_list"]
     case = cases[case_key]
