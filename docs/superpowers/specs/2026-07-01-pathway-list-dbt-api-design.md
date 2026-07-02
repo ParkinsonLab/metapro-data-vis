@@ -1,6 +1,6 @@
 # Pathway List API via dbt Intermediates — Design Spec
 
-> **Status:** Draft (2026-07-01; revised — alphabetical ordering; `rollup_query` naming per PR #9 review)  
+> **Status:** Draft (2026-07-01; revised — alphabetical ordering; `rollup_query` naming; `selected_ann_cat` payload per PR #9 review)  
 > **Goal:** Reimplement `POST /api/viz/pathway-list` to return pathway names that contribute to the chord count matrix under the selected superpathway, derived from `int_tax_rollup_resolved` in `runs/{sample_id}/sample.duckdb` with the same tax/pathway filters as chord. Express keeps the legacy handler when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
@@ -15,7 +15,7 @@
 
 Metapro Viz renders a clickable pathway grid in the Network pane (`Network.tsx` → `PathwayList`) after the user selects a superpathway in the Chord view. Today the Express handler `parse_pathway_list` (`src/server/data_functions.ts`) calls `get_pathways_in_superpathway` (`src/server/db_functions.ts`), which queries the **bundled SQLite reference DB** for every pathway in the superpathway — regardless of whether the loaded sample has RPKM mapped to those pathways.
 
-**Intended behaviour (locked in):** The pathway grid should list only pathways that **contribute to the chord count matrix** under the currently selected superpathway, using the same sample and filter context as chord (`names`, `tax_level`, `selected_taxon`). This is a deliberate correction over legacy reference-only listing.
+**Intended behaviour (locked in):** The pathway grid should list only pathways that **contribute to the chord count matrix** under the currently selected superpathway, using the same sample and filter context as chord (`names`, `tax_level`, `selected_ann_cat`, `selected_taxon`). This is a deliberate correction over legacy reference-only listing.
 
 The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with all taxonomy ranks and pathway levels pre-joined — the same table chord queries. Pathway-list is a lighter derivative query: build the same filtered row set chord uses, then return distinct pathway labels at `pathway_level = 'pathway'`.
 
@@ -25,7 +25,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 
 - Upload endpoint that ingests RPKM and triggers `dbt build --select stg_rpkm_long+`
 - Comparison mode (`names.length > 1`) on the analytics API path
-- Updating the legacy Node handler to implement sample-filtered behaviour (documented deviation during migration)
+- Updating the legacy Node handler to implement sample-filtered behaviour (minimal `selected_ann_cat` fallback only — see §4.3)
 - Retiring the legacy Node implementation
 - Shared TypeScript request/response types in the renderer (optional follow-up)
 
@@ -33,20 +33,20 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| API contract | Extended request body; unchanged response type `string[]` + `{ ok, value }` envelope | Sample-aware listing requires chord filter fields |
+| API contract | Chord-aligned request body (minus `ann_level`); unchanged response type `string[]` + `{ ok, value }` envelope | Same filter object as chord; server pins `ann_level = 'pathway'` |
+| Filter parity | `names`, `tax_level`, `selected_ann_cat`, `selected_taxon` — same fields as chord | Pathway grid reflects filtered chord state |
+| Fixed ann level | Server pins `ann_level = 'pathway'` | Pathways are always listed at pathway grain under the parent superpathway |
+| Ann filter | `normalise_ann_filter(selected_ann_cat, ann_level='pathway')` | Same normalisation as chord; superpathway selection passes `{ level, name }` |
 | FastAPI route | **`POST /api/viz/pathway-list`** — identical path, method, envelope, HTTP 200 as Express | Drop-in replacement when Express is retired |
 | Default backend | Legacy Node `parse_pathway_list` | Safe rollout |
 | Opt-in backend | `POST /api/viz/pathway-list?backend=duckdb` (Express) or direct on FastAPI `:8001` | Explicit testing switch; mirrors chord/overview/krona |
 | Sidecar env var | **`ANALYTICS_API_URL`** (default `http://localhost:8001`) | One FastAPI process serves all viz routes |
 | Migration proxy | Shared `src/server/fastapi_sidecar_proxy.ts` | Temporary Express→FastAPI bridge during viz migration |
 | Data source | `int_tax_rollup_resolved` + `bridge_ec_pathway` Parquet | Same grain and filters as chord — not `int_rpkm_pathway` or reference `pathway_superpathways` |
-| Filter parity | Full chord filter stack: `names`, `tax_level`, `selected_taxon`, plus `superpathway` | Pathway grid reflects filtered chord state |
-| Fixed ann level | Server pins `ann_level = 'pathway'` | Pathways are always listed at pathway grain under the parent superpathway |
-| Ann filter | `{ level: 'superpathway', name: superpathway }` derived from request | Restricts to pathways under the selected superpathway |
 | Inclusion rule | Pathway label included iff `SUM(value) > 0` after chord-equivalent filters | Matches chord matrix ann-axis contributors |
 | Label SQL | Reuse chord `PATHWAY_LABEL_SQL` | Display strings match chord `index` labels |
 | Ordering | Alphabetical by pathway display label ASC | Self-contained; chord ann-order not adopted yet (alphabetical is the preferred direction project-wide) |
-| Payload compatibility | Frontend sends **extended** payload always; legacy **ignores** extra fields | One renderer code path for both backends (see §4.3) |
+| Payload compatibility | Chord-aligned payload; legacy reads superpathway name from `selected_ann_cat` | One renderer code path for both backends (see §4.3) |
 | Comparison mode | Error when `names.length > 1` | Deferred follow-up (same as chord v1) |
 | Error wording | Feature gaps say **"analytics API"**, not "duckdb backend" | Avoid implying DuckDB limitation |
 | Verification | Golden tests: `pathway_list_expectations.yaml` + parametrized pytest on `fake_rpkm` | Assert alphabetical order; cross-check label **set** matches chord contributors (order may differ from chord ann-axis) |
@@ -57,8 +57,9 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 ```
 ┌─────────────┐     POST /api/viz/pathway-list     ┌──────────────┐
 │   React     │ ─────────────────────────────────► │   Express    │
-│  (extended  │     (no query param = legacy)     │   :3001      │
-│   payload)  │                                    └──────┬───────┘
+│ (chord-     │     (no query param = legacy)     │   :3001      │
+│  aligned    │                                    └──────┬───────┘
+│  payload)   │                                           │
 └─────────────┘                                           │
                        ?backend=duckdb                    │
                        ──────────────────────────────────►│ proxy ──────┐
@@ -83,7 +84,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Shared rollup query | `analytics/api/rollup_query.py` (extracted) | Build `filtered_rollup_rows` temp table — shared by chord and pathway-list |
 | Service | `analytics/api/pathway_list_service.py` | Distinct pathway labels + ordering |
 | Schemas | `analytics/api/schemas.py` | `PathwayListRequest` |
-| Renderer request | `src/renderer/src/components/Network.tsx` | Send extended payload with chord-aligned deps |
+| Renderer request | `src/renderer/src/components/Network.tsx` | Send chord-aligned payload (same fields as Chord minus `ann_level`) |
 | Renderer toggle | `src/renderer/src/vizBackend.ts` | Add `'pathway_list'` to `MIGRATED_CHANNELS` |
 
 **Route parity (required):** FastAPI exposes `POST /api/viz/pathway-list` (not a shortened internal path) so future cutover is a host/port change only.
@@ -102,14 +103,16 @@ Add `'pathway_list'` to `MIGRATED_CHANNELS` in `vizBackend.ts` (alongside `'chor
 
 ## 4. Request / Response Contract
 
-### 4.1 Request (extended JSON body)
+### 4.1 Request (chord-aligned JSON body)
+
+Same fields as chord **except** `ann_level` (server pins `ann_level = 'pathway'`):
 
 ```json
 {
   "names": ["fake_rpkm.tsv"],
   "tax_level": "phylum",
-  "selected_taxon": {},
-  "superpathway": "Carbohydrate metabolism"
+  "selected_ann_cat": { "level": "superpathway", "name": "Carbohydrate metabolism" },
+  "selected_taxon": {}
 }
 ```
 
@@ -119,15 +122,15 @@ Add `'pathway_list'` to `MIGRATED_CHANNELS` in `vizBackend.ts` (alongside `'chor
 | `names.length > 1` | `{ ok: false, error: "comparison mode not supported on analytics API" }` |
 | `names` empty | `{ ok: false, error: "names must contain at least one sample" }` |
 | `tax_level` | One of 7 ranks; validated via `validate_tax_level()` — same as chord |
+| `selected_ann_cat` | Normalised via `normalise_ann_filter(selected_ann_cat, ann_level='pathway')` — same as chord; Network sends `toApiFilter(selected_ann_cat)` from store |
 | `selected_taxon` | Normalised via `normalise_taxon_filter()` — same as chord; empty `{}` = no filter |
-| `superpathway` | Required non-empty string; parent superpathway name from `selected_ann_cat` in Network |
 
 **Server-derived (not in request):**
 
 | Field | Value |
 |---|---|
 | `ann_level` | Always `'pathway'` |
-| `ann_filter` | `{ level: 'superpathway', name: superpathway }` |
+| `ann_filter` | `normalise_ann_filter(body.selected_ann_cat, 'pathway')` — e.g. `{ level: 'superpathway', name: '...' }` when user selected a superpathway in Chord |
 
 ### 4.2 Response `value` (unchanged type)
 
@@ -140,21 +143,49 @@ Add `'pathway_list'` to `MIGRATED_CHANNELS` in `vizBackend.ts` (alongside `'chor
 
 `value` is a `string[]` of pathway display labels — the same strings chord places on the ann axis when `ann_level = 'pathway'` and the superpathway filter is active.
 
-Empty superpathway with no matching rows → `[]`.
+Empty or inactive `selected_ann_cat` with no matching rows → `[]`.
 
 ### 4.3 Payload compatibility (legacy vs migrated)
 
-The renderer will send the **extended** payload (§4.1) on every pathway-list request, regardless of backend.
+The renderer sends the **chord-aligned** payload (§4.1) on every pathway-list request, regardless of backend. Network mirrors Chord's request shape:
+
+```ts
+request('pathway_list', {
+  names: selected_file_list,
+  tax_level: tax_rank,
+  selected_ann_cat: toApiFilter(selected_ann_cat),
+  selected_taxon: toApiFilter(selected_taxon),
+})
+```
 
 | Direction | Compatible? | Notes |
 |---|---|---|
-| Extended payload → **legacy** Express handler | **Yes** | `parse_pathway_list` destructures only `{ superpathway }`; extra JSON keys (`names`, `tax_level`, `selected_taxon`) are ignored |
-| Minimal payload `{ superpathway }` → **analytics API** | **No** | Analytics API requires `names` and `tax_level`; missing fields produce validation or runtime errors |
-| Extended payload → **analytics API** | **Yes** | Full filter context available |
+| Chord-aligned payload → **legacy** Express handler | **Yes** (with minimal handler update) | Legacy resolves superpathway name from `selected_ann_cat` via `filterName()` fallback; ignores `names`, `tax_level`, `selected_taxon` for reference lookup |
+| Legacy-only `{ superpathway }` → **legacy** | **Yes** | Backward-compatible for curl/tests; optional fallback `superpathway ?? filterName(selected_ann_cat)` |
+| Chord-aligned payload → **analytics API** | **Yes** | Full filter context via `selected_ann_cat` |
+| Minimal `{ superpathway }` → **analytics API** | **No** | Analytics API requires `names`, `tax_level`, and active `selected_ann_cat` |
 | Response shape | **Yes** | Both return `{ ok, value: string[] }` |
 | Response **contents** | **No** (intentional) | Legacy returns all reference ontology pathways; analytics API returns sample-filtered chord contributors only |
 
-**Rollout rule:** The renderer always sends the extended payload. Legacy ignores the new fields and continues returning the reference list until retired. Users on the sidecar path get the corrected sample-filtered list. No dual code paths in the renderer for payload shape.
+**Legacy handler update (minimal, in scope):**
+
+```typescript
+const parse_pathway_list = ({
+  superpathway,
+  selected_ann_cat,
+}: {
+  superpathway?: string
+  selected_ann_cat?: { level?: string; name?: string }
+}): string[] => {
+  const sp =
+    superpathway?.trim() ||
+    (selected_ann_cat?.name?.trim() ?? '')
+  if (!sp) return []
+  return get_pathways_in_superpathway(sp).map((p) => p.name)
+}
+```
+
+**Rollout rule:** The renderer always sends the chord-aligned payload. Legacy uses `selected_ann_cat.name` (or optional `superpathway` fallback) for the reference lookup only. Users on the sidecar path get the corrected sample-filtered list.
 
 ### 4.4 Pydantic model
 
@@ -162,8 +193,8 @@ The renderer will send the **extended** payload (§4.1) on every pathway-list re
 class PathwayListRequest(BaseModel):
     names: list[str] = Field(default_factory=list)
     tax_level: str
+    selected_ann_cat: Any = Field(default_factory=dict)
     selected_taxon: Any = Field(default_factory=dict)
-    superpathway: str
 ```
 
 FastAPI endpoint does not set `response_model` on the route (envelope wraps value), but `build_pathway_list_from_duckdb()` returns `list[str]` and tests validate against it.
@@ -174,7 +205,7 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 |---|---|---|
 | `names` empty | 200 | `"names must contain at least one sample"` |
 | `names.length > 1` | 200 | `"comparison mode not supported on analytics API"` |
-| `superpathway` empty / whitespace | 200 | `"superpathway is required"` |
+| `selected_ann_cat` empty / inactive (no ann filter after normalisation) | 200 | `"selected_ann_cat is required"` |
 | Invalid `tax_level` | 200 | `"invalid tax_level: {value}"` |
 | DuckDB file missing | 200 | `"sample not found: {sample_id}"` |
 | `int_tax_rollup_resolved` missing | 200 | `"int_tax_rollup_resolved not materialized for sample: {sample_id}"` |
@@ -189,7 +220,7 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 int_tax_rollup_resolved
   → build_filtered_rollup_rows (shared with chord)
       tax_level, ann_level='pathway',
-      ann_filter={level:'superpathway', name:superpathway},
+      ann_filter=normalise_ann_filter(selected_ann_cat, 'pathway'),
       taxon_filter=normalise(selected_taxon)
   → SELECT DISTINCT pathway_label
       WHERE pathway_level = 'pathway'
@@ -252,11 +283,11 @@ ORDER BY display_label ASC
 | Area | Legacy (Node) | Analytics API path |
 |---|---|---|
 | Data source | SQLite `pathway_superpathways` | `int_tax_rollup_resolved` in sample DuckDB |
-| Sample context | None — `{ superpathway }` only | Requires `names` (+ chord filters) |
+| Sample context | None — `{ superpathway }` only (legacy) | Requires `names` + chord filters |
 | Pathway set | All pathways in superpathway (ontology) | Pathways with `SUM(value) > 0` under chord filters |
 | Taxon filter | Ignored | Honoured — same as chord |
 | Ordering | `pathway_superpathways.id` row order | Alphabetical by pathway display label |
-| Payload | `{ superpathway }` accepted | Extended payload required; legacy accepts superset |
+| Payload | `{ superpathway }` or chord-aligned with `selected_ann_cat` | Chord-aligned; legacy accepts both via name fallback |
 
 ## 7. Repository Layout (additions)
 
@@ -274,12 +305,13 @@ analytics/
 │       └── test_pathway_list_service.py
 
 src/server/
+├── data_functions.ts                # parse_pathway_list: selected_ann_cat name fallback
 └── index.ts                         # move pathway-list to sidecarRoutes
 
 src/renderer/src/
 ├── vizBackend.ts                    # add 'pathway_list' to MIGRATED_CHANNELS
 ├── api.ts                           # sidecarQuery('pathway_list')
-└── components/Network.tsx           # extended request payload + deps
+└── components/Network.tsx           # chord-aligned request payload + deps
 ```
 
 ## 8. Testing
@@ -306,7 +338,7 @@ Extend `fastapi_sidecar_proxy.test.ts`:
 
 ### 8.3 Node integration test
 
-Existing `parse_pathway_list` tests in `src/tests/data_functions.test.ts` continue to exercise legacy path (reference list). Add a note that extended-payload compatibility is covered by the handler ignoring extra fields (no test change required unless legacy is updated later).
+Existing `parse_pathway_list` tests in `src/tests/data_functions.test.ts` continue to exercise legacy path with `{ superpathway }`. Add a test that `{ selected_ann_cat: { level: 'superpathway', name: '...' } }` resolves the same reference list (minimal legacy fallback).
 
 ## 9. Development Workflow
 
@@ -339,8 +371,8 @@ curl -X POST 'http://localhost:3001/api/viz/pathway-list?backend=duckdb' \
   -d '{
     "names": ["fake_rpkm.tsv"],
     "tax_level": "phylum",
-    "selected_taxon": {},
-    "superpathway": "Carbohydrate metabolism"
+    "selected_ann_cat": { "level": "superpathway", "name": "Carbohydrate metabolism" },
+    "selected_taxon": {}
   }'
 ```
 
@@ -352,8 +384,9 @@ curl -X POST 'http://localhost:3001/api/viz/pathway-list?backend=duckdb' \
 - [ ] `analytics/api/schemas.py` — `PathwayListRequest`
 - [ ] `analytics/api/main.py` — `POST /api/viz/pathway-list`
 - [ ] `pathway_list_expectations.yaml` + `test_pathway_list_service.py` (alphabetical order; cross-check label set vs chord)
+- [ ] `src/server/data_functions.ts` — `parse_pathway_list` reads name from `selected_ann_cat` fallback
 - [ ] `src/server/index.ts` — pathway-list sidecar route
 - [ ] `src/renderer/src/vizBackend.ts` — add `'pathway_list'` to `MIGRATED_CHANNELS`
 - [ ] `src/renderer/src/api.ts` — `sidecarQuery('pathway_list')`
-- [ ] `src/renderer/src/components/Network.tsx` — extended payload + re-fetch on chord-aligned deps
+- [ ] `src/renderer/src/components/Network.tsx` — chord-aligned payload + re-fetch on chord-aligned deps
 - [ ] Proxy unit tests (pathway_list label)
