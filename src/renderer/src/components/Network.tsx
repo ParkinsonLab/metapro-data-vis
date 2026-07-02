@@ -3,7 +3,7 @@ import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
 import { request } from '../api'
-import { filterName } from '../chordFilters'
+import { filterName, toApiFilter } from '../chordFilters'
 
 // ---------------------------------------------------------------------------
 // Network pane
@@ -336,16 +336,23 @@ const Network = (): React.JSX.Element => {
 
   const selected_pathway = useAppStore((state) => state.selected_pathway)
   const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
+  const tax_rank = useAppStore((state) => state.tax_rank)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
   const network_data = useAppStore((state) => state.network_data) as NetworkData | object
   const pathway_list = useAppStore((state) => state.pathway_list)
 
   const superpathway_name = filterName(selected_ann_cat)
 
-  // Fetch the pathway list whenever the active superpathway changes.
   useEffect(() => {
-    if (!superpathway_name) return
-    request('pathway_list', { superpathway: superpathway_name })
-  }, [superpathway_name])
+    if (!superpathway_name || selected_file_list.length === 0) return
+    request('pathway_list', {
+      names: selected_file_list,
+      tax_level: tax_rank,
+      selected_ann_cat: toApiFilter(selected_ann_cat),
+      selected_taxon: toApiFilter(selected_taxon),
+    })
+  }, [superpathway_name, selected_file_list, tax_rank, selected_ann_cat, selected_taxon])
 
   if (!superpathway_name) {
     return (
