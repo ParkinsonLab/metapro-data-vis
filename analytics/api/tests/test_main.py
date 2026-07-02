@@ -103,17 +103,17 @@ def test_pathway_list_endpoint_ok(fake_rpkm_db):
     assert isinstance(body["value"], list)
 
 
-def test_pathway_list_comparison_error_envelope():
+def test_pathway_list_missing_ann_cat_error_envelope():
     res = client.post(
         "/api/viz/pathway-list",
         json={
-            "names": ["a.tsv", "b.tsv"],
+            "names": ["fake_rpkm.tsv"],
             "tax_level": "phylum",
-            "selected_ann_cat": {"level": "superpathway", "name": "Energy metabolism"},
+            "selected_ann_cat": {},
             "selected_taxon": {},
         },
     )
     assert res.status_code == 200
     body = res.json()
     assert body["ok"] is False
-    assert "comparison mode" in body["error"]
+    assert "selected_ann_cat is required" in body["error"]
