@@ -40,3 +40,10 @@ class KronaRequest(BaseModel):
     names: list[str] = Field(default_factory=list)
     tax_rank: str
     selected_taxon: Any = Field(default_factory=dict)
+
+
+class PathwayListRequest(BaseModel):
+    names: list[str] = Field(default_factory=list)
+    tax_level: str
+    selected_ann_cat: Any = Field(default_factory=dict)
+    selected_taxon: Any = Field(default_factory=dict)
