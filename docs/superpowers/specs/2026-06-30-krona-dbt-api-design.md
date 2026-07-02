@@ -187,6 +187,8 @@ class KronaRequest(BaseModel):
 
 FastAPI endpoint does not set `response_model` on the route (envelope wraps value), but `build_krona_from_duckdb()` returns a `KronaNode` root and tests validate against it.
 
+**Deferred:** Generic `Envelope[T]` on `wrap_handler` (typed `value` per endpoint, OpenAPI `response_model`) is out of scope for this PR — same untyped envelope as chord/overview. Track as a follow-up shared analytics-API refactor.
+
 ### 4.4 Errors (analytics API path)
 
 | Condition | HTTP | `{ ok: false, error }` |
