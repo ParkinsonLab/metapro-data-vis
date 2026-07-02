@@ -1,12 +1,12 @@
 # Pathway List API via dbt Intermediates — Design Spec
 
-> **Status:** Draft (2026-07-01)  
+> **Status:** Draft (2026-07-01; revised — alphabetical ordering; `rollup_query` naming per PR #9 review)  
 > **Goal:** Reimplement `POST /api/viz/pathway-list` to return pathway names that contribute to the chord count matrix under the selected superpathway, derived from `int_tax_rollup_resolved` in `runs/{sample_id}/sample.duckdb` with the same tax/pathway filters as chord. Express keeps the legacy handler when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
 
 - `docs/superpowers/specs/2026-06-15-rpkm-transform-design.md` — pipeline, bridges, `int_tax_rollup_resolved`
-- `docs/superpowers/specs/2026-06-22-chord-dbt-api-design.md` — sidecar proxy pattern, envelope, filter normalisation, `chord_prefix_rows`
+- `docs/superpowers/specs/2026-06-22-chord-dbt-api-design.md` — sidecar proxy pattern, envelope, filter normalisation, shared filtered rollup query
 - `docs/superpowers/specs/2026-06-22-chord-golden-tests-design.md` — shared `fake_rpkm` fixture and YAML golden pattern
 - `docs/superpowers/specs/2026-06-29-overview-dbt-api-design.md` — migration wiring, renderer toggle, golden-test pattern
 - `docs/superpowers/specs/2026-06-30-krona-dbt-api-design.md` — sidecar route pattern, error wording
@@ -45,11 +45,11 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Ann filter | `{ level: 'superpathway', name: superpathway }` derived from request | Restricts to pathways under the selected superpathway |
 | Inclusion rule | Pathway label included iff `SUM(value) > 0` after chord-equivalent filters | Matches chord matrix ann-axis contributors |
 | Label SQL | Reuse chord `PATHWAY_LABEL_SQL` | Display strings match chord `index` labels |
-| Ordering | Reuse chord `_fetch_ann_order` at `ann_level = 'pathway'` | Grid order matches chord ann-axis order |
+| Ordering | Alphabetical by pathway display label ASC | Self-contained; chord ann-order not adopted yet (alphabetical is the preferred direction project-wide) |
 | Payload compatibility | Frontend sends **extended** payload always; legacy **ignores** extra fields | One renderer code path for both backends (see §4.3) |
 | Comparison mode | Error when `names.length > 1` | Deferred follow-up (same as chord v1) |
 | Error wording | Feature gaps say **"analytics API"**, not "duckdb backend" | Avoid implying DuckDB limitation |
-| Verification | Golden tests: `pathway_list_expectations.yaml` + parametrized pytest on `fake_rpkm` | Cross-check against chord ann-axis labels for same filters |
+| Verification | Golden tests: `pathway_list_expectations.yaml` + parametrized pytest on `fake_rpkm` | Assert alphabetical order; cross-check label **set** matches chord contributors (order may differ from chord ann-axis) |
 | Renderer backend toggle | Add `'pathway_list'` to `MIGRATED_CHANNELS` in `vizBackend.ts` | Sidecar default for pathway-list |
 
 ## 3. Architecture
@@ -80,7 +80,7 @@ The rpkm-transform pipeline already materialises `int_tax_rollup_resolved` with 
 | Migration proxy | `src/server/fastapi_sidecar_proxy.ts` | `createSidecarProxyHandler({ legacyHandler, apiPath, label: 'pathway_list' })` |
 | Express routes | `src/server/index.ts` | Move pathway-list from `vizRoutes` → `sidecarRoutes` |
 | FastAPI route | `analytics/api/main.py` | `POST /api/viz/pathway-list` |
-| Shared prefix builder | `analytics/api/chord_prefix.py` (extracted) | Build `chord_prefix_rows` temp table — shared by chord and pathway-list |
+| Shared rollup query | `analytics/api/rollup_query.py` (extracted) | Build `filtered_rollup_rows` temp table — shared by chord and pathway-list |
 | Service | `analytics/api/pathway_list_service.py` | Distinct pathway labels + ordering |
 | Schemas | `analytics/api/schemas.py` | `PathwayListRequest` |
 | Renderer request | `src/renderer/src/components/Network.tsx` | Send extended payload with chord-aligned deps |
@@ -187,7 +187,7 @@ FastAPI endpoint does not set `response_model` on the route (envelope wraps valu
 
 ```
 int_tax_rollup_resolved
-  → build_chord_prefix_rows (shared with chord)
+  → build_filtered_rollup_rows (shared with chord)
       tax_level, ann_level='pathway',
       ann_filter={level:'superpathway', name:superpathway},
       taxon_filter=normalise(selected_taxon)
@@ -196,16 +196,16 @@ int_tax_rollup_resolved
         AND requested_rank = tax_level
       GROUP BY pathway_key, pathway_label
       HAVING SUM(value) > 0
-  → ORDER BY chord ann_order
+  → ORDER BY display_label ASC
   → string[]
 ```
 
-### 5.2 Shared chord prefix builder (extracted)
+### 5.2 Shared rollup query (extracted)
 
-Extract from `chord_service.py` into `analytics/api/chord_prefix.py`:
+Extract from `chord_service.py` into `analytics/api/rollup_query.py`:
 
 ```python
-def build_chord_prefix_rows(
+def build_filtered_rollup_rows(
     conn: duckdb.DuckDBPyConnection,
     *,
     tax_level: str,
@@ -213,26 +213,27 @@ def build_chord_prefix_rows(
     ann_filter: dict[str, str] | None,
     taxon_filter: dict[str, str] | None,
 ) -> None:
-    """CREATE TEMP TABLE chord_prefix_rows — same SQL as chord_service today."""
+    """CREATE TEMP TABLE filtered_rollup_rows — same filter SQL as chord_service today."""
 ```
 
 `chord_service.build_chord_from_duckdb()` and `pathway_list_service.build_pathway_list_from_duckdb()` both call this helper. Filter predicates (`_ann_predicate`, tax subquery, `PATHWAY_LABEL_SQL`) remain in one module to prevent drift.
 
+The temp table was previously named `chord_prefix_rows` inside `chord_service.py`; the neutral name reflects that both chord and pathway-list consume the same filtered rollup row set.
+
 ### 5.3 Pathway-list SQL
 
-After `build_chord_prefix_rows`:
+After `build_filtered_rollup_rows`:
 
 ```sql
-SELECT DISTINCT
+SELECT
     <PATHWAY_LABEL_SQL> AS display_label
-FROM chord_prefix_rows cf
+FROM filtered_rollup_rows cf
 WHERE cf.requested_rank = ?
   AND cf.pathway_level = 'pathway'
 GROUP BY cf.pathway_key, <PATHWAY_LABEL_SQL>
 HAVING SUM(cf.value) > 0
+ORDER BY display_label ASC
 ```
-
-Ordering: call existing `_fetch_ann_order(conn, tax_level, 'pathway')` on the populated `chord_prefix_rows`, then filter/order the distinct labels to match that list. Labels not in ann_order (should not occur if SQL is consistent) append at end in alphabetical order.
 
 ### 5.4 Sample lookup
 
@@ -254,7 +255,7 @@ Ordering: call existing `_fetch_ann_order(conn, tax_level, 'pathway')` on the po
 | Sample context | None — `{ superpathway }` only | Requires `names` (+ chord filters) |
 | Pathway set | All pathways in superpathway (ontology) | Pathways with `SUM(value) > 0` under chord filters |
 | Taxon filter | Ignored | Honoured — same as chord |
-| Ordering | `pathway_superpathways.id` row order | Chord ann-axis order |
+| Ordering | `pathway_superpathways.id` row order | Alphabetical by pathway display label |
 | Payload | `{ superpathway }` accepted | Extended payload required; legacy accepts superset |
 
 ## 7. Repository Layout (additions)
@@ -262,8 +263,8 @@ Ordering: call existing `_fetch_ann_order(conn, tax_level, 'pathway')` on the po
 ```
 analytics/
 ├── api/
-│   ├── chord_prefix.py              # extracted build_chord_prefix_rows + shared predicates
-│   ├── chord_service.py             # refactored to use chord_prefix
+│   ├── rollup_query.py              # extracted build_filtered_rollup_rows + shared predicates
+│   ├── chord_service.py             # refactored to use rollup_query
 │   ├── pathway_list_service.py      # build_pathway_list_from_duckdb()
 │   ├── main.py                      # add POST /api/viz/pathway-list
 │   ├── schemas.py                   # add PathwayListRequest
@@ -291,7 +292,7 @@ Reuse shared `fake_rpkm` fixture (`analytics/conftest.py`):
 |---|---|
 | `pathway_list_expectations.yaml` | Expected pathway name lists for `fake_rpkm` at 1–2 superpathways and tax/filter combos |
 | `test_pathway_list_service.py` | Parametrized pytest via `build_pathway_list_from_duckdb()` |
-| Cross-check | For each case, assert result equals distinct ann-axis labels from `build_chord_from_duckdb()` with `ann_level='pathway'` and matching filters |
+| Cross-check | For each case, assert label **set** equals distinct ann-axis labels from `build_chord_from_duckdb()` with `ann_level='pathway'` and matching filters; assert result is sorted ASC |
 
 Tests skip when bridges/sample.duckdb unavailable (same guard as chord/overview/krona).
 
@@ -345,12 +346,12 @@ curl -X POST 'http://localhost:3001/api/viz/pathway-list?backend=duckdb' \
 
 ## 10. Implementation Checklist
 
-- [ ] `analytics/api/chord_prefix.py` — extract `build_chord_prefix_rows` + shared predicates from `chord_service.py`
-- [ ] `analytics/api/chord_service.py` — refactor to use `chord_prefix`
+- [ ] `analytics/api/rollup_query.py` — extract `build_filtered_rollup_rows` + shared predicates from `chord_service.py`
+- [ ] `analytics/api/chord_service.py` — refactor to use `rollup_query`
 - [ ] `analytics/api/pathway_list_service.py` — `build_pathway_list_from_duckdb()`
 - [ ] `analytics/api/schemas.py` — `PathwayListRequest`
 - [ ] `analytics/api/main.py` — `POST /api/viz/pathway-list`
-- [ ] `pathway_list_expectations.yaml` + `test_pathway_list_service.py` (cross-check vs chord ann labels)
+- [ ] `pathway_list_expectations.yaml` + `test_pathway_list_service.py` (alphabetical order; cross-check label set vs chord)
 - [ ] `src/server/index.ts` — pathway-list sidecar route
 - [ ] `src/renderer/src/vizBackend.ts` — add `'pathway_list'` to `MIGRATED_CHANNELS`
 - [ ] `src/renderer/src/api.ts` — `sidecarQuery('pathway_list')`
