@@ -88,7 +88,7 @@ def _assert_trees_close(actual: dict, expected: dict, tol: float = 1e-9) -> None
             assert actual[key] == pytest.approx(expected[key], abs=tol)
         else:
             assert actual[key] == expected[key]
-    if "value" in expected:
+    if not expected.get("children"):
         assert actual.get("value") == pytest.approx(expected["value"], abs=tol)
         assert not actual.get("children")
     else:
