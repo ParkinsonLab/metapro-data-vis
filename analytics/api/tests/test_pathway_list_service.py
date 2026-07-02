@@ -4,7 +4,12 @@ import pytest
 
 from api.chord_service import build_chord_from_duckdb
 from api.pathway_list_service import build_pathway_list_from_duckdb
-from testing.fake_rpkm_fixture import SAMPLE_ID, bridges_available, skip_reason
+from testing.fake_rpkm_fixture import (
+    SAMPLE_ID,
+    bridges_available,
+    load_pathway_list_expectations,
+    skip_reason,
+)
 
 SUPERPATHWAY = "Energy metabolism"
 
@@ -57,3 +62,18 @@ def test_pathway_list_alphabetical_and_matches_chord_set(fake_rpkm_db):
     gap2 = chord["index"].index("gap_2")
     chord_pathways = set(chord["index"][gap1 + 1 : gap2])
     assert set(pathways) == chord_pathways
+
+
+@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
+@pytest.mark.parametrize("case_key", ["case_0"])
+def test_pathway_list_matches_golden(fake_rpkm_db, case_key):
+    cases = load_pathway_list_expectations()["pathway_list"]
+    case = cases[case_key]
+    out = build_pathway_list_from_duckdb(
+        names=case["names"],
+        tax_level=case["tax_level"],
+        selected_ann_cat=case["selected_ann_cat"],
+        selected_taxon=case["selected_taxon"],
+    )
+    assert out == case["expected"]
+    assert out == sorted(out)

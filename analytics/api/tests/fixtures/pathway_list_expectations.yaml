@@ -1,0 +1,12 @@
+pathway_list:
+  case_0:
+    tax_level: phylum
+    selected_ann_cat:
+      level: superpathway
+      name: Energy metabolism
+    selected_taxon: {}
+    names:
+    - fake_rpkm.tsv
+    expected:
+    - Methane metabolism
+    - Oxidative phosphorylation
