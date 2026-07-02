@@ -363,6 +363,16 @@ describe('integration with real DB and real TSV fixtures', () => {
     it('returns [] for a superpathway that does not exist', () => {
       expect(parse_pathway_list({ superpathway: '__no_such_superpathway__' })).toEqual([])
     })
+
+    it('resolves superpathway from selected_ann_cat when superpathway omitted', () => {
+      const ec = __test__.getEc() as Array<Record<string, unknown>>
+      const sp_value = ec.find((r) => r.superpathway != null)?.superpathway as string
+      const via_field = parse_pathway_list({ superpathway: sp_value })
+      const via_ann = parse_pathway_list({
+        selected_ann_cat: { level: 'superpathway', name: sp_value },
+      })
+      expect(via_ann).toEqual(via_field)
+    })
   })
 
   describe('parse_network (end-to-end, real DB+TSV)', () => {

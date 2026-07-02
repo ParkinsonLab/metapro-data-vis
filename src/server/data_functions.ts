@@ -351,9 +351,18 @@ const parse_network = ({
  * The renderer uses this to populate the clickable pathway grid in the
  * Network pane before any expensive per-pathway layout is computed.
  */
-const parse_pathway_list = ({ superpathway }: { superpathway: string }): string[] => {
-  console.log('parse_pathway_list')
-  return get_pathways_in_superpathway(superpathway).map((p) => p.name)
+const parse_pathway_list = ({
+  superpathway,
+  selected_ann_cat,
+}: {
+  superpathway?: string
+  selected_ann_cat?: { level?: string; name?: string }
+}): string[] => {
+  const sp =
+    superpathway?.trim() ||
+    (selected_ann_cat?.name?.trim() ?? '')
+  if (!sp) return []
+  return get_pathways_in_superpathway(sp).map((p) => p.name)
 }
 
 // the overview always happens at the phylum and superpathway level
