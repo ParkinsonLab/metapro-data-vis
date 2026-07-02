@@ -80,6 +80,16 @@ class TestUpsertSegment:
         assert node.value == 5.0
         assert node.percentage == 0.5
 
+    def test_merges_duplicate_internal_ids(self):
+        root = KronaNode(id="root", label="root", children=[], subtotal=0.0, percentage=1.0)
+        internal = Segment("Bacillota", "Bacillota")
+        upsert_segment(root, internal, 4.0, 10.0)
+        upsert_segment(root, internal, 6.0, 10.0)
+        assert len(root.children) == 1
+        node = root.children[0]
+        assert node.subtotal == 10.0
+        assert node.percentage == 1.0
+
 
 def _assert_trees_close(actual: dict, expected: dict, tol: float = 1e-9) -> None:
     """Compare contract fields only; ignore extra keys (e.g. subtotal on internals)."""
