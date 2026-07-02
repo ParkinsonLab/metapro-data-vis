@@ -37,9 +37,9 @@ class TestLineageSegments:
         assert segs[-1].is_leaf is True
         assert segs[-1].label == "Staphylococcus aureus"
 
-    def test_early_leaf_under_phylum(self):
+    def test_early_leaf_when_genus_species_null(self):
         taxon = _taxon(
-            name="Lactobacillus sp. 100-5",
+            name="Bacillota",
             phylum="Bacillota",
             genus=None,
             species=None,
@@ -47,8 +47,8 @@ class TestLineageSegments:
         segs = lineage_segments(taxon, ("phylum", "genus", "species"))
         assert len(segs) == 2
         assert segs[0].id == "Bacillota" and segs[0].is_leaf is False
-        assert segs[1].id == "Lactobacillus sp. 100-5"
-        assert segs[1].label == "U_Lactobacillus sp. 100-5"
+        assert segs[1].id == "Bacillota"
+        assert segs[1].label == "U_Bacillota"
         assert segs[1].is_leaf is True
 
     def test_orphan_under_root(self):
