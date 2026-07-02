@@ -1,6 +1,6 @@
 # Pathway List API via dbt Intermediates — Design Spec
 
-> **Status:** Draft (2026-07-01; revised — alphabetical ordering; `rollup_query` naming; `selected_ann_cat` payload per PR #9 review)  
+> **Status:** Approved (2026-07-01; PR #9 review incorporated — alphabetical ordering, `rollup_query` naming, `selected_ann_cat` payload)  
 > **Goal:** Reimplement `POST /api/viz/pathway-list` to return pathway names that contribute to the chord count matrix under the selected superpathway, derived from `int_tax_rollup_resolved` in `runs/{sample_id}/sample.duckdb` with the same tax/pathway filters as chord. Express keeps the legacy handler when `?backend=duckdb` is absent; the renderer defaults migrated channels to the FastAPI sidecar.
 
 **Parent specs:**
