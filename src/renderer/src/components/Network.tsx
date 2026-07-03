@@ -339,7 +339,7 @@ const PathwayPreview = ({
     <div
       onClick={handle_click}
       className="pathway-preview-item"
-      style={{ height, width, cursor: 'pointer' }}
+      style={{ height, width }}
       title={pathway}
     >
       <svg ref={ref} />
@@ -369,18 +369,16 @@ const PathwayList = ({
       </div>
     )
   }
+  const grid_gap = 8
   const grid_size = Math.ceil(Math.sqrt(pathways.length))
-  const c_width = width / grid_size
-  const c_height = height / grid_size
+  const c_width = (width - (grid_size - 1) * grid_gap) / grid_size
+  const c_height = (height - (grid_size - 1) * grid_gap) / grid_size
   return (
     <div id="pathway-preview-outer-container">
       <div className="bold" id="network-title">
         {`Superpathway: ${superpathway}`}
       </div>
-      <div
-        id="pathway-preview-container"
-        style={{ display: 'flex', flexWrap: 'wrap', width, height }}
-      >
+      <div id="pathway-preview-container" style={{ width, height, gap: grid_gap }}>
         {pathways.map((p) => (
           <PathwayPreview key={p} pathway={p} width={c_width} height={c_height} />
         ))}
