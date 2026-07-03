@@ -22,7 +22,7 @@ const map_lum = (string) => {
 
 const get_color = (i, n) => `hsl(${Math.trunc((360 / (n + 1)) * i)} 75 ${base_lum})`
 
-// const get_sub_color = (c, e) => c.replace(` ${base_lum})`, ` ${map_lum(e)})`)
+const get_sub_color = (c: string, e: string) => c.replace(` ${base_lum})`, ` ${map_lum(e)})`)
 
 /** Builds a map from key-value pairs: each key maps to an array of unique values it was paired with. */
 const reduce_to_dict = (pairs): Record<string, string[]> => {
@@ -36,4 +36,4 @@ const reduce_to_dict = (pairs): Record<string, string[]> => {
 
 const empty_filter = { level: '', name: '' }
 
-export { map_lum, get_color, sum, mean, key_cols, reduce_to_dict, empty_filter }
+export { map_lum, get_color, get_sub_color, sum, mean, key_cols, reduce_to_dict, empty_filter }

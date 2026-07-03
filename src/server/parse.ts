@@ -1,7 +1,116 @@
-import { get_color, key_cols, sum } from './utils'
+import { get_color, get_sub_color, key_cols, sum } from './utils'
 import _ from 'lodash'
 // file for the data parser
 // cols from ec_rpkm which don't countain counts
+
+const sort_by_category = (
+  a: string,
+  b: string,
+  get_cat_idx: (name: string) => number
+): number => {
+  const m_a = get_cat_idx(a)
+  const m_b = get_cat_idx(b)
+  const v_a = m_a === m_b ? a : m_a
+  const v_b = m_a === m_b ? b : m_b
+  if (v_a < v_b) return -1
+  if (v_a > v_b) return 1
+  return 0
+}
+
+const make_inner_count_matrix = (
+  data: Array<object>,
+  matrix_index: string[]
+): number[][] => {
+  const add_to_count_map = (
+    acc: number[][],
+    species: string,
+    annotation: string,
+    value: number
+  ): void => {
+    const species_index = matrix_index.indexOf(species)
+    const annotation_index = matrix_index.indexOf(annotation)
+    if (species_index >= 0 && annotation_index >= 0) {
+      acc[species_index][annotation_index] += Number(value)
+      acc[annotation_index][species_index] += Number(value)
+    }
+  }
+
+  const rows = data as Array<Record<string, string | number>>
+  const val_cols = Object.keys(rows[0]).filter((e) => !key_cols.includes(e))
+  return rows.reduce(
+    (acc: number[][], row) => {
+      const ec_key = String(row['EC#'])
+      for (const key of val_cols) {
+        const val = Number(row[key])
+        if (val > 0) add_to_count_map(acc, key, ec_key, val)
+      }
+      return acc
+    },
+    Array.from({ length: matrix_index.length }, () =>
+      Array(matrix_index.length).fill(0)
+    )
+  )
+}
+
+const primary_ann_cat = (ec_map: Record<string, string[]>, ec: string): string =>
+  ec_map[ec]?.[0] ?? ''
+
+const parse_graph_data = ({
+  data,
+  ec_map,
+  tax_map
+}: {
+  data: Array<object>
+  ec_map: Record<string, string[]>
+  tax_map: Record<string, string>
+}) => {
+  const tax_cats = _.uniq(_.sortBy(Object.values(tax_map)))
+  const all_taxa = _.uniq(Object.keys(tax_map)).sort((a, b) =>
+    sort_by_category(a, b, (name) => tax_cats.indexOf(tax_map[name]))
+  )
+
+  const annotation_cats = _.sortBy(
+    _.uniq(Object.values(ec_map).reduce((acc, vals) => [...acc, ...vals], [] as string[]))
+  )
+  const all_annotations = _.uniq(Object.keys(ec_map)).sort((a, b) =>
+    sort_by_category(a, b, (name) => annotation_cats.indexOf(primary_ann_cat(ec_map, name)))
+  )
+
+  const outer_matrix_index = ['gap_1', ...annotation_cats, 'gap_2', ...tax_cats, 'gap_3']
+
+  const inner_matrix_index = ['gap_1', ...all_annotations, 'gap_2', ...all_taxa, 'gap_3']
+  const inner_count_matrix = make_inner_count_matrix(data, inner_matrix_index)
+
+  const idx_to_keep = inner_count_matrix.reduce((acc: number[], row, i) => {
+    if (sum(row) > 0) acc.push(i)
+    return acc
+  }, [])
+  const trimmed_inner_count_matrix = idx_to_keep.map((i) =>
+    idx_to_keep.map((j) => inner_count_matrix[i][j])
+  )
+  const trimmed_inner_matrix_idx = idx_to_keep.map((i) => inner_matrix_index[i])
+
+  const cat_colors = Object.fromEntries([
+    ...annotation_cats.map((e, i, arr) => [e, get_color(i, arr.length)]),
+    ...tax_cats.map((e, i, arr) => [e, get_color(i, arr.length)])
+  ])
+  const sub_colors = Object.fromEntries([
+    ...all_annotations.map((e) => [
+      e,
+      get_sub_color(cat_colors[primary_ann_cat(ec_map, e)], e)
+    ]),
+    ...all_taxa.map((e) => [e, get_sub_color(cat_colors[tax_map[e]], e)])
+  ])
+  const colors = { ...sub_colors, ...cat_colors }
+
+  return {
+    inner_count_matrix: trimmed_inner_count_matrix,
+    inner_matrix_index: trimmed_inner_matrix_idx,
+    outer_matrix_index,
+    colors,
+    tax_map
+  }
+}
 
 // makes a count matrix from precalculated parameters and name mappers
 // refactored out because we need to call it at least twice to make the inner and outer arcs
@@ -186,4 +295,12 @@ const parse_tax_tree = (data, tax_tree, levels) => {
   return parse_tax_tree_recursive(parsed_data, tax_tree, levels, 'root', total)
 }
 
-export { parse_ec_data, make_count_vector, make_ann_vector, parse_tax_tree }
+export {
+  parse_ec_data,
+  parse_graph_data,
+  make_inner_count_matrix,
+  sort_by_category,
+  make_count_vector,
+  make_ann_vector,
+  parse_tax_tree
+}
