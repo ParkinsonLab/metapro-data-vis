@@ -14,8 +14,7 @@ interface AppState {
   selected_file_list: string[]
   selectedFile: File | null
   selected_ann_cat: ChordFilterValue
-  /** @deprecated Graph pane only; component unmounted */
-  parsed_data?: any
+  graph_data: any
   selected_taxon: ChordFilterValue
   selected_pathway: string
   selected_annotations: string[]
@@ -40,6 +39,7 @@ export const useAppStore = create<AppState>(() => ({
   selectedFile: null,
   selected_file_list: [],
   selected_ann_cat: {},
+  graph_data: {},
   selected_taxon: {},
   selected_pathway: '',
   selected_annotations: [],

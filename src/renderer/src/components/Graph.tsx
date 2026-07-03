@@ -1,7 +1,9 @@
 import Plot from 'react-plotly.js'
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { request } from '../api'
+import { toApiFilter } from '../chordFilters'
 
 type PlotTrace = {
   z: number[]
@@ -17,10 +19,13 @@ type PlotTrace = {
 }
 
 function Graph(): React.JSX.Element {
-  // do not mount without first checking if parsed_data is available
-
-  const parsed_data = useAppStore((state) => state.parsed_data)
+  const graph_data = useAppStore((state) => state.graph_data)
   const selected_annotations = useAppStore((state) => state.selected_annotations)
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
+  const tax_rank = useAppStore((state) => state.tax_rank)
+  const ann_rank = useAppStore((state) => state.ann_rank)
+  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
   const [plot_data, set_plot_data] = useState<PlotTrace[]>([])
   const [plot_layout, set_plot_layout] = useState({})
 
@@ -39,15 +44,25 @@ function Graph(): React.JSX.Element {
   }
 
   useEffect(() => {
+    request('graph', {
+      names: selected_file_list,
+      tax_level: tax_rank,
+      ann_level: ann_rank,
+      selected_ann_cat: toApiFilter(selected_ann_cat),
+      selected_taxon: toApiFilter(selected_taxon)
+    })
+  }, [selected_file_list, tax_rank, ann_rank, selected_ann_cat, selected_taxon])
+
+  useEffect(() => {
+    if (!graph_data || _.isEmpty(graph_data)) return
+
     const {
       inner_count_matrix,
       inner_matrix_index,
-      outer_count_matrix,
       outer_matrix_index,
       colors,
-      tax_map,
-      ann_map
-    } = parsed_data
+      tax_map
+    } = graph_data
 
     const selected_idx = selected_annotations.map((e) => inner_matrix_index.indexOf(e))
     const tax_idx_start = inner_matrix_index.indexOf('gap_2') + 1
@@ -105,7 +120,7 @@ function Graph(): React.JSX.Element {
       title: {
         text: 'RPKM for selected ECs',
         font: { color: 'black' },
-        y: 0.95, // Move title closer to plot (default is 1.0)
+        y: 0.95,
         yanchor: 'top'
       },
       scene: {
@@ -153,7 +168,15 @@ function Graph(): React.JSX.Element {
       }
     }
     set_plot_layout(t_layout)
-  }, [parsed_data])
+  }, [graph_data, selected_annotations])
+
+  if (selected_annotations.length === 0) {
+    return (
+      <div id="graph-container">
+        <p>Select ECs in the Network view to plot RPKM.</p>
+      </div>
+    )
+  }
 
   return (
     <div id="graph-container">
