@@ -304,28 +304,26 @@ const parse_network = ({
     Object.keys(filtered_rows[0]).some((k) => !key_cols.includes(k))
 
   if (has_value_cols) {
-    // danfojs's toJSON return type is `void | object`; we know the column-
-    // format output is a Record<string, Record<string, unknown>>.
-    const agg_data = agg_by_ec(filtered_rows) as Record<string, Record<string, unknown>>
-    const tax_columns = Object.keys(agg_data).filter((c) => !key_cols.includes(c))
-    const tax_map = get_parents_at_level(tax_columns, tax_level)
-    tax_cats = _.uniq(_.sortBy(Object.values(tax_map))) as string[]
-    colors = Object.fromEntries(tax_cats.map((cat, i) => [cat, get_color(i, tax_cats.length)]))
+    const agg_rows = agg_by_ec(filtered_rows) as Array<Record<string, number | string>>
+    if (agg_rows.length > 0) {
+      const tax_columns = Object.keys(agg_rows[0]).filter((c) => !key_cols.includes(c))
+      const tax_map = get_parents_at_level(tax_columns, tax_level)
+      tax_cats = _.uniq(_.sortBy(Object.values(tax_map))) as string[]
+      colors = Object.fromEntries(tax_cats.map((cat, i) => [cat, get_color(i, tax_cats.length)]))
 
-    const ec_col = (agg_data['EC#'] ?? {}) as Record<string, string>
-    for (const idx of Object.keys(ec_col)) {
-      const ec = ec_col[idx]
-      const pie = tax_cats.map(() => 0)
-      for (const taxon of tax_columns) {
-        const cat = tax_map[taxon]
-        if (!cat) continue
-        const pos = tax_cats.indexOf(cat)
-        if (pos < 0) continue
-        const cell = agg_data[taxon]?.[idx]
-        const value = Number(cell)
-        if (Number.isFinite(value)) pie[pos] += value
+      for (const row of agg_rows) {
+        const ec = String(row['EC#'])
+        const pie = tax_cats.map(() => 0)
+        for (const taxon of tax_columns) {
+          const cat = tax_map[taxon]
+          if (!cat) continue
+          const pos = tax_cats.indexOf(cat)
+          if (pos < 0) continue
+          const value = Number(row[taxon])
+          if (Number.isFinite(value)) pie[pos] += value
+        }
+        ec_to_pie.set(ec, pie)
       }
-      ec_to_pie.set(ec, pie)
     }
   }
 
