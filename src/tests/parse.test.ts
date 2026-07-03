@@ -58,6 +58,8 @@ describe('parse_graph_data', () => {
     expect(result).not.toHaveProperty('outer_count_matrix')
     expect(result).not.toHaveProperty('ann_map')
     expect(result.tax_map).toEqual(tax_map)
+    expect(result.inner_matrix_index).toContain('gap_2')
+    expect(result.inner_matrix_index).toContain('gap_3')
     expect(result.outer_matrix_index).toContain('gap_1')
     expect(result.outer_matrix_index).toContain('gap_2')
     expect(result.outer_matrix_index).toContain('gap_3')

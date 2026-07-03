@@ -6,6 +6,7 @@ import {
   add_data,
   add_test_data,
   parse_ec_chord,
+  parse_graph,
   parse_network,
   parse_pathway_list,
   parse_overview,
@@ -342,6 +343,53 @@ describe('integration with real DB and real TSV fixtures', () => {
         expect(row.length).toBe(out.index.length)
       }
       expect(out.colors).toBeDefined()
+    }, 180_000)
+  })
+
+  describe('parse_graph (end-to-end)', () => {
+    it('returns graph_data shape with non-empty inner matrix on fixtures', () => {
+      const out = parse_graph({
+        names: [loaded_names[0]],
+        tax_level: 'phylum',
+        ann_level: 'superpathway',
+        selected_ann_cat: empty_filter,
+        selected_taxon: empty_filter
+      })
+      expect(out.inner_matrix_index[0]).toBe('gap_1')
+      expect(out.inner_matrix_index).toContain('gap_2')
+      expect(out.inner_matrix_index[out.inner_matrix_index.length - 1]).toBe('gap_3')
+      expect(out.outer_matrix_index).toContain('gap_2')
+      const gap1 = out.inner_matrix_index.indexOf('gap_1')
+      const gap2 = out.inner_matrix_index.indexOf('gap_2')
+      const ec_labels = out.inner_matrix_index.slice(gap1 + 1, gap2)
+      expect(ec_labels.length).toBeGreaterThan(0)
+      const flat = out.inner_count_matrix.flat()
+      expect(flat.some((v) => v > 0)).toBe(true)
+      expect(Object.keys(out.colors).length).toBeGreaterThan(0)
+      expect(out).not.toHaveProperty('ann_map')
+    }, 180_000)
+
+    it('narrows matrix when selected_ann_cat filter is active', () => {
+      const ec = __test__.getEc() as Array<Record<string, unknown>>
+      const sp = ec.find((r) => r.superpathway != null)?.superpathway as string
+      expect(sp).toBeTruthy()
+      const unfiltered = parse_graph({
+        names: [loaded_names[0]],
+        tax_level: 'phylum',
+        ann_level: 'superpathway',
+        selected_ann_cat: empty_filter,
+        selected_taxon: empty_filter
+      })
+      const filtered = parse_graph({
+        names: [loaded_names[0]],
+        tax_level: 'phylum',
+        ann_level: 'superpathway',
+        selected_ann_cat: { level: 'superpathway', name: sp },
+        selected_taxon: empty_filter
+      })
+      expect(filtered.inner_matrix_index.length).toBeLessThanOrEqual(
+        unfiltered.inner_matrix_index.length
+      )
     }, 180_000)
   })
 

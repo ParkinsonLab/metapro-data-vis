@@ -55,6 +55,19 @@ const make_inner_count_matrix = (
 const primary_ann_cat = (ec_map: Record<string, string[]>, ec: string): string =>
   ec_map[ec]?.[0] ?? ''
 
+const add_filler_value = (count_matrix, index) => {
+  //add filler
+  const filler_nodes = ['gap_1', 'gap_2', 'gap_3']
+  const flat_sum = count_matrix.reduce((acc, row) => acc + sum(row), 0)
+  filler_nodes.forEach((name, idx) => {
+    const i = index.indexOf(name)
+    const div = idx === 1 ? 2 : 4
+    count_matrix[i][i] = flat_sum / div
+  })
+
+  return count_matrix
+}
+
 const parse_graph_data = ({
   data,
   ec_map,
@@ -79,7 +92,10 @@ const parse_graph_data = ({
   const outer_matrix_index = ['gap_1', ...annotation_cats, 'gap_2', ...tax_cats, 'gap_3']
 
   const inner_matrix_index = ['gap_1', ...all_annotations, 'gap_2', ...all_taxa, 'gap_3']
-  const inner_count_matrix = make_inner_count_matrix(data, inner_matrix_index)
+  const inner_count_matrix = add_filler_value(
+    make_inner_count_matrix(data, inner_matrix_index),
+    inner_matrix_index
+  )
 
   const idx_to_keep = inner_count_matrix.reduce((acc: number[], row, i) => {
     if (sum(row) > 0) acc.push(i)
@@ -151,19 +167,6 @@ const make_count_matrix = (data, matrix_index, tax_map, ann_map) => {
     },
     Array.from({ length: matrix_index.length }, () => Array(matrix_index.length).fill(0))
   )
-  return count_matrix
-}
-
-const add_filler_value = (count_matrix, index) => {
-  //add filler
-  const filler_nodes = ['gap_1', 'gap_2', 'gap_3']
-  const flat_sum = sum(count_matrix.flat())
-  filler_nodes.forEach((name, idx) => {
-    const i = index.indexOf(name)
-    const div = idx === 1 ? 2 : 4
-    count_matrix[i][i] = flat_sum / div
-  })
-
   return count_matrix
 }
 

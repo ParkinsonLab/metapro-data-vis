@@ -14,7 +14,13 @@ import {
   get_name_from_id
 } from './db_functions'
 import { key_cols, reduce_to_dict, empty_filter, get_color } from './utils'
-import { parse_ec_data, parse_tax_tree, make_count_vector, make_ann_vector } from './parse'
+import {
+  parse_ec_data,
+  parse_graph_data,
+  parse_tax_tree,
+  make_count_vector,
+  make_ann_vector
+} from './parse'
 
 // store loaded data and ec in-memory
 let data = {}
@@ -192,6 +198,30 @@ const parse_ec_chord = ({
     tax_map: get_tax_map(agg_data, tax_level), // tax_map
     ec_map
   })
+}
+
+const parse_graph = ({
+  names,
+  tax_level,
+  ann_level,
+  selected_ann_cat,
+  selected_taxon
+}: {
+  names: string[]
+  tax_level: string
+  ann_level: string
+  selected_ann_cat: { level: string; name: string }
+  selected_taxon: { level: string; name: string }
+}) => {
+  const raw_data = names_to_data(names)
+  const filtered = subset_data_by_ann(
+    subset_data(raw_data, selected_taxon),
+    selected_ann_cat
+  )
+  const agg_data = agg_by_ec(filtered)
+  const ec_map = get_ec_map(selected_ann_cat, ann_level)
+  const tax_map = get_tax_map(agg_data, tax_level)
+  return parse_graph_data({ data: agg_data, ec_map, tax_map })
 }
 
 /**
@@ -411,6 +441,7 @@ const __test__ = {
 
 export {
   parse_ec_chord,
+  parse_graph,
   parse_krona,
   initialize,
   add_data,
