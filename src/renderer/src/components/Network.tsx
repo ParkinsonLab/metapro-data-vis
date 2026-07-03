@@ -266,6 +266,7 @@ const PathwayPreview = ({
 
   useEffect(() => {
     if (selected_file_list.length === 0) return
+    set_counts_data(null)
     let cancelled = false
     ;(async () => {
       const res = await fetch('/api/viz/counts', {
@@ -289,7 +290,11 @@ const PathwayPreview = ({
   }, [pathway, selected_file_list, tax_rank, selected_taxon])
 
   useEffect(() => {
-    if (!counts_data || !ref.current) return
+    if (!ref.current) return
+    if (!counts_data) {
+      d3.select(ref.current).selectAll('*').remove()
+      return
+    }
     const { index, counts } = counts_data
     const pie_data = index.map((id, i) => ({ id, value: counts[i] ?? 0 }))
     const colors = Object.fromEntries(index.map((id, i) => [id, get_color(i, index.length)]))
