@@ -393,6 +393,10 @@ describe('integration with real DB and real TSV fixtures', () => {
       expect(Array.isArray(out.nodes)).toBe(true)
       expect(Array.isArray(out.edges)).toBe(true)
       expect(typeof out.colors).toBe('object')
+      const with_pie = out.nodes.filter((n) =>
+        Array.isArray(n.values) && n.values.some((v) => v.value > 0)
+      )
+      expect(with_pie.length).toBeGreaterThan(0)
       // sanity: at least one node should carry pie data when the pathway has
       // matching ECs in the loaded fixture
       const sp_pathways = parse_pathway_list({ superpathway: sp_value })
