@@ -73,6 +73,14 @@ interface NetworkData {
   colors: Record<string, string>
 }
 
+const get_color = (i: number, n: number): string =>
+  `hsl(${Math.trunc((360 / (n + 1)) * i)} 75 50)`
+
+interface CountsData {
+  index: string[]
+  counts: number[]
+}
+
 const PathwayDetail = ({
   base_width,
   base_height,
@@ -236,7 +244,7 @@ const PathwayDetail = ({
   )
 }
 
-const PathwayCard = ({
+const PathwayPreview = ({
   pathway,
   width,
   height
@@ -245,19 +253,77 @@ const PathwayCard = ({
   width: number
   height: number
 }): React.JSX.Element => {
+  const ref = useRef<SVGSVGElement>(null)
   const selected_file_list = useAppStore((state) => state.selected_file_list)
-  const selected_taxon = useAppStore((state) => state.selected_taxon) as {
-    level?: string
-    name?: string
-  }
+  const selected_taxon = useAppStore((state) => state.selected_taxon)
   const tax_rank = useAppStore((state) => state.tax_rank)
+
+  const [counts_data, set_counts_data] = useState<CountsData | null>(null)
+
+  const base_radius = Math.min(height, width) * 0.3
+  const rad_step = Math.ceil(base_radius * 0.2)
+  const text_height = 25
+
+  useEffect(() => {
+    if (selected_file_list.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      const res = await fetch('/api/viz/counts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          names: selected_file_list,
+          tax_rank,
+          selected_taxon: toApiFilter(selected_taxon),
+          selected_ann_cat: { level: 'pathway', name: pathway }
+        })
+      })
+      const envelope = (await res.json()) as { ok: boolean; value?: CountsData }
+      if (!cancelled && envelope.ok && envelope.value) {
+        set_counts_data(envelope.value)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [pathway, selected_file_list, tax_rank, selected_taxon])
+
+  useEffect(() => {
+    if (!counts_data || !ref.current) return
+    const { index, counts } = counts_data
+    const pie_data = index.map((id, i) => ({ id, value: counts[i] ?? 0 }))
+    const colors = Object.fromEntries(index.map((id, i) => [id, get_color(i, index.length)]))
+
+    const arc = d3.arc<d3.PieArcDatum<{ id: string; value: number }>>()
+      .innerRadius(base_radius)
+      .outerRadius(base_radius + rad_step)
+
+    const svg = d3.select(ref.current)
+    svg.selectAll('*').remove()
+    svg
+      .attr('width', width)
+      .attr('height', height - text_height)
+      .attr('viewBox', [-width / 2, -height / 2, width, height])
+
+    const pie = d3.pie<{ id: string; value: number }>().value((d) => d.value)
+    svg
+      .append('g')
+      .selectAll('path')
+      .data(pie(pie_data))
+      .join('path')
+      .attr('fill', (d) => colors[d.data.id] ?? 'lightgray')
+      .attr('d', arc)
+      .attr('stroke', 'white')
+      .append('title')
+      .text((d) => d.data.id)
+  }, [counts_data, width, height, base_radius, rad_step])
 
   const handle_click = (): void => {
     useAppStore.setState({ selected_pathway: pathway })
     request('network', {
       names: selected_file_list,
       tax_level: tax_rank,
-      selected_taxon: selected_taxon ?? {},
+      selected_taxon: toApiFilter(selected_taxon),
       pathway_name: pathway,
       width: 900,
       height: 550
@@ -268,23 +334,11 @@ const PathwayCard = ({
     <div
       onClick={handle_click}
       className="pathway-preview-item"
-      style={{
-        width,
-        height,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        padding: 4,
-        border: '1px solid #ccc',
-        cursor: 'pointer',
-        boxSizing: 'border-box',
-        fontSize: 12,
-        overflow: 'hidden'
-      }}
+      style={{ height, width, cursor: 'pointer' }}
       title={pathway}
     >
-      <span>{pathway}</span>
+      <svg ref={ref} />
+      <span className="pathway-preview-item-name">{pathway}</span>
     </div>
   )
 }
@@ -323,7 +377,7 @@ const PathwayList = ({
         style={{ display: 'flex', flexWrap: 'wrap', width, height }}
       >
         {pathways.map((p) => (
-          <PathwayCard key={p} pathway={p} width={c_width} height={c_height} />
+          <PathwayPreview key={p} pathway={p} width={c_width} height={c_height} />
         ))}
       </div>
     </div>
