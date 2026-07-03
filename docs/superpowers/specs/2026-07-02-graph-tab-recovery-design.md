@@ -5,8 +5,8 @@
 
 **Parent context:**
 
-- `docs/superpowers/specs/2026-06-08-electron-to-web-design.md` — web migration removed client-side `parsed_data`; Graph left unmounted
-- `SPEC.md` §6.3 — Graph reads deprecated `parsed_data`; only unmounted pane
+- `docs/superpowers/specs/2026-06-08-electron-to-web-design.md` — listed Graph migration as a follow-up task (not implemented)
+- `SPEC.md` §6.3 — documents current state: Graph unmounted, still reads deprecated `parsed_data`
 
 ## 1. Problem
 
@@ -24,7 +24,9 @@ On `dev`, two gaps block this:
 | Gap | Detail |
 |-----|--------|
 | **Component unmounted** | `App.tsx` comments out `{mainState === 'graph' && <Graph />}` |
-| **No data source** | `Graph.tsx` reads `parsed_data.{inner_count_matrix, inner_matrix_index, outer_matrix_index, colors, tax_map}` — client `parse_data` was removed and nothing repopulates it |
+| **No data source** | `Graph.tsx` reads `parsed_data.{inner_count_matrix, inner_matrix_index, outer_matrix_index, colors, tax_map}` — nothing on `dev` populates those fields today (no `graph_data` channel or server endpoint for the inner matrix) |
+
+`upstream/main` built this data client-side via `parse_data` / `parse_data_callback` in `src/renderer/src/components/parse.tsx`. That renderer module and its unit tests are absent on `dev`; server-side `parse.ts` exposes `parse_ec_data` (chord outer matrix only), not the inner matrix Graph needs.
 
 **Scope boundary:** Express / legacy mode only. Analytics API, sidecar proxy, and `?backend=duckdb` are **out of scope**.
 
@@ -139,11 +141,13 @@ Add to `src/server/parse.ts`. Port matrix-building logic from `upstream/main:src
   outer_matrix_index: string[]
   colors: Record<string, string>
   tax_map: Record<string, string>
-  ann_map: Record<string, string[]>  // same as ec_map; Graph does not read this
 }
 ```
 
-Omit `outer_count_matrix` from the response (Graph does not use it).
+Omit from the response (Graph does not read them):
+
+- `outer_count_matrix`
+- `ann_map`
 
 ### 4.3 `sort_by_category`
 
@@ -161,6 +165,8 @@ Port the upstream two-level sort helper used when ordering `all_annotations` and
 | `src/renderer/src/store/AppStore.ts` | Add `graph_data: any`; remove `parsed_data` deprecation |
 | `src/renderer/src/App.tsx` | Import `Graph`; register `graph` handler; mount Graph tab |
 | `src/renderer/src/components/Graph.tsx` | `parsed_data` → `graph_data`; add `selected_annotations` to `useEffect` deps; empty-state UI; reactive fetch `useEffect` |
+| `src/tests/parse.test.ts` | New: ported unit tests for `sort_by_category`, `make_inner_count_matrix`, `parse_graph_data` |
+| `src/tests/data_functions.test.ts` | Add `parse_graph` integration cases |
 
 ### 5.1 Reactive fetch (in `Graph.tsx`)
 
@@ -189,10 +195,31 @@ Plot logic otherwise unchanged (matrix slicing, tax-category y-axis grouping, ba
 
 ## 6. Testing
 
+### 6.1 Background: upstream tests
+
+`upstream/main` had `src/tests/parse.test.tsx` (~240 lines) exercising the client `parse.tsx` helpers. That file is absent on `dev`. Server `parse.ts` today has no direct unit tests — `make_count_matrix` / `parse_ec_data` are only covered indirectly via `parse_ec_chord` end-to-end in `data_functions.test.ts`.
+
+### 6.2 Port plan
+
+Add `src/tests/parse.test.ts` with unit tests adapted from `upstream/main:src/tests/parse.test.tsx`, targeting the server exports:
+
+| Upstream test | Port? | Server target | Notes |
+|---------------|-------|---------------|-------|
+| `sort_by_category` (2 cases) | **Yes** | `sort_by_category` | Direct port |
+| `make_count_matrix` inner-ring cases (symmetry, filler) | **Yes, adapted** | `make_inner_count_matrix` | EC# mapped directly; filler applied via `add_filler_value` on outer path only — inner tests assert matrix values without gap fillers unless we add them |
+| `make_count_matrix` with tax/ann maps | **No** (separate) | existing `make_count_matrix` | Already exercised by chord e2e; optional future unit test |
+| `parse_data_callback` shape test | **Yes, adapted** | `parse_graph_data` | `ec_map` is `Record<string, string[]>`; assert response includes `inner_count_matrix`, `inner_matrix_index`, `outer_matrix_index`, `colors`, `tax_map`; omit `outer_count_matrix` / `ann_map` |
+| `parse_data` IPC wiring | **No** | — | Replaced by `parse_graph` integration test |
+| `make_1d_count_matrix` | **No** | — | Server equivalent is `make_count_vector` (overview path) |
+| `parse_tax_tree*` | **No** | — | Already on server; covered by krona e2e |
+
+### 6.3 Integration and manual tests
+
 | Layer | Test |
 |-------|------|
-| Server | `data_functions.test.ts`: load test fixtures → `parse_graph` with default filters → assert `inner_matrix_index` contains EC labels between `gap_1`/`gap_2`, at least one non-zero cell in `inner_count_matrix`, `colors` non-empty |
-| Server | Filter narrowing: call with `selected_ann_cat` set → matrix smaller or different than unfiltered |
+| Unit | `src/tests/parse.test.ts`: ported cases above |
+| Integration | `data_functions.test.ts`: load test fixtures → `parse_graph` with default filters → assert `inner_matrix_index` contains EC labels between `gap_1`/`gap_2`, at least one non-zero cell in `inner_count_matrix`, `outer_matrix_index` has tax categories between `gap_2`/`gap_3`, `colors` non-empty |
+| Integration | Filter narrowing: `parse_graph` with `selected_ann_cat` set → matrix differs from unfiltered call |
 | Manual | Load test files → Chord filter → Network → select pathway → click EC nodes → Graph shows 3D lines; clear selections → empty state |
 
 ## 7. Out of Scope
@@ -209,4 +236,4 @@ Plot logic otherwise unchanged (matrix slicing, tax-category y-axis grouping, ba
 - [ ] Empty-state message when no ECs are selected in Network.
 - [ ] 3D plot renders after selecting ECs in Network detail view.
 - [ ] Plot reflects active chord filters (matrix refetches on filter change).
-- [ ] `npm test` passes, including new `parse_graph` integration assertion.
+- [ ] `npm test` passes, including ported `parse.test.ts` unit cases and `parse_graph` integration assertions.
