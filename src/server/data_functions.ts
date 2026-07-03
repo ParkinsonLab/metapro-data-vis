@@ -218,7 +218,7 @@ const parse_graph = ({
     subset_data(raw_data, selected_taxon),
     selected_ann_cat
   )
-  const agg_data = agg_by_ec(filtered)
+  const agg_data = agg_by_ec(filtered) as Array<Record<string, string | number>>
   const ec_map = get_ec_map(selected_ann_cat, ann_level)
   const tax_map = get_tax_map(agg_data, tax_level)
   return parse_graph_data({ data: agg_data, ec_map, tax_map })
