@@ -191,17 +191,19 @@ From this result build:
 SELECT DISTINCT
     t.source_tax_id,
     w.kingdom, w.phylum, w.class, w."order", w.family, w.genus, w.species,
-    COALESCE(n.name, CAST(t.source_tax_id AS VARCHAR)) AS display_name,
-    w_cat.resolved_tax_label AS category_at_tax_level
+    COALESCE(n.name, CAST(t.source_tax_id AS VARCHAR)) AS display_name
 FROM (<filtered_triples>) t
-JOIN (<bridge_tax PIVOT — krona pattern>) w ON w.source_tax_id = t.source_tax_id
-JOIN bridge_tax_rollup w_cat
-  ON w_cat.source_tax_id = t.source_tax_id
- AND w_cat.requested_rank = ?   -- tax_level
+JOIN (<bridge_tax PIVOT all 7 ranks — krona pattern>) w ON w.source_tax_id = t.source_tax_id
 LEFT JOIN names n ON n.tax_id = t.source_tax_id
 ```
 
-`bridge_tax_rollup` fan-out (seven ranks) is confined to this metadata query. From this result build:
+No second `bridge_tax_rollup` join is needed. The PIVOT already exposes `resolved_tax_label` at each rank as a column (`w.kingdom`, `w.phylum`, …). Derive metadata in Python (or a single SELECT):
+
+- **`tax_map`:** `display_name → w.<tax_level>` (e.g. `w.phylum` when `tax_level = 'phylum'`)
+- **Inner sort key:** full lineage tuple `(w.kingdom, …, w.species, display_name)` (§5.5)
+- **Outer tax categories:** distinct values of `w.<tax_level>`, sorted by lineage tuple truncated to `tax_level` depth (§6.2) — the category label *is* the pivot column value at that rank, not a separate lookup
+
+`bridge_tax_rollup` fan-out (seven rows per taxon in long form) is confined to the PIVOT subquery inside this metadata query. From this result build:
 
 - Sorted taxon display labels (inner index tax segment)
 - `tax_map`: `display_name → category_at_tax_level`
@@ -223,7 +225,7 @@ Values in the matrix come from triples (§5.1), not from `ec_map`.
 
 `tax_map: Record<display_name, category_at_tax_level>` maps each taxon column label to its category at `tax_level`.
 
-Built from the **tax metadata query** (§5.2). Used by `Graph.tsx` for y-axis background surface grouping.
+Built from the **tax metadata query** (§5.2): `display_name → w.<tax_level>` using the lineage PIVOT column at the active rank. Used by `Graph.tsx` for y-axis background surface grouping.
 
 ### 5.5 Lineage and pathway sort keys
 
