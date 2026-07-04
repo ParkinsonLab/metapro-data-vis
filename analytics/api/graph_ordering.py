@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-TAX_RANKS = (
-    "kingdom", "phylum", "class", "order", "family", "genus", "species"
-)
+from api.filters import TAX_RANK_ORDER
+
+TAX_RANKS = TAX_RANK_ORDER
 
 
 def compare_tuples(a: tuple[str, ...], b: tuple[str, ...]) -> int:
@@ -20,9 +20,9 @@ def compare_tuples(a: tuple[str, ...], b: tuple[str, ...]) -> int:
 
 def pathway_sort_key(row: dict) -> tuple[str, str, str]:
     return (
-        row["superpathway_name"],
-        row["pathway_name"],
-        row["ec_normalized"],
+        row.get("superpathway_name") or "",
+        row.get("pathway_name") or "",
+        row.get("ec_normalized") or "",
     )
 
 
