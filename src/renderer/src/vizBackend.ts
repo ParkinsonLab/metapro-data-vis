@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'vizBackend'
-const MIGRATED_CHANNELS = new Set(['chord', 'overview', 'krona', 'pathway_list'])
+const MIGRATED_CHANNELS = new Set(['chord', 'graph', 'overview', 'krona', 'pathway_list'])
 
 export type VizBackend = 'legacy' | 'sidecar'
 
