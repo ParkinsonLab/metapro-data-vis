@@ -107,7 +107,7 @@ function Graph(): React.JSX.Element {
         z: e,
         name: selected[i].label,
         line: { color, width: 2 },
-        marker: { color, size: single_taxon ? 8 : 4 }
+        marker: { color, size: 4 }
       }
     })
     const tax_cats = outer_matrix_index.slice(
