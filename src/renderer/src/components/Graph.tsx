@@ -128,7 +128,7 @@ function Graph(): React.JSX.Element {
     const t_bg = tax_cats.map((e, i) => ({
       ...bg_props,
       x: [subset_data.length - 0.5, subset_data.length],
-      y: [Math.max(tax_cat_csum[i] - 1, 0), tax_cat_csum[i + 1] - 1],
+      y: [tax_cat_csum[i] - 0.5, tax_cat_csum[i + 1] - 0.5],
       colorscale: [
         [0, colors?.[e] ?? 'lightgray'],
         [1, colors?.[e] ?? 'lightgray']
@@ -164,7 +164,7 @@ function Graph(): React.JSX.Element {
           title: { text: 'Taxonomy', font: { color: 'black' } },
           tickmode: 'array',
           tickvals: tax_cats
-            .map((e, i) => tax_cat_csum[i] + tax_cat_counts[e] / 2 - 1)
+            .map((e, i) => tax_cat_csum[i] + (tax_cat_counts[e] - 1) / 2)
             .filter((_, i) => tax_cat_counts[tax_cats[i]] > 0),
           ticktext: tax_cats
             .filter((e) => tax_cat_counts[e] > 0)
