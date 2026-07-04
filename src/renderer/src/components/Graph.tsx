@@ -28,6 +28,7 @@ function Graph(): React.JSX.Element {
   const selected_taxon = useAppStore((state) => state.selected_taxon)
   const [plot_data, set_plot_data] = useState<PlotTrace[]>([])
   const [plot_layout, set_plot_layout] = useState({})
+  const [plot_message, set_plot_message] = useState<string | null>(null)
 
   const trace_props = {
     mode: 'lines',
@@ -64,20 +65,45 @@ function Graph(): React.JSX.Element {
       tax_map
     } = graph_data
 
-    const selected_idx = selected_annotations.map((e) => inner_matrix_index.indexOf(e))
-    const tax_idx_start = inner_matrix_index.indexOf('gap_2') + 1
-    const tax_idx_end = inner_matrix_index.indexOf('gap_3')
+    const selected = selected_annotations
+      .map((label) => ({ label, idx: inner_matrix_index.indexOf(label) }))
+      .filter((e) => e.idx >= 0)
+
+    if (selected.length === 0) {
+      set_plot_data([])
+      set_plot_layout({})
+      set_plot_message(
+        'Selected ECs are not in the current graph data. Try clearing chord filters or re-selecting ECs in Network.'
+      )
+      return
+    }
+
+    const tax_gap2 = inner_matrix_index.indexOf('gap_2')
+    const tax_gap3 = inner_matrix_index.indexOf('gap_3')
+    if (tax_gap2 < 0 || tax_gap3 < 0 || tax_gap3 <= tax_gap2 + 1) {
+      set_plot_data([])
+      set_plot_layout({})
+      set_plot_message('Graph data is missing taxonomy columns.')
+      return
+    }
+
+    set_plot_message(null)
+
+    const tax_idx_start = tax_gap2 + 1
+    const tax_idx_end = tax_gap3
     const tax_idc = [...Array(tax_idx_end - tax_idx_start).keys()].map((e) => e + tax_idx_start)
-    const subset_data = selected_idx.map((i) => tax_idc.map((j) => inner_count_matrix[i][j]))
+    const subset_data = selected.map(({ idx }) =>
+      tax_idc.map((j) => inner_count_matrix[idx][j])
+    )
     const tax_vals = Array.from(tax_idc.keys())
     const t_data = subset_data.map((e, i) => ({
       ...trace_props,
       x: Array(e.length).fill(i),
       y: tax_vals,
       z: e,
-      name: selected_annotations[i],
+      name: selected[i].label,
       line: {
-        color: colors[selected_annotations[i]],
+        color: colors?.[selected[i].label] ?? 'gray',
         width: 2
       }
     }))
@@ -104,8 +130,8 @@ function Graph(): React.JSX.Element {
       x: [subset_data.length - 0.5, subset_data.length],
       y: [Math.max(tax_cat_csum[i] - 1, 0), tax_cat_csum[i + 1] - 1],
       colorscale: [
-        [0, colors[e]],
-        [1, colors[e]]
+        [0, colors?.[e] ?? 'lightgray'],
+        [1, colors?.[e] ?? 'lightgray']
       ],
       opacityscale: [
         [0, 0.2],
@@ -129,7 +155,7 @@ function Graph(): React.JSX.Element {
           gridcolor: 'black',
           range: [-1, subset_data.length],
           tickvals: [...subset_data.keys()],
-          ticktext: selected_annotations,
+          ticktext: selected.map((e) => e.label),
           ticklabelposition: 'outside bottom',
           color: 'black',
           tickfont: { color: 'black' }
@@ -148,7 +174,7 @@ function Graph(): React.JSX.Element {
         },
         zaxis: {
           title: { text: 'RPKM', font: { color: 'black' } },
-          range: [0, Math.max(...subset_data.flat()) + 5],
+          range: [0, Math.max(0, ...subset_data.flat()) + 5],
           color: 'black',
           tickfont: { color: 'black' }
         }
@@ -174,6 +200,14 @@ function Graph(): React.JSX.Element {
     return (
       <div id="graph-container">
         <p>Select ECs in the Network view to plot RPKM.</p>
+      </div>
+    )
+  }
+
+  if (plot_message) {
+    return (
+      <div id="graph-container">
+        <p>{plot_message}</p>
       </div>
     )
   }
