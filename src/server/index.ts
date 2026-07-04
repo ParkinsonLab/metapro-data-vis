@@ -4,6 +4,7 @@ import cors from 'cors'
 import multer from 'multer'
 import {
   parse_ec_chord,
+  parse_graph,
   parse_krona,
   parse_network,
   parse_pathway_list,
@@ -21,6 +22,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200
 const vizRoutes: Array<{ path: string; handler: (params?: unknown) => unknown }> = [
   { path: '/api/viz/counts', handler: parse_counts },
   { path: '/api/viz/network', handler: parse_network },
+  { path: '/api/viz/graph', handler: parse_graph },
 ]
 
 export const createApp = (): Express => {

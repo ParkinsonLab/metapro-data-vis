@@ -14,6 +14,7 @@ export type Channel =
   | 'krona'
   | 'chord'
   | 'network'
+  | 'graph'
   | 'pathway_list'
 
 type ChannelHandler = (value: unknown) => void
@@ -34,6 +35,7 @@ const endpointFor = (channel: Channel): { method: string; url: string } => {
     krona: { method: 'POST', url: `/api/viz/krona${sidecarQuery('krona')}` },
     chord: { method: 'POST', url: `/api/viz/chord${sidecarQuery('chord')}` },
     network: { method: 'POST', url: '/api/viz/network' },
+    graph: { method: 'POST', url: '/api/viz/graph' },
     pathway_list: { method: 'POST', url: `/api/viz/pathway-list${sidecarQuery('pathway_list')}` }
   }
   return map[channel]

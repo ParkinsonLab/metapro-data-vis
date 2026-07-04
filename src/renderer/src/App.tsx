@@ -3,6 +3,7 @@ import Chord from './components/Chord'
 import Network from './components/Network'
 import Overview from './components/Overview'
 import Krona from './components/Krona'
+import Graph from './components/Graph'
 import { useAppStore } from './store/AppStore'
 import { type Channel, registerChannelHandler, request } from './api'
 import { useEffect } from 'react'
@@ -47,6 +48,9 @@ const channel_handlers: Record<Channel, (value: unknown) => void> = {
   },
   network: (value) => {
     useAppStore.setState({ network_data: value })
+  },
+  graph: (value) => {
+    useAppStore.setState({ graph_data: value })
   },
   pathway_list: (value) => {
     useAppStore.setState({ pathway_list: value as string[] })
@@ -218,8 +222,7 @@ const App = (): React.JSX.Element => {
         {mainState === 'krona' && <Krona />}
         {mainState === 'chord' && <Chord />}
         {mainState === 'network' && <Network />}
-        {/* Graph remains unmounted; out of scope for PR 5. */}
-        {/* {mainState === 'graph' && <Graph />} */}
+        {mainState === 'graph' && <Graph />}
       </div>
     </>
   )
