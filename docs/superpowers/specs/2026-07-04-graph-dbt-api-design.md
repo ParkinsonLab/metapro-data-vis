@@ -1,6 +1,6 @@
 # Graph API via dbt Intermediates — Design Spec
 
-> **Status:** Draft (2026-07-04)  
+> **Status:** Approved (2026-07-04; PR #12 review incorporated)  
 > **Goal:** Reimplement `POST /api/viz/graph` on the FastAPI analytics sidecar, returning the graph blob (`inner_count_matrix`, `inner_matrix_index`, `outer_matrix_index`, `colors`, `tax_map`) from `int_rpkm_by_ec_tax` in `runs/{sample_id}/sample.duckdb`. Express keeps the legacy handler when `?backend=duckdb` is absent; the renderer adds `'graph'` to migrated channels.
 
 **Parent specs:**
