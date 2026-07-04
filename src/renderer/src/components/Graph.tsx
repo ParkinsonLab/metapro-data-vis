@@ -96,17 +96,20 @@ function Graph(): React.JSX.Element {
       tax_idc.map((j) => inner_count_matrix[idx][j])
     )
     const tax_vals = Array.from(tax_idc.keys())
-    const t_data = subset_data.map((e, i) => ({
-      ...trace_props,
-      x: Array(e.length).fill(i),
-      y: tax_vals,
-      z: e,
-      name: selected[i].label,
-      line: {
-        color: colors?.[selected[i].label] ?? 'gray',
-        width: 2
+    const single_taxon = tax_idc.length < 2
+    const t_data = subset_data.map((e, i) => {
+      const color = colors?.[selected[i].label] ?? 'gray'
+      return {
+        ...trace_props,
+        mode: single_taxon ? 'markers' : 'lines',
+        x: Array(e.length).fill(i),
+        y: tax_vals,
+        z: e,
+        name: selected[i].label,
+        line: { color, width: 2 },
+        marker: { color, size: single_taxon ? 8 : 4 }
       }
-    }))
+    })
     const tax_cats = outer_matrix_index.slice(
       outer_matrix_index.indexOf('gap_2') + 1,
       outer_matrix_index.indexOf('gap_3')
