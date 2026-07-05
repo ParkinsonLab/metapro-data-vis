@@ -58,22 +58,20 @@ def _ensure_bridge_ec(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute(
         """
         CREATE TEMP TABLE bridge_ec_long AS
-        SELECT DISTINCT
-            ec_normalized,
-            'superpathway_label' AS filter_level,
-            CASE
-                WHEN ec_normalized = '0.0.0.0' THEN 'Unmapped EC'
-                ELSE COALESCE(superpathway_name, ec_normalized)
-            END AS filter_name
-        FROM bridge_ec
-        UNION ALL
-        SELECT DISTINCT ec_normalized, 'pathway', pathway_name
-        FROM bridge_ec
-        WHERE pathway_name IS NOT NULL
-        UNION ALL
-        SELECT DISTINCT ec_normalized, 'superpathway', superpathway_name
-        FROM bridge_ec
-        WHERE superpathway_name IS NOT NULL
+        SELECT DISTINCT ec_normalized, filter_level, filter_name
+        FROM (
+            SELECT
+                ec_normalized,
+                CASE
+                    WHEN ec_normalized = '0.0.0.0' THEN 'Unmapped EC'
+                    ELSE COALESCE(superpathway_name, ec_normalized)
+                END AS superpathway_label,
+                pathway_name AS pathway,
+                superpathway_name AS superpathway
+            FROM bridge_ec
+        )
+        UNPIVOT (filter_name FOR filter_level IN (superpathway_label, pathway, superpathway))
+        WHERE filter_name IS NOT NULL
         """
     )
     conn.execute(
