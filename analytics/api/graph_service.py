@@ -31,9 +31,12 @@ def _sql_in_list(values: tuple[str, ...]) -> str:
     return ", ".join(f"'{v}'" for v in values)
 
 
-def _lineage_order_by_sql() -> str:
-    parts = [f"COALESCE(w.{rank}, '')" for rank in TAX_RANK_ORDER]
-    parts.append("display_name")
+def _lineage_order_by_sql(*, table: str | None = None) -> str:
+    if table is None:
+        parts = list(TAX_RANK_ORDER) + ["display_name"]
+        return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in parts)
+    parts = [f"COALESCE({table}.{rank}, '')" for rank in TAX_RANK_ORDER]
+    parts.append(f"{table}.display_name")
     return ", ".join(parts)
 
 
@@ -115,7 +118,7 @@ def _ann_exists_clause(ann_filter: dict[str, str] | None, ann_level: str) -> tup
     )
 
 
-def _taxon_exists_predicate(taxon_filter: dict[str, str] | None) -> tuple[str, list]:
+def _taxon_exists_clause(taxon_filter: dict[str, str] | None) -> tuple[str, list]:
     if taxon_filter is None:
         return "TRUE", []
     return (
@@ -133,17 +136,20 @@ def _taxon_exists_predicate(taxon_filter: dict[str, str] | None) -> tuple[str, l
     )
 
 
-def _fetch_triples(
+def _materialize_filtered_triples(
     conn: duckdb.DuckDBPyConnection,
     *,
     ann_filter: dict[str, str] | None,
     taxon_filter: dict[str, str] | None,
     ann_level: str,
-) -> list[tuple[str, int, float]]:
+) -> None:
+    """Like chord's filtered_rollup_rows — one temp table for downstream SQL joins."""
+    _ensure_bridge_ec(conn)
     ann_clause, ann_params = _ann_exists_clause(ann_filter, ann_level)
-    tax_clause, tax_params = _taxon_exists_predicate(taxon_filter)
-    rows = conn.execute(
+    tax_clause, tax_params = _taxon_exists_clause(taxon_filter)
+    conn.execute(
         f"""
+        CREATE OR REPLACE TEMP TABLE filtered_triples AS
         SELECT r.ec_normalized, r.source_tax_id, r.value
         FROM int_rpkm_by_ec_tax r
         WHERE r.value > 0
@@ -151,6 +157,24 @@ def _fetch_triples(
           AND ({tax_clause})
         """,
         ann_params + tax_params,
+    )
+
+
+def _fetch_triples(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    ann_filter: dict[str, str] | None,
+    taxon_filter: dict[str, str] | None,
+    ann_level: str,
+) -> list[tuple[str, int, float]]:
+    _materialize_filtered_triples(
+        conn,
+        ann_filter=ann_filter,
+        taxon_filter=taxon_filter,
+        ann_level=ann_level,
+    )
+    rows = conn.execute(
+        "SELECT ec_normalized, source_tax_id, value FROM filtered_triples"
     ).fetchall()
     return [(str(ec), int(tax_id), float(value)) for ec, tax_id, value in rows]
 
@@ -163,23 +187,19 @@ def _ann_category(superpathway_name: str | None, pathway_name: str | None, ann_l
 
 def _fetch_ec_metadata(
     conn: duckdb.DuckDBPyConnection,
-    ec_keys: list[str],
     *,
     ann_level: str,
 ) -> list[dict]:
-    if not ec_keys:
-        return []
     _ensure_bridge_ec(conn)
-
-    placeholders = ", ".join("?" for _ in ec_keys)
     rows = conn.execute(
-        f"""
-        SELECT ec_normalized, superpathway_name, pathway_name
-        FROM bridge_ec_dedup
-        WHERE ec_normalized IN ({placeholders})
-        ORDER BY superpathway_name, pathway_name, ec_normalized
-        """,
-        ec_keys,
+        """
+        SELECT b.ec_normalized, b.superpathway_name, b.pathway_name
+        FROM (
+            SELECT DISTINCT ec_normalized FROM filtered_triples
+        ) t
+        JOIN bridge_ec_dedup b ON b.ec_normalized = t.ec_normalized
+        ORDER BY b.superpathway_name, b.pathway_name, b.ec_normalized
+        """
     ).fetchall()
     return [
         {
@@ -192,29 +212,22 @@ def _fetch_ec_metadata(
     ]
 
 
-def _fetch_tax_metadata(
-    conn: duckdb.DuckDBPyConnection,
-    tax_ids: list[int],
-    *,
-    tax_level: str,
-) -> list[dict]:
-    if not tax_ids:
-        return []
+def _materialize_tax_metadata(conn: duckdb.DuckDBPyConnection, *, tax_level: str) -> None:
     if not BRIDGE_TAX_PATH.exists():
         raise FileNotFoundError(f"reference parquet missing: {BRIDGE_TAX_PATH}")
     if not NAMES_PATH.exists():
         raise FileNotFoundError(f"reference parquet missing: {NAMES_PATH}")
 
     rank_in = _sql_in_list(TAX_RANK_ORDER)
-    pivot_cols = ", ".join(f"w.{rank}" for rank in TAX_RANK_ORDER)
+    lineage_cols = ", ".join(f"COALESCE(w.{rank}, '') AS {rank}" for rank in TAX_RANK_ORDER)
     order_by = _lineage_order_by_sql()
-    placeholders = ", ".join("?" for _ in tax_ids)
     bridge = BRIDGE_TAX_PATH.as_posix()
     names = NAMES_PATH.as_posix()
-    rows = conn.execute(
+    conn.execute(
         f"""
+        CREATE OR REPLACE TEMP TABLE graph_tax_metadata AS
         WITH ids AS (
-            SELECT unnest(ARRAY[{placeholders}])::BIGINT AS source_tax_id
+            SELECT DISTINCT source_tax_id FROM filtered_triples
         ),
         bridge_gated AS (
             SELECT
@@ -237,23 +250,34 @@ def _fetch_tax_metadata(
         )
         SELECT
             d.source_tax_id,
-            {pivot_cols},
-            COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR)) AS display_name
+            {lineage_cols},
+            COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR)) AS display_name,
+            COALESCE(w.{tax_level}, '') AS tax_map_value
         FROM ids d
         LEFT JOIN bridge_wide w USING (source_tax_id)
         LEFT JOIN read_parquet('{names}') n ON d.source_tax_id = n.tax_id
         ORDER BY {order_by}
-        """,
-        tax_ids,
-    ).fetchall()
+        """
+    )
 
+
+def _rank_select_list() -> str:
+    return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in TAX_RANK_ORDER)
+
+
+def _read_tax_metadata(conn: duckdb.DuckDBPyConnection) -> list[dict]:
+    rows = conn.execute(
+        f"""
+        SELECT source_tax_id, {_rank_select_list()}, display_name, tax_map_value
+        FROM graph_tax_metadata
+        """
+    ).fetchall()
     out: list[dict] = []
     for row in rows:
         source_tax_id = int(row[0])
         rank_values = row[1 : 1 + len(TAX_RANK_ORDER)]
         display_name = row[1 + len(TAX_RANK_ORDER)]
-        tax_map_idx = TAX_RANK_ORDER.index(tax_level)
-        tax_map_value = rank_values[tax_map_idx] or ""
+        tax_map_value = row[2 + len(TAX_RANK_ORDER)] or ""
         item = {
             "source_tax_id": source_tax_id,
             "display_name": display_name,
@@ -263,6 +287,17 @@ def _fetch_tax_metadata(
             item[rank] = value or ""
         out.append(item)
     return out
+
+
+def _fetch_labeled_triples(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, str, float]]:
+    rows = conn.execute(
+        """
+        SELECT t.ec_normalized, m.display_name, t.value
+        FROM filtered_triples t
+        INNER JOIN graph_tax_metadata m USING (source_tax_id)
+        """
+    ).fetchall()
+    return [(str(ec), str(display_name), float(value)) for ec, display_name, value in rows]
 
 
 def build_graph_from_duckdb(
@@ -294,25 +329,16 @@ def build_graph_from_duckdb(
                 f"int_rpkm_by_ec_tax not materialized for sample: {sample_id}"
             )
 
-        _ensure_bridge_ec(conn)
-        triples_raw = _fetch_triples(
+        _materialize_filtered_triples(
             conn,
             ann_filter=ann_filter,
             taxon_filter=taxon_filter,
             ann_level=ann_level,
         )
-        ec_keys = sorted({ec for ec, _, _ in triples_raw})
-        tax_ids = sorted({tax_id for _, tax_id, _ in triples_raw})
-
-        ec_rows = _fetch_ec_metadata(conn, ec_keys, ann_level=ann_level)
-        tax_rows = _fetch_tax_metadata(conn, tax_ids, tax_level=tax_level)
-        display_by_tax_id = {row["source_tax_id"]: row["display_name"] for row in tax_rows}
-
-        triples = [
-            (ec, display_by_tax_id[tax_id], value)
-            for ec, tax_id, value in triples_raw
-            if tax_id in display_by_tax_id
-        ]
+        ec_rows = _fetch_ec_metadata(conn, ann_level=ann_level)
+        _materialize_tax_metadata(conn, tax_level=tax_level)
+        tax_rows = _read_tax_metadata(conn)
+        triples = _fetch_labeled_triples(conn)
 
         return build_graph_matrix(
             triples=triples,
