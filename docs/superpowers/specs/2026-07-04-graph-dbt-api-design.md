@@ -194,7 +194,10 @@ SELECT
     d.source_tax_id,
     w.kingdom, w.phylum, w.class, w."order", w.family, w.genus, w.species,
     COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR)) AS display_name,
-    COALESCE(w.<tax_level>, '') AS tax_map_value
+    COALESCE(
+        NULLIF(w.<tax_level>, ''),
+        COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR))
+    ) AS tax_map_value
 FROM ids d
 LEFT JOIN bridge_wide w USING (source_tax_id)
 LEFT JOIN names n ON n.tax_id = d.source_tax_id
@@ -213,7 +216,7 @@ Labeled triples for the matrix join `filtered_triples` to `graph_tax_metadata` o
 
 `tax_map: Record<display_name, category_at_tax_level>` maps each taxon column label to its category at `tax_level`.
 
-Built from the **tax metadata query** (§5.2): `display_name → w.<tax_level>` using the lineage PIVOT column at the active rank. Used by `Graph.tsx` for y-axis background surface grouping.
+Built from the **tax metadata query** (§5.2): `display_name →` PIVOT column at `tax_level`, falling back to `display_name` (names parquet or `source_tax_id` string) when the rank label is missing — so unknown IDs like `999999999` appear in `outer_matrix_index` instead of `""`.
 
 ### 5.4 Sort keys
 

@@ -64,7 +64,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Clavibacter sp. OL-4
   - Bacillus sp. b107A(2010)
   - Mammaliicoccus sciuri
@@ -75,7 +75,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Clavibacter sp. OL-4
     Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
     Mammaliicoccus sciuri: Mammaliicoccus sciuri
@@ -148,7 +148,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Clavibacter sp. OL-4
   - Bacillus sp. b107A(2010)
   - Mammaliicoccus sciuri
@@ -159,7 +159,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Clavibacter sp. OL-4
     Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
     Mammaliicoccus sciuri: Mammaliicoccus sciuri
@@ -232,7 +232,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Clavibacter sp. OL-4
   - Bacillus sp. b107A(2010)
   - Mammaliicoccus sciuri
@@ -243,7 +243,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Clavibacter sp. OL-4
     Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
     Mammaliicoccus sciuri: Mammaliicoccus sciuri
@@ -316,7 +316,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Clavibacter
   - Bacillus
   - Mammaliicoccus
@@ -326,7 +326,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Clavibacter
     Bacillus sp. b107A(2010): Bacillus
     Mammaliicoccus sciuri: Mammaliicoccus
@@ -399,7 +399,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Clavibacter
   - Bacillus
   - Mammaliicoccus
@@ -409,7 +409,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Clavibacter
     Bacillus sp. b107A(2010): Bacillus
     Mammaliicoccus sciuri: Mammaliicoccus
@@ -482,7 +482,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Clavibacter
   - Bacillus
   - Mammaliicoccus
@@ -492,7 +492,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Clavibacter
     Bacillus sp. b107A(2010): Bacillus
     Mammaliicoccus sciuri: Mammaliicoccus
@@ -565,7 +565,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Microbacteriaceae
   - Bacillaceae
   - Staphylococcaceae
@@ -574,7 +574,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Microbacteriaceae
     Bacillus sp. b107A(2010): Bacillaceae
     Mammaliicoccus sciuri: Staphylococcaceae
@@ -647,7 +647,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Microbacteriaceae
   - Bacillaceae
   - Staphylococcaceae
@@ -656,7 +656,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Microbacteriaceae
     Bacillus sp. b107A(2010): Bacillaceae
     Mammaliicoccus sciuri: Staphylococcaceae
@@ -729,7 +729,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Microbacteriaceae
   - Bacillaceae
   - Staphylococcaceae
@@ -738,7 +738,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Microbacteriaceae
     Bacillus sp. b107A(2010): Bacillaceae
     Mammaliicoccus sciuri: Staphylococcaceae
@@ -811,7 +811,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Micrococcales
   - Caryophanales
   - Lactobacillales
@@ -819,7 +819,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Micrococcales
     Bacillus sp. b107A(2010): Caryophanales
     Mammaliicoccus sciuri: Caryophanales
@@ -892,7 +892,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Micrococcales
   - Caryophanales
   - Lactobacillales
@@ -900,7 +900,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Micrococcales
     Bacillus sp. b107A(2010): Caryophanales
     Mammaliicoccus sciuri: Caryophanales
@@ -973,7 +973,7 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Micrococcales
   - Caryophanales
   - Lactobacillales
@@ -981,7 +981,7 @@ graph_unfiltered:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Micrococcales
     Bacillus sp. b107A(2010): Caryophanales
     Mammaliicoccus sciuri: Caryophanales
@@ -1054,14 +1054,14 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetes
   - Bacilli
   - Negativicutes
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetes
     Bacillus sp. b107A(2010): Bacilli
     Mammaliicoccus sciuri: Bacilli
@@ -1134,14 +1134,14 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetes
   - Bacilli
   - Negativicutes
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetes
     Bacillus sp. b107A(2010): Bacilli
     Mammaliicoccus sciuri: Bacilli
@@ -1214,14 +1214,14 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetes
   - Bacilli
   - Negativicutes
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetes
     Bacillus sp. b107A(2010): Bacilli
     Mammaliicoccus sciuri: Bacilli
@@ -1294,13 +1294,13 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetota
   - Bacillota
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetota
     Bacillus sp. b107A(2010): Bacillota
     Mammaliicoccus sciuri: Bacillota
@@ -1373,13 +1373,13 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetota
   - Bacillota
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetota
     Bacillus sp. b107A(2010): Bacillota
     Mammaliicoccus sciuri: Bacillota
@@ -1452,13 +1452,13 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetota
   - Bacillota
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetota
     Bacillus sp. b107A(2010): Bacillota
     Mammaliicoccus sciuri: Bacillota
@@ -1531,12 +1531,12 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Bacillati
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Bacillati
     Bacillus sp. b107A(2010): Bacillati
     Mammaliicoccus sciuri: Bacillati
@@ -1609,12 +1609,12 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Bacillati
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Bacillati
     Bacillus sp. b107A(2010): Bacillati
     Mammaliicoccus sciuri: Bacillati
@@ -1687,12 +1687,12 @@ graph_unfiltered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Bacillati
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Bacillati
     Bacillus sp. b107A(2010): Bacillati
     Mammaliicoccus sciuri: Bacillati
@@ -1797,13 +1797,13 @@ graph_filtered:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetota
   - Bacillota
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetota
     Bacillus sp. b107A(2010): Bacillota
     Mammaliicoccus sciuri: Bacillota
@@ -1878,13 +1878,13 @@ edge_cases:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetota
   - Bacillota
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetota
     Bacillus sp. b107A(2010): Bacillota
     Mammaliicoccus sciuri: Bacillota
@@ -1957,13 +1957,13 @@ edge_cases:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Actinomycetota
   - Bacillota
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Actinomycetota
     Bacillus sp. b107A(2010): Bacillota
     Mammaliicoccus sciuri: Bacillota
@@ -2036,7 +2036,7 @@ edge_cases:
   expected_outer_index:
   - gap_1
   - gap_2
-  - ''
+  - '999999999'
   - Clavibacter sp. OL-4
   - Bacillus sp. b107A(2010)
   - Mammaliicoccus sciuri
@@ -2047,7 +2047,7 @@ edge_cases:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': ''
+    '999999999': '999999999'
     Clavibacter sp. OL-4: Clavibacter sp. OL-4
     Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
     Mammaliicoccus sciuri: Mammaliicoccus sciuri

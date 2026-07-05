@@ -185,7 +185,10 @@ def _materialize_tax_metadata(conn: duckdb.DuckDBPyConnection, *, tax_level: str
             d.source_tax_id,
             {lineage_cols},
             COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR)) AS display_name,
-            COALESCE(w.{tax_level}, '') AS tax_map_value
+            COALESCE(
+                NULLIF(w.{tax_level}, ''),
+                COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR))
+            ) AS tax_map_value
         FROM ids d
         LEFT JOIN bridge_wide w USING (source_tax_id)
         LEFT JOIN read_parquet('{names}') n ON d.source_tax_id = n.tax_id
