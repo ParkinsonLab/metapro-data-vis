@@ -5,6 +5,7 @@ from pathlib import Path
 import duckdb
 
 from api.filters import (
+    TAX_RANK_ORDER,
     normalise_ann_filter,
     normalise_taxon_filter,
     sample_id_from_names,
@@ -21,23 +22,6 @@ BRIDGE_TAX_PATH = REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet"
 REPO_ROOT = ANALYTICS_DIR.parent
 NAMES_PATH = REPO_ROOT / "resources/db/parquet/names.parquet"
 
-TAX_RANKS = (
-    "kingdom",
-    "phylum",
-    "class",
-    "order",
-    "family",
-    "genus",
-    "species",
-)
-
-BRIDGE_EC_LABEL_SQL = (
-    "CASE "
-    "WHEN b.ec_normalized = '0.0.0.0' THEN 'Unmapped EC' "
-    "ELSE COALESCE(b.superpathway_name, b.ec_normalized) "
-    "END"
-)
-
 
 def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
@@ -47,21 +31,88 @@ def _sql_in_list(values: tuple[str, ...]) -> str:
     return ", ".join(f"'{v}'" for v in values)
 
 
-def _ann_exists_predicate(
-    ann_filter: dict[str, str] | None, ann_level: str
-) -> tuple[str, list]:
-    if ann_filter is None:
-        return "TRUE", []
+def _lineage_order_by_sql() -> str:
+    parts = [f"COALESCE(w.{rank}, '')" for rank in TAX_RANK_ORDER]
+    parts.append("display_name")
+    return ", ".join(parts)
+
+
+def _ann_filter_key(ann_filter: dict[str, str], ann_level: str) -> tuple[str, str]:
     level, name = ann_filter["level"], ann_filter["name"]
     if ann_level == "superpathway":
-        return f"{BRIDGE_EC_LABEL_SQL} = ?", [name]
+        return "superpathway_label", name
     if ann_level == "pathway_node":
         if level == "pathway":
-            return "b.pathway_name = ?", [name]
-        return "b.superpathway_name = ?", [name]
+            return "pathway", name
+        return "superpathway", name
     if level == "pathway":
-        return "b.pathway_name = ?", [name]
-    return "b.superpathway_name = ?", [name]
+        return "pathway", name
+    return "superpathway", name
+
+
+def _ensure_bridge_ec(conn: duckdb.DuckDBPyConnection) -> None:
+    if conn.execute(
+        "SELECT 1 FROM duckdb_tables() WHERE table_name = 'bridge_ec_long'"
+    ).fetchone():
+        return
+    if not BRIDGE_EC_PATH.exists():
+        raise FileNotFoundError(f"reference parquet missing: {BRIDGE_EC_PATH}")
+
+    path = BRIDGE_EC_PATH.as_posix()
+    conn.execute(f"CREATE TEMP TABLE bridge_ec AS SELECT * FROM read_parquet('{path}')")
+    conn.execute(
+        """
+        CREATE TEMP TABLE bridge_ec_long AS
+        SELECT DISTINCT
+            ec_normalized,
+            'superpathway_label' AS filter_level,
+            CASE
+                WHEN ec_normalized = '0.0.0.0' THEN 'Unmapped EC'
+                ELSE COALESCE(superpathway_name, ec_normalized)
+            END AS filter_name
+        FROM bridge_ec
+        UNION ALL
+        SELECT DISTINCT ec_normalized, 'pathway', pathway_name
+        FROM bridge_ec
+        WHERE pathway_name IS NOT NULL
+        UNION ALL
+        SELECT DISTINCT ec_normalized, 'superpathway', superpathway_name
+        FROM bridge_ec
+        WHERE superpathway_name IS NOT NULL
+        """
+    )
+    conn.execute(
+        """
+        CREATE TEMP TABLE bridge_ec_dedup AS
+        SELECT ec_normalized, superpathway_name, pathway_name
+        FROM (
+            SELECT
+                ec_normalized,
+                superpathway_name,
+                pathway_name,
+                ROW_NUMBER() OVER (
+                    PARTITION BY ec_normalized
+                    ORDER BY superpathway_name, pathway_name
+                ) AS rn
+            FROM bridge_ec
+        )
+        WHERE rn = 1
+        """
+    )
+
+
+def _ann_exists_clause(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[str, list]:
+    if ann_filter is None:
+        return "TRUE", []
+    filter_level, filter_name = _ann_filter_key(ann_filter, ann_level)
+    return (
+        "EXISTS ("
+        "  SELECT 1 FROM bridge_ec_long b"
+        "  WHERE b.ec_normalized = r.ec_normalized"
+        "    AND b.filter_level = ? AND b.filter_name = ?"
+        ")",
+        [filter_level, filter_name],
+    )
 
 
 def _taxon_exists_predicate(taxon_filter: dict[str, str] | None) -> tuple[str, list]:
@@ -79,20 +130,6 @@ def _taxon_exists_predicate(taxon_filter: dict[str, str] | None) -> tuple[str, l
             taxon_filter["level"],
             taxon_filter["name"],
         ],
-    )
-
-
-def _ann_exists_clause(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[str, list]:
-    ann_sql, ann_params = _ann_exists_predicate(ann_filter, ann_level)
-    if ann_sql == "TRUE":
-        return "TRUE", []
-    return (
-        "EXISTS ("
-        "  SELECT 1 FROM read_parquet(?) b"
-        "  WHERE b.ec_normalized = r.ec_normalized"
-        f"    AND ({ann_sql})"
-        ")",
-        [BRIDGE_EC_PATH.as_posix(), *ann_params],
     )
 
 
@@ -132,26 +169,14 @@ def _fetch_ec_metadata(
 ) -> list[dict]:
     if not ec_keys:
         return []
-    if not BRIDGE_EC_PATH.exists():
-        raise FileNotFoundError(f"reference parquet missing: {BRIDGE_EC_PATH}")
+    _ensure_bridge_ec(conn)
 
     placeholders = ", ".join("?" for _ in ec_keys)
     rows = conn.execute(
         f"""
         SELECT ec_normalized, superpathway_name, pathway_name
-        FROM (
-            SELECT
-                b.ec_normalized,
-                b.superpathway_name,
-                b.pathway_name,
-                ROW_NUMBER() OVER (
-                    PARTITION BY b.ec_normalized
-                    ORDER BY b.superpathway_name, b.pathway_name
-                ) AS rn
-            FROM read_parquet('{BRIDGE_EC_PATH.as_posix()}') b
-            WHERE b.ec_normalized IN ({placeholders})
-        )
-        WHERE rn = 1
+        FROM bridge_ec_dedup
+        WHERE ec_normalized IN ({placeholders})
         ORDER BY superpathway_name, pathway_name, ec_normalized
         """,
         ec_keys,
@@ -180,8 +205,9 @@ def _fetch_tax_metadata(
     if not NAMES_PATH.exists():
         raise FileNotFoundError(f"reference parquet missing: {NAMES_PATH}")
 
-    rank_in = _sql_in_list(TAX_RANKS)
-    pivot_cols = ", ".join(f"w.{rank}" for rank in TAX_RANKS)
+    rank_in = _sql_in_list(TAX_RANK_ORDER)
+    pivot_cols = ", ".join(f"w.{rank}" for rank in TAX_RANK_ORDER)
+    order_by = _lineage_order_by_sql()
     placeholders = ", ".join("?" for _ in tax_ids)
     bridge = BRIDGE_TAX_PATH.as_posix()
     names = NAMES_PATH.as_posix()
@@ -216,7 +242,7 @@ def _fetch_tax_metadata(
         FROM ids d
         LEFT JOIN bridge_wide w USING (source_tax_id)
         LEFT JOIN read_parquet('{names}') n ON d.source_tax_id = n.tax_id
-        ORDER BY display_name
+        ORDER BY {order_by}
         """,
         tax_ids,
     ).fetchall()
@@ -224,16 +250,16 @@ def _fetch_tax_metadata(
     out: list[dict] = []
     for row in rows:
         source_tax_id = int(row[0])
-        rank_values = row[1 : 1 + len(TAX_RANKS)]
-        display_name = row[1 + len(TAX_RANKS)]
-        tax_map_idx = TAX_RANKS.index(tax_level)
+        rank_values = row[1 : 1 + len(TAX_RANK_ORDER)]
+        display_name = row[1 + len(TAX_RANK_ORDER)]
+        tax_map_idx = TAX_RANK_ORDER.index(tax_level)
         tax_map_value = rank_values[tax_map_idx] or ""
         item = {
             "source_tax_id": source_tax_id,
             "display_name": display_name,
             "tax_map_value": tax_map_value,
         }
-        for rank, value in zip(TAX_RANKS, rank_values):
+        for rank, value in zip(TAX_RANK_ORDER, rank_values):
             item[rank] = value or ""
         out.append(item)
     return out
@@ -268,6 +294,7 @@ def build_graph_from_duckdb(
                 f"int_rpkm_by_ec_tax not materialized for sample: {sample_id}"
             )
 
+        _ensure_bridge_ec(conn)
         triples_raw = _fetch_triples(
             conn,
             ann_filter=ann_filter,

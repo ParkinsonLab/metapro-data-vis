@@ -4,6 +4,7 @@ BASE_LUM = 50
 
 
 def _to_i32(n: int) -> int:
+    """Emulate JS ``hash |= 0`` (signed 32-bit wrap) for map_lum parity with utils.ts."""
     n = n & 0xFFFFFFFF
     return n - 0x100000000 if n >= 0x80000000 else n
 

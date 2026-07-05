@@ -152,10 +152,11 @@ def test_outer_matrix_index_has_gap_structure_and_ann_tax_categories():
 
 def test_ecs_ordered_by_pathway_tuple_when_shared_ann_category():
     triples = [("1.1.1.1", "TaxA", 10.0), ("2.2.2.2", "TaxA", 5.0)]
+    # ec_rows pre-ordered as returned by graph_service metadata query
     ec_rows = [
-        {"ec_normalized": "2.2.2.2", "superpathway_name": "Sp", "pathway_name": "PwB",
-         "ann_category": "Sp"},
         {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "PwA",
+         "ann_category": "Sp"},
+        {"ec_normalized": "2.2.2.2", "superpathway_name": "Sp", "pathway_name": "PwB",
          "ann_category": "Sp"},
     ]
     tax_rows = [
@@ -181,11 +182,11 @@ def test_tax_level_affects_outer_tax_category_ordering():
          "ann_category": "Sp"},
     ]
     tax_rows_phylum = [
-        {"display_name": "TaxA", "tax_map_value": "PhylumZ",
-         "kingdom": "Bacteria", "phylum": "PhylumZ", "class": "ClsZ", "order": "",
-         "family": "", "genus": "", "species": ""},
         {"display_name": "TaxB", "tax_map_value": "PhylumA",
          "kingdom": "Archaea", "phylum": "PhylumA", "class": "ClsA", "order": "",
+         "family": "", "genus": "", "species": ""},
+        {"display_name": "TaxA", "tax_map_value": "PhylumZ",
+         "kingdom": "Bacteria", "phylum": "PhylumZ", "class": "ClsZ", "order": "",
          "family": "", "genus": "", "species": ""},
     ]
     out_phylum = build_graph_matrix(
@@ -201,11 +202,11 @@ def test_tax_level_affects_outer_tax_category_ordering():
     assert phylum_cats.index("PhylumA") < phylum_cats.index("PhylumZ")
 
     tax_rows_class = [
-        {"display_name": "TaxA", "tax_map_value": "ClsZ",
-         "kingdom": "Bacteria", "phylum": "PhylumZ", "class": "ClsZ", "order": "",
-         "family": "", "genus": "", "species": ""},
         {"display_name": "TaxB", "tax_map_value": "ClsA",
          "kingdom": "Archaea", "phylum": "PhylumA", "class": "ClsA", "order": "",
+         "family": "", "genus": "", "species": ""},
+        {"display_name": "TaxA", "tax_map_value": "ClsZ",
+         "kingdom": "Bacteria", "phylum": "PhylumZ", "class": "ClsZ", "order": "",
          "family": "", "genus": "", "species": ""},
     ]
     out_class = build_graph_matrix(
