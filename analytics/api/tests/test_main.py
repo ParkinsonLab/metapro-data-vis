@@ -127,8 +127,10 @@ def test_graph_endpoint_envelope(fake_rpkm_db):
         json={
             "names": ["fake_rpkm.tsv"],
             "tax_level": "phylum",
-            "ann_level": "superpathway",
-            "selected_ann_cat": {},
+            "selected_ann_cat": {
+                "level": "pathway",
+                "name": "Oxidative phosphorylation",
+            },
             "selected_taxon": {},
         },
     )
