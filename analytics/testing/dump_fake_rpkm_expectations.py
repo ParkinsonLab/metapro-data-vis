@@ -9,11 +9,13 @@ import yaml
 
 from api.chord_service import build_chord_from_duckdb
 from api.filters import normalise_ann_filter, normalise_taxon_filter
+from api.graph_service import build_graph_from_duckdb
 from api.krona_service import build_krona_from_duckdb
 from api.overview_service import build_overview_from_duckdb
 from testing.fake_rpkm_fixture import (
     ANN_LEVELS,
     CHORD_YAML,
+    GRAPH_YAML,
     KRONA_YAML,
     OVERVIEW_YAML,
     PIPELINE_YAML,
@@ -22,6 +24,10 @@ from testing.fake_rpkm_fixture import (
     ensure_pipeline_built,
     extract_chord_index,
     extract_chord_pairs,
+    extract_graph_inner_index,
+    extract_graph_outer_index,
+    extract_graph_pairs,
+    extract_graph_tax_map,
 )
 
 FOCAL_EC = "1.6.5.9"
@@ -102,6 +108,67 @@ def dump_chord_case(tax_level: str, ann_level: str, **filters) -> dict:
     return case
 
 
+def dump_graph_case(tax_level: str, ann_level: str, **filters) -> dict:
+    out = build_graph_from_duckdb(
+        names=[f"{SAMPLE_ID}.tsv"],
+        tax_level=tax_level,
+        ann_level=ann_level,
+        selected_ann_cat=filters.get("selected_ann_cat", {}),
+        selected_taxon=filters.get("selected_taxon", {}),
+    )
+    pairs = extract_graph_pairs(out)
+    case = {
+        "case_id": filters.get("case_id", f"{tax_level}_{ann_level}"),
+        "tax_level": tax_level,
+        "ann_level": ann_level,
+        "pairs": [[ec, tax, v] for ec, tax, v in pairs],
+        "expected_inner_index": extract_graph_inner_index(out),
+        "expected_outer_index": extract_graph_outer_index(out),
+        "tax_map": extract_graph_tax_map(out),
+    }
+    for key in ("selected_ann_cat", "selected_taxon"):
+        if key in filters:
+            case[key] = filters[key]
+    return case
+
+
+def dump_graph_expectations(focal_species_name: str) -> None:
+    ensure_pipeline_built()
+    unfiltered = [
+        dump_graph_case(rank, ann, case_id=f"{rank}_{ann}")
+        for rank in RANKS
+        for ann in ANN_LEVELS
+    ]
+    filtered = [
+        dump_graph_case(
+            "genus",
+            "superpathway",
+            case_id="taxon_filter_focal_species",
+            selected_taxon={"level": "species", "name": focal_species_name},
+        ),
+        dump_graph_case(
+            "phylum",
+            "superpathway",
+            case_id="ann_filter_superpathway",
+            selected_ann_cat=FOCAL_SUPERPATHWAY,
+        ),
+    ]
+    edge_cases = [
+        dump_graph_case("phylum", "superpathway", case_id="unmapped_ec_snapshot"),
+        dump_graph_case("phylum", "superpathway", case_id="unclassified_tax_snapshot"),
+        dump_graph_case("species", "superpathway", case_id="fallback_species_request"),
+    ]
+    graph_doc = {
+        "sample_id": SAMPLE_ID,
+        "graph_unfiltered": unfiltered,
+        "graph_filtered": filtered,
+        "edge_cases": edge_cases,
+    }
+    GRAPH_YAML.parent.mkdir(parents=True, exist_ok=True)
+    GRAPH_YAML.write_text(yaml.safe_dump(graph_doc, sort_keys=False), encoding="utf-8")
+    print(f"Wrote {GRAPH_YAML}")
+
+
 def dump_krona_expectations() -> None:
     ensure_pipeline_built()
     krona_doc = {
@@ -122,11 +189,20 @@ def main() -> None:
         help="Species label for taxon-filter edge case",
     )
     parser.add_argument(
+        "--graph",
+        action="store_true",
+        help="Write graph_expectations.yaml only",
+    )
+    parser.add_argument(
         "--krona",
         action="store_true",
         help="Write krona_expectations.yaml only",
     )
     args = parser.parse_args()
+
+    if args.graph:
+        dump_graph_expectations(args.focal_species_name)
+        return
 
     if args.krona:
         dump_krona_expectations()
@@ -199,15 +275,45 @@ def main() -> None:
         },
     }
 
+    graph_doc = {
+        "sample_id": SAMPLE_ID,
+        "graph_unfiltered": [
+            dump_graph_case(rank, ann, case_id=f"{rank}_{ann}")
+            for rank in RANKS
+            for ann in ANN_LEVELS
+        ],
+        "graph_filtered": [
+            dump_graph_case(
+                "genus",
+                "superpathway",
+                case_id="taxon_filter_focal_species",
+                selected_taxon={"level": "species", "name": args.focal_species_name},
+            ),
+            dump_graph_case(
+                "phylum",
+                "superpathway",
+                case_id="ann_filter_superpathway",
+                selected_ann_cat=FOCAL_SUPERPATHWAY,
+            ),
+        ],
+        "edge_cases": [
+            dump_graph_case("phylum", "superpathway", case_id="unmapped_ec_snapshot"),
+            dump_graph_case("phylum", "superpathway", case_id="unclassified_tax_snapshot"),
+            dump_graph_case("species", "superpathway", case_id="fallback_species_request"),
+        ],
+    }
+
     PIPELINE_YAML.write_text(yaml.safe_dump(pipeline_doc, sort_keys=False), encoding="utf-8")
     CHORD_YAML.parent.mkdir(parents=True, exist_ok=True)
     CHORD_YAML.write_text(yaml.safe_dump(chord_doc, sort_keys=False), encoding="utf-8")
     OVERVIEW_YAML.write_text(
         yaml.safe_dump(overview_doc, sort_keys=False), encoding="utf-8"
     )
+    GRAPH_YAML.write_text(yaml.safe_dump(graph_doc, sort_keys=False), encoding="utf-8")
     print(f"Wrote {PIPELINE_YAML}")
     print(f"Wrote {CHORD_YAML}")
     print(f"Wrote {OVERVIEW_YAML}")
+    print(f"Wrote {GRAPH_YAML}")
 
 
 if __name__ == "__main__":

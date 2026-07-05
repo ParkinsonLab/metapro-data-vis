@@ -1,0 +1,2001 @@
+sample_id: fake_rpkm
+graph_unfiltered:
+- case_id: species_pathway_node
+  tax_level: species
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Clavibacter sp. OL-4
+    Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
+    Mammaliicoccus sciuri: Mammaliicoccus sciuri
+    Staphylococcus aureus: Staphylococcus aureus
+    Staphylococcus epidermidis: Staphylococcus epidermidis
+    Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
+    Pectinatus frisingensis: Pectinatus frisingensis
+    Bacteria: ''
+- case_id: species_pathway
+  tax_level: species
+  ann_level: pathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Clavibacter sp. OL-4
+    Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
+    Mammaliicoccus sciuri: Mammaliicoccus sciuri
+    Staphylococcus aureus: Staphylococcus aureus
+    Staphylococcus epidermidis: Staphylococcus epidermidis
+    Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
+    Pectinatus frisingensis: Pectinatus frisingensis
+    Bacteria: ''
+- case_id: species_superpathway
+  tax_level: species
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Clavibacter sp. OL-4
+    Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
+    Mammaliicoccus sciuri: Mammaliicoccus sciuri
+    Staphylococcus aureus: Staphylococcus aureus
+    Staphylococcus epidermidis: Staphylococcus epidermidis
+    Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
+    Pectinatus frisingensis: Pectinatus frisingensis
+    Bacteria: ''
+- case_id: genus_pathway_node
+  tax_level: genus
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Clavibacter
+  - Bacillus
+  - Mammaliicoccus
+  - Staphylococcus
+  - Lactobacillus
+  - Pectinatus
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Clavibacter
+    Bacillus sp. b107A(2010): Bacillus
+    Mammaliicoccus sciuri: Mammaliicoccus
+    Staphylococcus aureus: Staphylococcus
+    Staphylococcus epidermidis: Staphylococcus
+    Lactobacillus sp. 100-5: Lactobacillus
+    Pectinatus frisingensis: Pectinatus
+    Bacteria: ''
+- case_id: genus_pathway
+  tax_level: genus
+  ann_level: pathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Clavibacter
+  - Bacillus
+  - Mammaliicoccus
+  - Staphylococcus
+  - Lactobacillus
+  - Pectinatus
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Clavibacter
+    Bacillus sp. b107A(2010): Bacillus
+    Mammaliicoccus sciuri: Mammaliicoccus
+    Staphylococcus aureus: Staphylococcus
+    Staphylococcus epidermidis: Staphylococcus
+    Lactobacillus sp. 100-5: Lactobacillus
+    Pectinatus frisingensis: Pectinatus
+    Bacteria: ''
+- case_id: genus_superpathway
+  tax_level: genus
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Clavibacter
+  - Bacillus
+  - Mammaliicoccus
+  - Staphylococcus
+  - Lactobacillus
+  - Pectinatus
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Clavibacter
+    Bacillus sp. b107A(2010): Bacillus
+    Mammaliicoccus sciuri: Mammaliicoccus
+    Staphylococcus aureus: Staphylococcus
+    Staphylococcus epidermidis: Staphylococcus
+    Lactobacillus sp. 100-5: Lactobacillus
+    Pectinatus frisingensis: Pectinatus
+    Bacteria: ''
+- case_id: family_pathway_node
+  tax_level: family
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Microbacteriaceae
+  - Bacillaceae
+  - Staphylococcaceae
+  - Lactobacillaceae
+  - Selenomonadaceae
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Microbacteriaceae
+    Bacillus sp. b107A(2010): Bacillaceae
+    Mammaliicoccus sciuri: Staphylococcaceae
+    Staphylococcus aureus: Staphylococcaceae
+    Staphylococcus epidermidis: Staphylococcaceae
+    Lactobacillus sp. 100-5: Lactobacillaceae
+    Pectinatus frisingensis: Selenomonadaceae
+    Bacteria: ''
+- case_id: family_pathway
+  tax_level: family
+  ann_level: pathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Microbacteriaceae
+  - Bacillaceae
+  - Staphylococcaceae
+  - Lactobacillaceae
+  - Selenomonadaceae
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Microbacteriaceae
+    Bacillus sp. b107A(2010): Bacillaceae
+    Mammaliicoccus sciuri: Staphylococcaceae
+    Staphylococcus aureus: Staphylococcaceae
+    Staphylococcus epidermidis: Staphylococcaceae
+    Lactobacillus sp. 100-5: Lactobacillaceae
+    Pectinatus frisingensis: Selenomonadaceae
+    Bacteria: ''
+- case_id: family_superpathway
+  tax_level: family
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Microbacteriaceae
+  - Bacillaceae
+  - Staphylococcaceae
+  - Lactobacillaceae
+  - Selenomonadaceae
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Microbacteriaceae
+    Bacillus sp. b107A(2010): Bacillaceae
+    Mammaliicoccus sciuri: Staphylococcaceae
+    Staphylococcus aureus: Staphylococcaceae
+    Staphylococcus epidermidis: Staphylococcaceae
+    Lactobacillus sp. 100-5: Lactobacillaceae
+    Pectinatus frisingensis: Selenomonadaceae
+    Bacteria: ''
+- case_id: order_pathway_node
+  tax_level: order
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Micrococcales
+  - Caryophanales
+  - Lactobacillales
+  - Selenomonadales
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Micrococcales
+    Bacillus sp. b107A(2010): Caryophanales
+    Mammaliicoccus sciuri: Caryophanales
+    Staphylococcus aureus: Caryophanales
+    Staphylococcus epidermidis: Caryophanales
+    Lactobacillus sp. 100-5: Lactobacillales
+    Pectinatus frisingensis: Selenomonadales
+    Bacteria: ''
+- case_id: order_pathway
+  tax_level: order
+  ann_level: pathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Micrococcales
+  - Caryophanales
+  - Lactobacillales
+  - Selenomonadales
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Micrococcales
+    Bacillus sp. b107A(2010): Caryophanales
+    Mammaliicoccus sciuri: Caryophanales
+    Staphylococcus aureus: Caryophanales
+    Staphylococcus epidermidis: Caryophanales
+    Lactobacillus sp. 100-5: Lactobacillales
+    Pectinatus frisingensis: Selenomonadales
+    Bacteria: ''
+- case_id: order_superpathway
+  tax_level: order
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Micrococcales
+  - Caryophanales
+  - Lactobacillales
+  - Selenomonadales
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Micrococcales
+    Bacillus sp. b107A(2010): Caryophanales
+    Mammaliicoccus sciuri: Caryophanales
+    Staphylococcus aureus: Caryophanales
+    Staphylococcus epidermidis: Caryophanales
+    Lactobacillus sp. 100-5: Lactobacillales
+    Pectinatus frisingensis: Selenomonadales
+    Bacteria: ''
+- case_id: class_pathway_node
+  tax_level: class
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Actinomycetes
+  - Bacilli
+  - Negativicutes
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetes
+    Bacillus sp. b107A(2010): Bacilli
+    Mammaliicoccus sciuri: Bacilli
+    Staphylococcus aureus: Bacilli
+    Staphylococcus epidermidis: Bacilli
+    Lactobacillus sp. 100-5: Bacilli
+    Pectinatus frisingensis: Negativicutes
+    Bacteria: ''
+- case_id: class_pathway
+  tax_level: class
+  ann_level: pathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Actinomycetes
+  - Bacilli
+  - Negativicutes
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetes
+    Bacillus sp. b107A(2010): Bacilli
+    Mammaliicoccus sciuri: Bacilli
+    Staphylococcus aureus: Bacilli
+    Staphylococcus epidermidis: Bacilli
+    Lactobacillus sp. 100-5: Bacilli
+    Pectinatus frisingensis: Negativicutes
+    Bacteria: ''
+- case_id: class_superpathway
+  tax_level: class
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Actinomycetes
+  - Bacilli
+  - Negativicutes
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetes
+    Bacillus sp. b107A(2010): Bacilli
+    Mammaliicoccus sciuri: Bacilli
+    Staphylococcus aureus: Bacilli
+    Staphylococcus epidermidis: Bacilli
+    Lactobacillus sp. 100-5: Bacilli
+    Pectinatus frisingensis: Negativicutes
+    Bacteria: ''
+- case_id: phylum_pathway_node
+  tax_level: phylum
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Actinomycetota
+  - Bacillota
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetota
+    Bacillus sp. b107A(2010): Bacillota
+    Mammaliicoccus sciuri: Bacillota
+    Staphylococcus aureus: Bacillota
+    Staphylococcus epidermidis: Bacillota
+    Lactobacillus sp. 100-5: Bacillota
+    Pectinatus frisingensis: Bacillota
+    Bacteria: ''
+- case_id: phylum_pathway
+  tax_level: phylum
+  ann_level: pathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Actinomycetota
+  - Bacillota
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetota
+    Bacillus sp. b107A(2010): Bacillota
+    Mammaliicoccus sciuri: Bacillota
+    Staphylococcus aureus: Bacillota
+    Staphylococcus epidermidis: Bacillota
+    Lactobacillus sp. 100-5: Bacillota
+    Pectinatus frisingensis: Bacillota
+    Bacteria: ''
+- case_id: phylum_superpathway
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Actinomycetota
+  - Bacillota
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetota
+    Bacillus sp. b107A(2010): Bacillota
+    Mammaliicoccus sciuri: Bacillota
+    Staphylococcus aureus: Bacillota
+    Staphylococcus epidermidis: Bacillota
+    Lactobacillus sp. 100-5: Bacillota
+    Pectinatus frisingensis: Bacillota
+    Bacteria: ''
+- case_id: kingdom_pathway_node
+  tax_level: kingdom
+  ann_level: pathway_node
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Bacillati
+  - Bacteria
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Bacillati
+    Bacillus sp. b107A(2010): Bacillati
+    Mammaliicoccus sciuri: Bacillati
+    Staphylococcus aureus: Bacillati
+    Staphylococcus epidermidis: Bacillati
+    Lactobacillus sp. 100-5: Bacillati
+    Pectinatus frisingensis: Bacillati
+    Bacteria: Bacteria
+- case_id: kingdom_pathway
+  tax_level: kingdom
+  ann_level: pathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
+  - gap_2
+  - ''
+  - Bacillati
+  - Bacteria
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Bacillati
+    Bacillus sp. b107A(2010): Bacillati
+    Mammaliicoccus sciuri: Bacillati
+    Staphylococcus aureus: Bacillati
+    Staphylococcus epidermidis: Bacillati
+    Lactobacillus sp. 100-5: Bacillati
+    Pectinatus frisingensis: Bacillati
+    Bacteria: Bacteria
+- case_id: kingdom_superpathway
+  tax_level: kingdom
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Bacillati
+  - Bacteria
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Bacillati
+    Bacillus sp. b107A(2010): Bacillati
+    Mammaliicoccus sciuri: Bacillati
+    Staphylococcus aureus: Bacillati
+    Staphylococcus epidermidis: Bacillati
+    Lactobacillus sp. 100-5: Bacillati
+    Pectinatus frisingensis: Bacillati
+    Bacteria: Bacteria
+graph_filtered:
+- case_id: taxon_filter_focal_species
+  tax_level: genus
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - Staphylococcus aureus
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - Staphylococcus
+  - gap_3
+  tax_map:
+    Staphylococcus aureus: Staphylococcus
+  selected_taxon:
+    level: species
+    name: Staphylococcus aureus
+- case_id: ann_filter_superpathway
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Actinomycetota
+  - Bacillota
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetota
+    Bacillus sp. b107A(2010): Bacillota
+    Mammaliicoccus sciuri: Bacillota
+    Staphylococcus aureus: Bacillota
+    Staphylococcus epidermidis: Bacillota
+    Lactobacillus sp. 100-5: Bacillota
+    Pectinatus frisingensis: Bacillota
+    Bacteria: ''
+  selected_ann_cat: Energy metabolism
+edge_cases:
+- case_id: unmapped_ec_snapshot
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Actinomycetota
+  - Bacillota
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetota
+    Bacillus sp. b107A(2010): Bacillota
+    Mammaliicoccus sciuri: Bacillota
+    Staphylococcus aureus: Bacillota
+    Staphylococcus epidermidis: Bacillota
+    Lactobacillus sp. 100-5: Bacillota
+    Pectinatus frisingensis: Bacillota
+    Bacteria: ''
+- case_id: unclassified_tax_snapshot
+  tax_level: phylum
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Actinomycetota
+  - Bacillota
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Actinomycetota
+    Bacillus sp. b107A(2010): Bacillota
+    Mammaliicoccus sciuri: Bacillota
+    Staphylococcus aureus: Bacillota
+    Staphylococcus epidermidis: Bacillota
+    Lactobacillus sp. 100-5: Bacillota
+    Pectinatus frisingensis: Bacillota
+    Bacteria: ''
+- case_id: fallback_species_request
+  tax_level: species
+  ann_level: superpathway
+  pairs:
+  - - 1.1.1.349
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.1.1.349
+  - 1.5.8.1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - Biosynthesis of other secondary metabolites
+  - Energy metabolism
+  - gap_2
+  - ''
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - gap_3
+  tax_map:
+    '999999999': ''
+    Clavibacter sp. OL-4: Clavibacter sp. OL-4
+    Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
+    Mammaliicoccus sciuri: Mammaliicoccus sciuri
+    Staphylococcus aureus: Staphylococcus aureus
+    Staphylococcus epidermidis: Staphylococcus epidermidis
+    Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
+    Pectinatus frisingensis: Pectinatus frisingensis
+    Bacteria: ''
