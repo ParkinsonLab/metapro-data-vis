@@ -10,10 +10,17 @@ from api.filters import (
     normalise_taxon_filter,
     sample_id_from_names,
 )
+from api.graph_service import build_graph_from_duckdb
 from api.krona_service import build_krona_from_duckdb
 from api.overview_service import build_overview_from_duckdb
 from api.pathway_list_service import build_pathway_list_from_duckdb
-from api.schemas import ChordRequest, KronaRequest, OverviewRequest, PathwayListRequest
+from api.schemas import (
+    ChordRequest,
+    GraphRequest,
+    KronaRequest,
+    OverviewRequest,
+    PathwayListRequest,
+)
 
 app = FastAPI(title="Metapro Viz API (Python)")
 app.add_middleware(
@@ -76,5 +83,20 @@ def krona_endpoint(body: KronaRequest):
             tax_rank=body.tax_rank,
             selected_taxon=body.selected_taxon,
         ).model_dump(exclude_none=True)
+
+    return wrap_handler(_handle)
+
+
+@app.post("/api/viz/graph")
+def graph_endpoint(body: GraphRequest):
+    def _handle():
+        if len(body.names) == 0:
+            raise ValueError("names must contain at least one sample")
+        return build_graph_from_duckdb(
+            names=body.names,
+            tax_level=body.tax_level,
+            selected_ann_cat=body.selected_ann_cat,
+            selected_taxon=body.selected_taxon,
+        )
 
     return wrap_handler(_handle)

@@ -117,3 +117,24 @@ def test_pathway_list_missing_ann_cat_error_envelope():
     body = res.json()
     assert body["ok"] is False
     assert "selected_ann_cat is required" in body["error"]
+
+
+def test_graph_endpoint_envelope(fake_rpkm_db):
+    if not bridges_available():
+        pytest.skip(skip_reason())
+    res = client.post(
+        "/api/viz/graph",
+        json={
+            "names": ["fake_rpkm.tsv"],
+            "tax_level": "phylum",
+            "selected_ann_cat": {
+                "level": "pathway",
+                "name": "Oxidative phosphorylation",
+            },
+            "selected_taxon": {},
+        },
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert "inner_count_matrix" in body["value"]

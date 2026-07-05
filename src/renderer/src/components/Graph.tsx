@@ -23,8 +23,7 @@ function Graph(): React.JSX.Element {
   const selected_annotations = useAppStore((state) => state.selected_annotations)
   const selected_file_list = useAppStore((state) => state.selected_file_list)
   const tax_rank = useAppStore((state) => state.tax_rank)
-  const ann_rank = useAppStore((state) => state.ann_rank)
-  const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
+  const selected_pathway = useAppStore((state) => state.selected_pathway)
   const selected_taxon = useAppStore((state) => state.selected_taxon)
   const [plot_data, set_plot_data] = useState<PlotTrace[]>([])
   const [plot_layout, set_plot_layout] = useState({})
@@ -45,14 +44,14 @@ function Graph(): React.JSX.Element {
   }
 
   useEffect(() => {
+    if (!selected_pathway.trim() || selected_file_list.length === 0) return
     request('graph', {
       names: selected_file_list,
       tax_level: tax_rank,
-      ann_level: ann_rank,
-      selected_ann_cat: toApiFilter(selected_ann_cat),
+      selected_ann_cat: { level: 'pathway', name: selected_pathway },
       selected_taxon: toApiFilter(selected_taxon)
     })
-  }, [selected_file_list, tax_rank, ann_rank, selected_ann_cat, selected_taxon])
+  }, [selected_file_list, tax_rank, selected_pathway, selected_taxon])
 
   useEffect(() => {
     if (!graph_data || _.isEmpty(graph_data)) return

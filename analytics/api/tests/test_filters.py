@@ -4,6 +4,8 @@ from api.filters import (
     ann_levels_from_root_to,
     krona_levels,
     normalise_ann_filter,
+    require_graph_pathway_filter,
+    normalise_pathway_filter,
     normalise_taxon_filter,
     ranks_from_root_to,
     sample_id_from_names,
@@ -77,6 +79,26 @@ def test_taxon_filter_empty():
 def test_taxon_filter_set():
     f = normalise_taxon_filter({"level": "phylum", "name": "Bacillota"})
     assert f == {"level": "phylum", "name": "Bacillota"}
+
+
+def test_pathway_filter_empty():
+    assert normalise_pathway_filter({}) is None
+    assert normalise_pathway_filter({"level": "superpathway", "name": "Energy metabolism"}) is None
+
+
+def test_pathway_filter_set():
+    f = normalise_pathway_filter({"level": "pathway", "name": "Oxidative phosphorylation"})
+    assert f == {"level": "pathway", "name": "Oxidative phosphorylation"}
+
+
+def test_require_graph_pathway_filter():
+    f = require_graph_pathway_filter({"level": "pathway", "name": "Methane metabolism"})
+    assert f == {"level": "pathway", "name": "Methane metabolism"}
+
+
+def test_require_graph_pathway_filter_rejects_empty():
+    with pytest.raises(ValueError, match="graph requires selected_ann_cat"):
+        require_graph_pathway_filter({})
 
 
 class TestKronaLevels:

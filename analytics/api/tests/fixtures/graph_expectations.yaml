@@ -1,0 +1,258 @@
+sample_id: fake_rpkm
+cases:
+- case_id: pathway_phylum_baseline
+  tax_level: phylum
+  selected_ann_cat: &id001
+    level: pathway
+    name: Oxidative phosphorylation
+  pairs:
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - gap_2
+  - '999999999'
+  - Actinomycetota
+  - Bacillota
+  - Bacteria
+  - gap_3
+  tax_map:
+    '999999999': '999999999'
+    Clavibacter sp. OL-4: Actinomycetota
+    Bacillus sp. b107A(2010): Bacillota
+    Mammaliicoccus sciuri: Bacillota
+    Staphylococcus aureus: Bacillota
+    Staphylococcus epidermidis: Bacillota
+    Lactobacillus sp. 100-5: Bacillota
+    Pectinatus frisingensis: Bacillota
+    Bacteria: Bacteria
+- case_id: pathway_species_tax_rank
+  tax_level: species
+  selected_ann_cat: *id001
+  pairs:
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  tax_map:
+    '999999999': '999999999'
+    Clavibacter sp. OL-4: Clavibacter sp. OL-4
+    Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
+    Mammaliicoccus sciuri: Mammaliicoccus sciuri
+    Staphylococcus aureus: Staphylococcus aureus
+    Staphylococcus epidermidis: Staphylococcus epidermidis
+    Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
+    Pectinatus frisingensis: Pectinatus frisingensis
+    Bacteria: Bacteria
+- case_id: pathway_kingdom_tax_rank
+  tax_level: kingdom
+  selected_ann_cat: *id001
+  pairs:
+  - - 1.6.5.9
+    - '999999999'
+    - 1.0
+  - - 1.6.5.9
+    - Bacillus sp. b107A(2010)
+    - 1.0
+  - - 1.6.5.9
+    - Bacteria
+    - 1.0
+  - - 1.6.5.9
+    - Clavibacter sp. OL-4
+    - 1.0
+  - - 1.6.5.9
+    - Lactobacillus sp. 100-5
+    - 1.0
+  - - 1.6.5.9
+    - Mammaliicoccus sciuri
+    - 1.0
+  - - 1.6.5.9
+    - Pectinatus frisingensis
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 1.6.5.9
+    - Staphylococcus epidermidis
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - gap_2
+  - '999999999'
+  - Bacillati
+  - Bacteria
+  - gap_3
+  tax_map:
+    '999999999': '999999999'
+    Clavibacter sp. OL-4: Bacillati
+    Bacillus sp. b107A(2010): Bacillati
+    Mammaliicoccus sciuri: Bacillati
+    Staphylococcus aureus: Bacillati
+    Staphylococcus epidermidis: Bacillati
+    Lactobacillus sp. 100-5: Bacillati
+    Pectinatus frisingensis: Bacillati
+    Bacteria: Bacteria
+- case_id: pathway_and_taxon_filter
+  tax_level: genus
+  selected_ann_cat: *id001
+  pairs:
+  - - 1.6.5.9
+    - Staphylococcus aureus
+    - 1.0
+  - - 2.7.4.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.6.5.9
+  - 2.7.4.1
+  - gap_2
+  - Staphylococcus aureus
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - gap_2
+  - Staphylococcus
+  - gap_3
+  tax_map:
+    Staphylococcus aureus: Staphylococcus
+  selected_taxon:
+    level: species
+    name: Staphylococcus aureus
+- case_id: pathway_methane_metabolism
+  tax_level: phylum
+  selected_ann_cat:
+    level: pathway
+    name: Methane metabolism
+  pairs:
+  - - 1.5.8.1
+    - Staphylococcus aureus
+    - 1.0
+  expected_inner_index:
+  - gap_1
+  - 1.5.8.1
+  - gap_2
+  - Staphylococcus aureus
+  - gap_3
+  expected_outer_index:
+  - gap_1
+  - gap_2
+  - Bacillota
+  - gap_3
+  tax_map:
+    Staphylococcus aureus: Bacillota

@@ -21,6 +21,7 @@ CHORD_YAML = ANALYTICS_DIR / "api/tests/fixtures/chord_expectations.yaml"
 OVERVIEW_YAML = ANALYTICS_DIR / "api/tests/fixtures/overview_expectations.yaml"
 KRONA_YAML = ANALYTICS_DIR / "api/tests/fixtures/krona_expectations.yaml"
 PATHWAY_LIST_YAML = ANALYTICS_DIR / "api/tests/fixtures/pathway_list_expectations.yaml"
+GRAPH_YAML = ANALYTICS_DIR / "api/tests/fixtures/graph_expectations.yaml"
 NAMES_PATH = REPO_ROOT / "resources/db/parquet/names.parquet"
 
 REQUIRED_BRIDGES = (
@@ -76,6 +77,10 @@ def load_krona_expectations() -> dict[str, Any]:
 
 def load_pathway_list_expectations() -> dict[str, Any]:
     return load_yaml(PATHWAY_LIST_YAML)
+
+
+def load_graph_expectations() -> dict[str, Any]:
+    return load_yaml(GRAPH_YAML)
 
 
 def ensure_pipeline_built() -> Path:
@@ -137,6 +142,36 @@ def extract_chord_pairs(chord_result: dict) -> list[tuple[str, str, float]]:
             if val > 0:
                 pairs.append((ann, tax, float(val)))
     return sorted(pairs)
+
+
+def extract_graph_inner_index(graph_result: dict) -> list[str]:
+    return list(graph_result["inner_matrix_index"])
+
+
+def extract_graph_outer_index(graph_result: dict) -> list[str]:
+    return list(graph_result["outer_matrix_index"])
+
+
+def extract_graph_pairs(graph_result: dict) -> list[tuple[str, str, float]]:
+    """Return sorted (ec_normalized, display_name, value) from inner matrix output."""
+    index = graph_result["inner_matrix_index"]
+    matrix = graph_result["inner_count_matrix"]
+    gap2 = index.index("gap_2")
+    ec_labels = index[1:gap2]
+    tax_labels = index[gap2 + 1 : -1]
+    pairs: list[tuple[str, str, float]] = []
+    for ec in ec_labels:
+        i = index.index(ec)
+        for tax in tax_labels:
+            j = index.index(tax)
+            val = matrix[i][j]
+            if val > 0:
+                pairs.append((ec, tax, float(val)))
+    return sorted(pairs)
+
+
+def extract_graph_tax_map(graph_result: dict) -> dict[str, str]:
+    return dict(graph_result["tax_map"])
 
 
 def assert_pairs_close(
