@@ -4,7 +4,7 @@
 
 **Goal:** Add FastAPI `POST /api/viz/graph` backed by `int_rpkm_by_ec_tax` (triples + separate metadata queries), standalone `graph_service` / `graph_matrix`, Express sidecar proxy, renderer toggle — preserving the graph blob JSON contract.
 
-**Architecture:** Triples query reads `int_rpkm_by_ec_tax` with `EXISTS` filters only (no bridge joins). Separate metadata queries on distinct triple keys join bridges for pathway/lineage sort keys, `ec_map`, and `tax_map`. `graph_matrix.py` assembles inner/outer indices with hierarchical alphabetical ordering and fills the symmetric matrix by keyed lookup. Express defaults to legacy; renderer appends `?backend=duckdb` for migrated channels.
+**Architecture:** Triples query reads `int_rpkm_by_ec_tax` with `EXISTS` filters only (no bridge joins), materialised as `filtered_triples`. Separate SQL-ordered metadata queries on distinct triple keys join bridges for pathway/lineage sort keys, `ann_category`, and `tax_map`. `graph_matrix.py` assembles pre-ordered inner/outer indices and fills the symmetric matrix by keyed lookup (no Python sort). Express defaults to legacy; renderer appends `?backend=duckdb` for migrated channels.
 
 **Tech Stack:** Python 3.14, FastAPI, DuckDB, pytest; Node 22, Express 5, vitest, React/Plotly
 
@@ -47,13 +47,11 @@ uv run python transform/scripts/run_pipeline.py \
 ```
 analytics/api/
 ├── colors.py                         # MODIFY: add map_lum, get_sub_color
-├── graph_ordering.py                 # CREATE: tuple sort, category prefix helpers
-├── graph_matrix.py                   # CREATE: build_graph_matrix()
-├── graph_service.py                  # CREATE: triples + metadata queries
+├── graph_matrix.py                   # CREATE: build_graph_matrix() — pre-ordered rows in, no sort
+├── graph_service.py                  # CREATE: filtered_triples + SQL-ordered metadata queries
 ├── schemas.py                        # MODIFY: GraphRequest
 ├── main.py                           # MODIFY: POST /api/viz/graph
 └── tests/
-    ├── test_graph_ordering.py        # CREATE
     ├── test_graph_matrix.py          # CREATE
     ├── test_graph_service.py         # CREATE
     └── test_main.py                  # MODIFY: graph endpoint smoke
@@ -129,126 +127,7 @@ git commit -m "feat(analytics): add get_sub_color for graph matrix colors"
 
 ---
 
-### Task 2: Ordering helpers (`graph_ordering.py`)
-
-**Files:**
-- Create: `analytics/api/graph_ordering.py`
-- Create: `analytics/api/tests/test_graph_ordering.py`
-
-- [ ] **Step 1: Write failing tests**
-
-```python
-from api.graph_ordering import (
-    TAX_RANKS,
-    compare_tuples,
-    pathway_sort_key,
-    lineage_sort_key,
-    ann_category_depth,
-    truncate_pathway_tuple,
-    truncate_lineage_tuple,
-)
-
-
-def test_compare_tuples_lexicographic():
-    assert compare_tuples(("A", "B"), ("A", "C")) < 0
-    assert compare_tuples(("A",), ("B",)) < 0
-
-
-def test_pathway_sort_key_always_three_segments():
-    row = {"superpathway_name": "SpA", "pathway_name": "Pw1", "ec_normalized": "1.1.1.1"}
-    assert pathway_sort_key(row) == ("SpA", "Pw1", "1.1.1.1")
-
-
-def test_ann_category_depth():
-    assert ann_category_depth("superpathway") == 1
-    assert ann_category_depth("pathway") == 2
-    assert ann_category_depth("pathway_node") == 2
-
-
-def test_truncate_lineage_at_phylum():
-    row = {
-        "kingdom": "Bacteria",
-        "phylum": "Bacillota",
-        "class": "Bacilli",
-        "order": "o",
-        "family": "f",
-        "genus": "g",
-        "species": "s",
-        "display_name": "Bacillus subtilis",
-    }
-    assert truncate_lineage_tuple(row, "phylum") == (
-        "Bacteria", "Bacillota"
-    )
-```
-
-- [ ] **Step 2: Run — FAIL**
-
-Run: `cd analytics && uv run pytest api/tests/test_graph_ordering.py -v`
-
-- [ ] **Step 3: Implement `graph_ordering.py`**
-
-```python
-from __future__ import annotations
-
-TAX_RANKS = (
-    "kingdom", "phylum", "class", "order", "family", "genus", "species"
-)
-
-
-def compare_tuples(a: tuple[str, ...], b: tuple[str, ...]) -> int:
-    for x, y in zip(a, b):
-        if x < y:
-            return -1
-        if x > y:
-            return 1
-    if len(a) < len(b):
-        return -1
-    if len(a) > len(b):
-        return 1
-    return 0
-
-
-def pathway_sort_key(row: dict) -> tuple[str, str, str]:
-    return (
-        row["superpathway_name"],
-        row["pathway_name"],
-        row["ec_normalized"],
-    )
-
-
-def lineage_sort_key(row: dict) -> tuple[str, ...]:
-    return tuple(row.get(r) or "" for r in TAX_RANKS) + (row["display_name"],)
-
-
-def ann_category_depth(ann_level: str) -> int:
-    if ann_level == "superpathway":
-        return 1
-    return 2
-
-
-def truncate_pathway_tuple(key: tuple[str, str, str], depth: int) -> tuple[str, ...]:
-    if depth == 1:
-        return (key[0],)
-    return (key[0], key[1])
-
-
-def truncate_lineage_tuple(row: dict, tax_level: str) -> tuple[str, ...]:
-    idx = TAX_RANKS.index(tax_level) + 1
-    return lineage_sort_key(row)[:idx]
-```
-
-- [ ] **Step 4: Run — PASS**
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add analytics/api/graph_ordering.py analytics/api/tests/test_graph_ordering.py
-git commit -m "feat(analytics): add graph hierarchical ordering helpers"
-```
-
----
-
-### Task 3: Matrix builder (`graph_matrix.py`)
+### Task 2: Matrix builder (`graph_matrix.py`)
 
 **Files:**
 - Create: `analytics/api/graph_matrix.py`
@@ -256,46 +135,13 @@ git commit -m "feat(analytics): add graph hierarchical ordering helpers"
 
 - [ ] **Step 1: Write failing tests**
 
-```python
-from api.graph_matrix import build_graph_matrix
-
-
-def test_build_graph_matrix_shape_and_gaps():
-    triples = [("1.1.1.1", "TaxA", 10.0), ("1.1.1.2", "TaxB", 5.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
-        {"ec_normalized": "1.1.1.2", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
-    ]
-    tax_rows = [
-        {"display_name": "TaxA", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-        {"display_name": "TaxB", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-    ]
-    out = build_graph_matrix(
-        triples=triples,
-        ec_rows=ec_rows,
-        tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
-    )
-    assert out["inner_matrix_index"][0] == "gap_1"
-    assert "gap_2" in out["inner_matrix_index"]
-    assert out["inner_matrix_index"][-1] == "gap_3"
-    assert len(out["inner_count_matrix"]) == len(out["inner_matrix_index"])
-    assert out["tax_map"]["TaxA"] == "PhA"
-    assert "1.1.1.1" in out["colors"]
-```
+(Same test fixtures as originally planned — `ec_rows` include `ann_category` and are pre-ordered as returned by `graph_service`.)
 
 - [ ] **Step 2: Run — FAIL**
 
 - [ ] **Step 3: Implement `build_graph_matrix`**
 
-Port gap fillers from `parse.ts` `add_filler_value`. Sort EC rows by `pathway_sort_key`, tax rows by `lineage_sort_key`. Build `inner_matrix_index = ['gap_1', *ecs, 'gap_2', *tax_labels, 'gap_3']`. Fill matrix by keyed lookup on triples (symmetric). Build `outer_matrix_index` from sorted ann/tax categories (prefix truncation per §6.2). Assign colors via `get_color` / `get_sub_color`. **No zero-row trim.**
+Port gap fillers from `parse.ts` `add_filler_value`. **Do not sort in Python** — trust SQL-ordered `ec_rows` / `tax_rows` from `graph_service`. Build `inner_matrix_index = ['gap_1', *ecs, 'gap_2', *tax_labels, 'gap_3']`. Build `outer_matrix_index` via first-seen dedupe of `ann_category` and `tax_map_value`. Fill matrix by keyed lookup on triples (symmetric). Assign colors via `get_color` / `get_sub_color`. **No zero-row trim.**
 
 Key function signature:
 
@@ -303,8 +149,8 @@ Key function signature:
 def build_graph_matrix(
     *,
     triples: list[tuple[str, str, float]],  # (ec_normalized, display_name, value)
-    ec_rows: list[dict],
-    tax_rows: list[dict],
+    ec_rows: list[dict],  # SQL-ordered; each row includes ann_category
+    tax_rows: list[dict],  # SQL-ordered
     ann_level: str,
     tax_level: str,
 ) -> dict:
@@ -322,7 +168,7 @@ git commit -m "feat(analytics): add graph_matrix builder"
 
 ---
 
-### Task 4: Graph service — triples + metadata queries
+### Task 3: Graph service — triples + metadata queries
 
 **Files:**
 - Create: `analytics/api/graph_service.py`
@@ -371,20 +217,24 @@ Add test asserting triples row count equals `len({(ec, tax_id) for ...})` — no
 Structure:
 
 ```python
-def _fetch_triples(conn, *, ann_filter, taxon_filter, ann_level) -> list[tuple[str, int, float]]:
-    # EXISTS filters only — §5.1
+def _materialize_filtered_triples(conn, *, ann_filter, taxon_filter, ann_level) -> None:
+    # filtered_triples temp table — §5.1; bridge_ec_long for ann EXISTS
 
-def _fetch_ec_metadata(conn, triples, *, ann_level) -> list[dict]:
-    # DISTINCT ec keys → bridge_ec_pathway; dedupe pathway tuple per EC
+def _fetch_ec_metadata(conn, *, ann_level) -> list[dict]:
+    # DISTINCT ec keys from filtered_triples → bridge_ec_dedup
+    # ORDER BY superpathway_name, pathway_name, ec_normalized
+    # attach ann_category per ann_level
 
-def _fetch_tax_metadata(conn, triples, *, tax_level) -> list[dict]:
-    # DISTINCT source_tax_id → PIVOT (krona pattern) + names
-    # tax_map_value = w.<tax_level>
+def _materialize_tax_metadata(conn, *, tax_level) -> None:
+    # graph_tax_metadata temp table — PIVOT (krona pattern) + names
+    # ORDER BY full lineage tuple
+
+def _fetch_labeled_triples(conn) -> list[tuple[str, str, float]]:
+    # filtered_triples INNER JOIN graph_tax_metadata
 
 def build_graph_from_duckdb(...) -> dict:
     # validate, connect, check int_rpkm_by_ec_tax
-    # triples → metadata → build_graph_matrix
-    # map triples to (ec, display_name, value) for matrix
+    # filtered_triples → ec metadata → tax metadata → build_graph_matrix
 ```
 
 Copy ann/taxon EXISTS predicate logic from `rollup_query._ann_predicate` into private helpers in this file (standalone per spec).
@@ -400,7 +250,7 @@ git commit -m "feat(analytics): add graph_service with split triples/metadata qu
 
 ---
 
-### Task 5: FastAPI endpoint
+### Task 4: FastAPI endpoint
 
 **Files:**
 - Modify: `analytics/api/schemas.py`
@@ -452,7 +302,7 @@ git commit -m "feat(analytics): expose POST /api/viz/graph"
 
 ---
 
-### Task 6: Express sidecar + renderer wiring
+### Task 5: Express sidecar + renderer wiring
 
 **Files:**
 - Modify: `src/server/index.ts`
@@ -487,7 +337,7 @@ git commit -m "feat(graph): wire graph endpoint to analytics sidecar"
 
 ---
 
-### Task 7: Manual verification
+### Task 6: Manual verification
 
 - [ ] **Step 1: Start stack**
 
@@ -511,15 +361,15 @@ npm run dev
 
 | Spec section | Task |
 |---|---|
-| §5.1 triples, EXISTS only | Task 4 |
-| §5.2 metadata queries | Task 4 |
-| §5.3–§5.4 ec_map / tax_map | Tasks 3–4 |
-| §5.5 / §6 ordering | Tasks 2–3 |
-| §7 matrix builder, no trim | Task 3 |
-| §8 sidecar wiring | Task 6 |
-| §9 testing | Tasks 1–6 |
-| §10 errors | Task 4–5 |
-| §12 acceptance | Task 7 |
+| §5.1 triples, EXISTS only, `filtered_triples` | Task 3 |
+| §5.2 SQL-ordered metadata queries | Task 3 |
+| §5.3–§5.4 ec_map / tax_map | Tasks 2–3 |
+| §5.5 / §6 ordering (SQL leaves + dedupe categories) | Tasks 2–3 |
+| §7 matrix builder, no trim | Task 2 |
+| §8 sidecar wiring | Task 5 |
+| §9 testing | Tasks 1–5 |
+| §10 errors | Tasks 3–4 |
+| §12 acceptance | Task 6 |
 
 ---
 

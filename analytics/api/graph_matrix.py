@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from api.colors import get_color, get_sub_color
-from api.graph_ordering import ann_category_depth, pathway_sort_key, truncate_pathway_tuple
 
 
 def _dedupe_preserve_order(items: list[str]) -> list[str]:
@@ -14,15 +13,6 @@ def _dedupe_preserve_order(items: list[str]) -> list[str]:
     return out
 
 
-def _ann_category(row: dict, ann_level: str) -> str:
-    if row.get("ann_category"):
-        return row["ann_category"]
-    truncated = truncate_pathway_tuple(
-        pathway_sort_key(row), ann_category_depth(ann_level)
-    )
-    return truncated[0]
-
-
 def build_graph_matrix(
     *,
     triples: list[tuple[str, str, float]],
@@ -31,27 +21,14 @@ def build_graph_matrix(
     ann_level: str,
     tax_level: str,
 ) -> dict:
-    # ec_rows / tax_rows are pre-ordered by graph_service metadata queries.
+    # ec_rows / tax_rows are pre-ordered by graph_service; ec_rows must include ann_category.
     ec_by_norm = {row["ec_normalized"]: row for row in ec_rows}
     tax_map = {row["display_name"]: row["tax_map_value"] for row in tax_rows}
 
-    ec_in_triples = {ec for ec, _, _ in triples}
-    tax_in_triples = {tax for _, tax, _ in triples}
+    ecs = [row["ec_normalized"] for row in ec_rows]
+    tax_labels = [row["display_name"] for row in tax_rows]
 
-    ecs = [
-        row["ec_normalized"]
-        for row in ec_rows
-        if row["ec_normalized"] in ec_in_triples
-    ]
-    tax_labels = [
-        row["display_name"]
-        for row in tax_rows
-        if row["display_name"] in tax_in_triples
-    ]
-
-    ann_cats = _dedupe_preserve_order(
-        [_ann_category(ec_by_norm[ec], ann_level) for ec in ecs]
-    )
+    ann_cats = _dedupe_preserve_order([ec_by_norm[ec]["ann_category"] for ec in ecs])
     tax_cats = _dedupe_preserve_order([tax_map[tax] for tax in tax_labels])
 
     inner_matrix_index = ["gap_1", *ecs, "gap_2", *tax_labels, "gap_3"]
@@ -81,9 +58,7 @@ def build_graph_matrix(
     }
     sub_colors = {
         **{
-            ec: get_sub_color(
-                cat_colors[_ann_category(ec_by_norm[ec], ann_level)], ec
-            )
+            ec: get_sub_color(cat_colors[ec_by_norm[ec]["ann_category"]], ec)
             for ec in ecs
         },
         **{tax: get_sub_color(cat_colors[tax_map[tax]], tax) for tax in tax_labels},
