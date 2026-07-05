@@ -53,7 +53,7 @@ def build_graph_matrix(
 
     cat_colors = {c: get_color(i, len(tax_cats)) for i, c in enumerate(tax_cats)}
     sub_colors = {
-        **{ec: get_sub_color(get_color(i, len(ecs)), ec) for i, ec in enumerate(ecs)},
+        **{ec: get_color(i, len(ecs)) for i, ec in enumerate(ecs)},
         **{tax: get_sub_color(cat_colors[tax_map[tax]], tax) for tax in tax_labels},
     }
     colors = {**sub_colors, **cat_colors}

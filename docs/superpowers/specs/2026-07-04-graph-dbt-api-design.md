@@ -264,7 +264,7 @@ outer_matrix_index = ['gap_1', 'gap_2', ...sorted_tax_cats..., 'gap_3']
 
 **Tax:** category colors via `get_color(i, n)` on the sorted tax category list; per-taxon shades via `get_sub_color(category_color, display_name)`.
 
-**EC:** per-EC hue via `get_sub_color(get_color(i, len(ecs)), ec_normalized)` — distinct color per EC index, **without** pathway category lookup. Line colors in `Graph.tsx` use `colors[ec_label]` directly.
+**EC:** `get_color(i, len(ecs))` — one hue per EC index, no `get_sub_color` / luminosity variation.
 
 Color assignment order follows EC/tax row order from `graph_service` (not legacy abundance order).
 
@@ -327,7 +327,7 @@ All HTTP 200 with envelope (consistent with other migrated endpoints).
 |---|---|---|
 | Index ordering | Abundance-based category sort + `sort_by_category` within category | EC numeric tuple; tax lineage tuple (SQL) |
 | Outer index | `['gap_1', ...ann_cats..., 'gap_2', ...tax_cats..., 'gap_3']` (ann segment unused by Graph UI) | `['gap_1', 'gap_2', ...tax_cats..., 'gap_3']` |
-| EC line colors | `get_sub_color` from pathway category color | Per-EC hue from index (`get_color(i, n)` base) |
+| EC line colors | `get_sub_color` from pathway category color | `get_color(i, n)` per EC index |
 | Outer category order | Derived from `ec_map` / `tax_map` with legacy sort | Tax categories: first-seen dedupe in SQL tax order |
 | Value source | Wide TSV in memory | `int_rpkm_by_ec_tax` in sample DuckDB |
 | Query structure | Single in-memory pipeline (`agg_by_ec` + `parse_graph_data`) | **Separate triples query** (no bridge joins) + **metadata queries** on distinct triple keys (§5.1–§5.2) |
