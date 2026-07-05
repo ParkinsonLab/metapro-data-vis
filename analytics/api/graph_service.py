@@ -6,10 +6,9 @@ import duckdb
 
 from api.filters import (
     TAX_RANK_ORDER,
-    normalise_ann_filter,
     normalise_taxon_filter,
+    require_graph_pathway_filter,
     sample_id_from_names,
-    validate_ann_level,
     validate_tax_level,
 )
 from api.graph_matrix import build_graph_matrix
@@ -36,57 +35,27 @@ def _lineage_order_by_sql() -> str:
     return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in parts)
 
 
-def _ann_filter_key(ann_filter: dict[str, str], ann_level: str) -> tuple[str, str]:
-    name = ann_filter["name"]
-    if ann_level == "superpathway":
-        return "superpathway_label", name
-    if ann_filter["level"] == "pathway":
-        return "pathway", name
-    return "superpathway", name
-
-
 def _ensure_bridge_ec(conn: duckdb.DuckDBPyConnection) -> None:
     if conn.execute(
-        "SELECT 1 FROM duckdb_tables() WHERE table_name = 'bridge_ec_long'"
+        "SELECT 1 FROM duckdb_tables() WHERE table_name = 'bridge_ec'"
     ).fetchone():
         return
     if not BRIDGE_EC_PATH.exists():
         raise FileNotFoundError(f"reference parquet missing: {BRIDGE_EC_PATH}")
-
     path = BRIDGE_EC_PATH.as_posix()
     conn.execute(f"CREATE TEMP TABLE bridge_ec AS SELECT * FROM read_parquet('{path}')")
-    conn.execute(
-        """
-        CREATE TEMP TABLE bridge_ec_long AS
-        SELECT DISTINCT ec_normalized, filter_level, filter_name
-        FROM (
-            SELECT
-                ec_normalized,
-                CASE
-                    WHEN ec_normalized = '0.0.0.0' THEN 'Unmapped EC'
-                    ELSE COALESCE(superpathway_name, ec_normalized)
-                END AS superpathway_label,
-                pathway_name AS pathway,
-                superpathway_name AS superpathway
-            FROM bridge_ec
-        )
-        UNPIVOT (filter_name FOR filter_level IN (superpathway_label, pathway, superpathway))
-        WHERE filter_name IS NOT NULL
-        """
-    )
 
 
-def _ann_exists_clause(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[str, list]:
-    if ann_filter is None:
+def _pathway_exists_clause(pathway_filter: dict[str, str] | None) -> tuple[str, list]:
+    if pathway_filter is None:
         return "TRUE", []
-    filter_level, filter_name = _ann_filter_key(ann_filter, ann_level)
     return (
         "EXISTS ("
-        "  SELECT 1 FROM bridge_ec_long b"
+        "  SELECT 1 FROM bridge_ec b"
         "  WHERE b.ec_normalized = r.ec_normalized"
-        "    AND b.filter_level = ? AND b.filter_name = ?"
+        "    AND b.pathway_name = ?"
         ")",
-        [filter_level, filter_name],
+        [pathway_filter["name"]],
     )
 
 
@@ -111,13 +80,13 @@ def _taxon_exists_clause(taxon_filter: dict[str, str] | None) -> tuple[str, list
 def _materialize_filtered_triples(
     conn: duckdb.DuckDBPyConnection,
     *,
-    ann_filter: dict[str, str] | None,
+    pathway_filter: dict[str, str] | None,
     taxon_filter: dict[str, str] | None,
-    ann_level: str,
 ) -> None:
     """Like chord's filtered_rollup_rows — one temp table for downstream SQL joins."""
-    _ensure_bridge_ec(conn)
-    ann_clause, ann_params = _ann_exists_clause(ann_filter, ann_level)
+    if pathway_filter is not None:
+        _ensure_bridge_ec(conn)
+    pathway_clause, pathway_params = _pathway_exists_clause(pathway_filter)
     tax_clause, tax_params = _taxon_exists_clause(taxon_filter)
     conn.execute(
         f"""
@@ -125,10 +94,10 @@ def _materialize_filtered_triples(
         SELECT r.ec_normalized, r.source_tax_id, r.value
         FROM int_rpkm_by_ec_tax r
         WHERE r.value > 0
-          AND ({ann_clause})
+          AND ({pathway_clause})
           AND ({tax_clause})
         """,
-        ann_params + tax_params,
+        pathway_params + tax_params,
     )
 
 
@@ -222,7 +191,6 @@ def build_graph_from_duckdb(
     *,
     names: list[str],
     tax_level: str,
-    ann_level: str,
     selected_ann_cat: dict | str,
     selected_taxon: dict,
 ) -> dict:
@@ -230,9 +198,8 @@ def build_graph_from_duckdb(
         raise ValueError("comparison mode not supported on analytics API")
 
     validate_tax_level(tax_level)
-    validate_ann_level(ann_level)
 
-    ann_filter = normalise_ann_filter(selected_ann_cat, ann_level)
+    pathway_filter = require_graph_pathway_filter(selected_ann_cat)
     taxon_filter = normalise_taxon_filter(selected_taxon)
     sample_id = sample_id_from_names(names)
     db_file = _db_path(sample_id)
@@ -249,9 +216,8 @@ def build_graph_from_duckdb(
 
         _materialize_filtered_triples(
             conn,
-            ann_filter=ann_filter,
+            pathway_filter=pathway_filter,
             taxon_filter=taxon_filter,
-            ann_level=ann_level,
         )
         ec_rows = _fetch_ec_metadata(conn)
         _materialize_tax_metadata(conn, tax_level=tax_level)
@@ -262,8 +228,6 @@ def build_graph_from_duckdb(
             triples=triples,
             ec_rows=ec_rows,
             tax_rows=tax_rows,
-            ann_level=ann_level,
-            tax_level=tax_level,
         )
     finally:
         conn.close()

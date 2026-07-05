@@ -42,7 +42,7 @@ The graph-tab-recovery spec (`2026-07-02`) scoped analytics out. This spec adds 
 | EC ordering | Numeric ascending on 4-part tuple `(n1, n2, n3, n4)` parsed from `ec_normalized`; non-numeric segments sort last; tie-break on full label | EC numbers are the leaf identity; pathway hierarchy is filter-only |
 | Taxon ordering | Hierarchical alphabetical: full lineage tuple `(kingdom, phylum, class, order, family, genus, species, display_name)` lexicographic | Design decision |
 | Outer index (DuckDB) | **Tax categories only** — `['gap_1', 'gap_2', …tax_cats…, 'gap_3']`; Graph UI reads only the `gap_2`→`gap_3` slice | Ann outer segment unused by `Graph.tsx`; legacy Express still emits ann + tax |
-| API contract | Unchanged request body (identical to chord) + graph response blob + `{ ok, value }` envelope | No `Graph.tsx` plot logic changes |
+| API contract | Graph request: `names`, `tax_level`, `selected_ann_cat` (pathway), `selected_taxon` + graph response blob + `{ ok, value }` envelope | Differs from chord (no `ann_level`) |
 | FastAPI route | **`POST /api/viz/graph`** — identical path, method, envelope, HTTP 200 as Express | Drop-in sidecar replacement |
 | Default backend | Legacy Node `parse_graph` | Safe rollout |
 | Opt-in backend | `POST /api/viz/graph?backend=duckdb` (Express) or direct on FastAPI `:8001` | Mirrors other migrated channels |
@@ -88,14 +88,13 @@ The graph-tab-recovery spec (`2026-07-02`) scoped analytics out. This spec adds 
 
 ## 4. Request / Response Contract
 
-### 4.1 Request (unchanged — identical to chord)
+### 4.1 Request (graph-specific — no `ann_level`)
 
 ```json
 {
   "names": ["test_rpkm_1.tsv"],
   "tax_level": "phylum",
-  "ann_level": "superpathway",
-  "selected_ann_cat": {},
+  "selected_ann_cat": { "level": "pathway", "name": "Oxidative phosphorylation" },
   "selected_taxon": {}
 }
 ```
@@ -104,8 +103,7 @@ The graph-tab-recovery spec (`2026-07-02`) scoped analytics out. This spec adds 
 |---|---|
 | `names` | Single sample only; `sample_id = strip_extension(names[0])` |
 | `tax_level` | Rank used for `tax_map` category grouping and outer tax-axis categories |
-| `ann_level` | Pathway rank for **ann filter** normalisation only (`bridge_ec_long` EXISTS predicates); does not affect EC sort or outer index on DuckDB path |
-| `selected_ann_cat` | EC subset filter via `bridge_ec_pathway` (same normalisation as chord) |
+| `selected_ann_cat` | **Required** pathway filter (`{ level: "pathway", name }`). `Graph.tsx` sends this from `selected_pathway`. |
 | `selected_taxon` | `source_tax_id` subset filter via `bridge_tax_rollup` |
 
 ### 4.2 Response (unchanged — fields `Graph.tsx` consumes)
@@ -138,7 +136,7 @@ Omit `ann_map` and `outer_count_matrix`. Frontend plot logic in `Graph.tsx` is u
 
 Query `int_rpkm_by_ec_tax` directly — one row per `(ec_normalized, source_tax_id)`. The pipeline already drops `value <= 0` in `stg_rpkm_long`, so triples are strictly positive.
 
-**No bridge joins on the triples query.** Joining `bridge_ec_pathway` (one row per `pathway_node_id`) or `bridge_tax_rollup` (seven rows per taxon) would fan out and risk double-counting values. Filters are applied via `EXISTS` subqueries only. Ann filters use a materialised `bridge_ec_long` temp table (one row per `(ec_normalized, filter_level, filter_name)`) so EXISTS predicates stay simple; taxon filters use `bridge_tax_rollup` parquet directly.
+**No bridge joins on the triples query.** Filters are applied via `EXISTS` subqueries only. Pathway filters use `bridge_ec_pathway` (`pathway_name = ?`); taxon filters use `bridge_tax_rollup` parquet directly. The bridge temp table is materialised only when a pathway filter is active.
 
 Results are stored in a `filtered_triples` temp table (same pattern as chord's `filtered_rollup_rows`) and reused by all downstream metadata queries:
 
@@ -148,9 +146,9 @@ SELECT r.ec_normalized, r.source_tax_id, r.value
 FROM int_rpkm_by_ec_tax r
 WHERE r.value > 0
   AND EXISTS (
-    SELECT 1 FROM bridge_ec_long b
+    SELECT 1 FROM bridge_ec b
     WHERE b.ec_normalized = r.ec_normalized
-      AND b.filter_level = ? AND b.filter_name = ?
+      AND b.pathway_name = ?
   )
   AND EXISTS (
     SELECT 1 FROM bridge_tax_rollup t
@@ -159,7 +157,7 @@ WHERE r.value > 0
   )
 ```
 
-Ann/taxon filter predicates reuse the same normalisation helpers as chord (`normalise_ann_filter`, `normalise_taxon_filter`) but are implemented in graph_service — not delegated to `rollup_query.py`.
+Pathway filter uses `require_graph_pathway_filter`; taxon filter uses `normalise_taxon_filter`.
 
 **Precedent:** krona reads `int_rpkm_by_ec_tax` directly (`krona_service.py`).
 
@@ -230,7 +228,7 @@ Built from the **tax metadata query** (§5.2): `display_name →` PIVOT column a
 
 Each element compared alphabetically left-to-right (lexicographic sort).
 
-`ann_level` affects ann **filters** only (`bridge_ec_long` EXISTS); it does not change EC sort or outer index on the DuckDB path.
+`ann_level` is not on the graph request (unlike chord). Graph filtering uses pathway name only (§5.1).
 
 ## 6. Ordering and Colors
 
@@ -298,24 +296,42 @@ const MIGRATED_CHANNELS = new Set([..., 'graph'])
 graph: { method: 'POST', url: `/api/viz/graph${sidecarQuery('graph')}` }
 ```
 
+// Graph.tsx — pathway-scoped ann filter (Network detail view)
+const selected_ann_cat = selected_pathway.trim()
+  ? { level: 'pathway', name: selected_pathway }
+  : {}
+
 Default backend: legacy. Sidecar mode (localStorage default) appends `?backend=duckdb`.
 
 ## 9. Testing
 
 | Layer | Coverage |
 |---|---|
-| Unit | `test_graph_matrix.py` — matrix shape, gap fillers, pre-ordered EC/tax indices, tax-only outer index, EC colors without ann metadata |
-| Service | `test_graph_service.py` — triples query has no bridge joins; numeric EC order + SQL lineage tax order; shape on `fake_rpkm` fixture; filter narrowing; comparison-mode rejection |
+| Unit | `test_graph_matrix.py` — matrix assembly (gaps, symmetry, tax-only outer index, colors) |
+| Unit | `test_filters.py` — `require_graph_pathway_filter` |
+| Service | `test_graph_service.py` — shape, comparison/pathway validation errors, **5 golden cases** |
 | Proxy | Extend or mirror `fastapi_sidecar_proxy.test.ts` for graph route |
-| Cross-backend | **Not required v1** — optional smoke that both backends return valid shapes |
-| Manual | Graph tab 3D plot in legacy and sidecar modes; EC selection from Network |
+| Manual | Graph tab 3D plot with Network pathway + EC selection |
 
-No YAML golden matrix dump for v1 (that would be strict A-parity).
+### 9.1 Graph golden YAML (`graph_expectations.yaml`)
+
+Hand-picked scenarios only. Graph requires a pathway filter; request carries `tax_level` and `selected_ann_cat` only.
+
+| `case_id` | What it locks |
+|---|---|
+| `pathway_phylum_baseline` | Default Graph request: pathway filter + phylum `tax_level`; unknown tax id in outer index |
+| `pathway_species_tax_rank` | Finest tax column labels + lineage sort |
+| `pathway_kingdom_tax_rank` | Coarsest tax category grouping |
+| `pathway_and_taxon_filter` | Pathway + `selected_taxon` EXISTS filter |
+| `pathway_methane_metabolism` | Alternate pathway → different EC subset |
+
+Each case asserts `pairs`, `expected_inner_index`, `expected_outer_index`, and `tax_map`. Regenerate via `dump_fake_rpkm_expectations.py --graph`.
 
 ## 10. Error Handling
 
 | Condition | Response |
 |---|---|
+| Missing / invalid `selected_ann_cat` | `{ ok: false, error: "graph requires selected_ann_cat { level: 'pathway', name: '…' } …" }` |
 | `names.length > 1` | `{ ok: false, error: "comparison mode not supported on analytics API" }` |
 | Sample DB missing | `{ ok: false, error: "sample not found: …" }` |
 | `int_rpkm_by_ec_tax` not materialised | `{ ok: false, error: "int_rpkm_by_ec_tax not materialized for sample: …" }` |

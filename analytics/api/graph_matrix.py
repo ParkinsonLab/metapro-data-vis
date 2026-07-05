@@ -18,8 +18,6 @@ def build_graph_matrix(
     triples: list[tuple[str, str, float]],
     ec_rows: list[dict],
     tax_rows: list[dict],
-    ann_level: str,
-    tax_level: str,
 ) -> dict:
     # ec_rows / tax_rows are pre-ordered by graph_service.
     tax_map = {row["display_name"]: row["tax_map_value"] for row in tax_rows}

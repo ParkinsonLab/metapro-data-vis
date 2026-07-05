@@ -16,8 +16,6 @@ def test_build_graph_matrix_shape_and_gaps():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     assert out["inner_matrix_index"][0] == "gap_1"
     assert "gap_2" in out["inner_matrix_index"]
@@ -35,8 +33,6 @@ def test_build_graph_matrix_symmetric():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     idx = out["inner_matrix_index"]
     i_ec = idx.index("1.1.1.1")
@@ -53,8 +49,6 @@ def test_build_graph_matrix_gap_fillers():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     idx = out["inner_matrix_index"]
     i_ec = idx.index("1.1.1.1")
@@ -78,8 +72,6 @@ def test_build_graph_matrix_no_zero_row_trim():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     assert "1.1.1.2" in out["inner_matrix_index"]
     assert "TaxB" in out["inner_matrix_index"]
@@ -97,8 +89,6 @@ def test_outer_matrix_index_tax_categories_only():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     outer = out["outer_matrix_index"]
     assert outer == ["gap_1", "gap_2", "PhA", "PhB", "gap_3"]
@@ -112,8 +102,6 @@ def test_ecs_follow_ec_rows_order():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     idx = out["inner_matrix_index"]
     assert idx.index("1.1.1.1") < idx.index("2.2.2.2")
@@ -127,8 +115,6 @@ def test_ec_colors_do_not_require_ann_category():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     assert out["colors"]["1.1.1.1"] != out["colors"]["2.2.2.2"]
 
@@ -144,8 +130,6 @@ def test_tax_level_affects_outer_tax_category_ordering():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows_phylum,
-        ann_level="superpathway",
-        tax_level="phylum",
     )
     outer_phylum = out_phylum["outer_matrix_index"]
     gap2 = outer_phylum.index("gap_2")
@@ -160,8 +144,6 @@ def test_tax_level_affects_outer_tax_category_ordering():
         triples=triples,
         ec_rows=ec_rows,
         tax_rows=tax_rows_class,
-        ann_level="superpathway",
-        tax_level="class",
     )
     outer_class = out_class["outer_matrix_index"]
     gap2 = outer_class.index("gap_2")

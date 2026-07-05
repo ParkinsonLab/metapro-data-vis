@@ -52,6 +52,5 @@ class PathwayListRequest(BaseModel):
 class GraphRequest(BaseModel):
     names: list[str] = Field(default_factory=list)
     tax_level: str
-    ann_level: str
     selected_ann_cat: Any = Field(default_factory=dict)
     selected_taxon: Any = Field(default_factory=dict)

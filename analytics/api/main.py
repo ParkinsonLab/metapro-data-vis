@@ -95,7 +95,6 @@ def graph_endpoint(body: GraphRequest):
         return build_graph_from_duckdb(
             names=body.names,
             tax_level=body.tax_level,
-            ann_level=body.ann_level,
             selected_ann_cat=body.selected_ann_cat,
             selected_taxon=body.selected_taxon,
         )

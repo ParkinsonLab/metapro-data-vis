@@ -65,6 +65,27 @@ def normalise_ann_filter(raw: Any, ann_level: str) -> dict[str, str] | None:
     return None
 
 
+def normalise_pathway_filter(raw: Any) -> dict[str, str] | None:
+    """Graph accepts pathway drill-down only (Network selected_pathway)."""
+    if not isinstance(raw, dict):
+        return None
+    level = str(raw.get("level") or "").strip()
+    name = str(raw.get("name") or "").strip()
+    if level == "pathway" and name:
+        return {"level": "pathway", "name": name}
+    return None
+
+
+def require_graph_pathway_filter(raw: Any) -> dict[str, str]:
+    pathway = normalise_pathway_filter(raw)
+    if pathway is None:
+        raise ValueError(
+            "graph requires selected_ann_cat { level: 'pathway', name: '<pathway>' } "
+            "(Network selected_pathway)"
+        )
+    return pathway
+
+
 def normalise_taxon_filter(raw: Any) -> dict[str, str] | None:
     if not isinstance(raw, dict):
         return None
