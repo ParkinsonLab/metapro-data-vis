@@ -39,9 +39,9 @@ The graph-tab-recovery spec (`2026-07-02`) scoped analytics out. This spec adds 
 | Value source | **`int_rpkm_by_ec_tax`** — canonical `(ec_normalized, source_tax_id, value)` grain | No pathway-level or rank duplication (unlike `int_tax_rollup_resolved`) |
 | Index membership | **Distinct keys from filtered triples** — index/metadata from separate bridge queries; no reference-only rows | Avoids legacy index/reference mismatch; no zero-row trim on DuckDB path |
 | Tax display label | Finest resolved rank display name per `source_tax_id`; fallback `COALESCE(names.name, CAST(source_tax_id AS VARCHAR))` | Matches krona name fallback |
-| EC ordering | Hierarchical alphabetical: `(superpathway_name, pathway_name, ec_normalized)` tuple, lexicographic — **always full tuple** | Design decision |
+| EC ordering | Numeric ascending on 4-part tuple `(n1, n2, n3, n4)` parsed from `ec_normalized`; non-numeric segments sort last; tie-break on full label | EC numbers are the leaf identity; pathway hierarchy is filter-only |
 | Taxon ordering | Hierarchical alphabetical: full lineage tuple `(kingdom, phylum, class, order, family, genus, species, display_name)` lexicographic | Design decision |
-| Outer index ordering | **Same tuple rules as inner leaves** — categories are prefix segments; `ann_level` controls outer ann-axis depth only | Design decision |
+| Outer index (DuckDB) | **Tax categories only** — `['gap_1', 'gap_2', …tax_cats…, 'gap_3']`; Graph UI reads only the `gap_2`→`gap_3` slice | Ann outer segment unused by `Graph.tsx`; legacy Express still emits ann + tax |
 | API contract | Unchanged request body (identical to chord) + graph response blob + `{ ok, value }` envelope | No `Graph.tsx` plot logic changes |
 | FastAPI route | **`POST /api/viz/graph`** — identical path, method, envelope, HTTP 200 as Express | Drop-in sidecar replacement |
 | Default backend | Legacy Node `parse_graph` | Safe rollout |
@@ -104,7 +104,7 @@ The graph-tab-recovery spec (`2026-07-02`) scoped analytics out. This spec adds 
 |---|---|
 | `names` | Single sample only; `sample_id = strip_extension(names[0])` |
 | `tax_level` | Rank used for `tax_map` category grouping and outer tax-axis categories |
-| `ann_level` | Pathway rank for `ec_map` category label and **outer ann-axis category depth** (does not shorten EC leaf sort tuple) |
+| `ann_level` | Pathway rank for **ann filter** normalisation only (`bridge_ec_long` EXISTS predicates); does not affect EC sort or outer index on DuckDB path |
 | `selected_ann_cat` | EC subset filter via `bridge_ec_pathway` (same normalisation as chord) |
 | `selected_taxon` | `source_tax_id` subset filter via `bridge_tax_rollup` |
 
@@ -116,7 +116,7 @@ The graph-tab-recovery spec (`2026-07-02`) scoped analytics out. This spec adds 
   "value": {
     "inner_count_matrix": [[...]],
     "inner_matrix_index": ["gap_1", "1.1.1.1", "...", "gap_2", "Bacillus subtilis", "...", "gap_3"],
-    "outer_matrix_index": ["gap_1", "Amino acid metabolism", "...", "gap_2", "Bacillota", "...", "gap_3"],
+    "outer_matrix_index": ["gap_1", "gap_2", "Bacillota", "...", "gap_3"],
     "colors": { "1.1.1.1": "hsl(...)", "Bacillota": "hsl(...)" },
     "tax_map": { "Bacillus subtilis": "Bacillota" }
   }
@@ -169,22 +169,20 @@ Ann/taxon filter predicates reuse the same normalisation helpers as chord (`norm
 
 Run **after** `filtered_triples` is materialised. Operate on distinct keys from that temp table — bridge fan-out here affects metadata only, not summed values.
 
-**EC axis** — distinct `ec_normalized` from `filtered_triples`, joined to deduped bridge for pathway sort keys, **ordered in SQL**:
+**EC axis** — distinct `ec_normalized` from `filtered_triples`, **ordered in SQL by numeric EC tuple** (no bridge join):
 
 ```sql
-SELECT b.ec_normalized, b.superpathway_name, b.pathway_name
+SELECT ec_normalized
 FROM (SELECT DISTINCT ec_normalized FROM filtered_triples) t
-JOIN bridge_ec_dedup b ON b.ec_normalized = t.ec_normalized
-ORDER BY b.superpathway_name, b.pathway_name, b.ec_normalized
+ORDER BY
+    COALESCE(TRY_CAST(split_part(ec_normalized, '.', 1) AS INTEGER), 2147483647),
+    COALESCE(TRY_CAST(split_part(ec_normalized, '.', 2) AS INTEGER), 2147483647),
+    COALESCE(TRY_CAST(split_part(ec_normalized, '.', 3) AS INTEGER), 2147483647),
+    COALESCE(TRY_CAST(split_part(ec_normalized, '.', 4) AS INTEGER), 2147483647),
+    ec_normalized
 ```
 
-`bridge_ec_dedup` is one row per `ec_normalized` (lexicographically smallest `(superpathway_name, pathway_name)` when an EC maps to multiple pathway nodes).
-
-From this result build in Python:
-
-- Sorted EC label list (inner index ann segment) — **order preserved from SQL**
-- `ann_category` per EC at `ann_level` depth (`superpathway_name` or `pathway_name`)
-- Pathway sort keys (§5.5) — implicit in SQL `ORDER BY`
+Each row becomes `{ ec_normalized }` in `ec_rows`. Pathway labels are not fetched for ordering or coloring on the DuckDB path.
 
 **Tax axis** — distinct `source_tax_id` from `filtered_triples`, joined to lineage PIVOT + `names`, materialised as `graph_tax_metadata` temp table, **ordered in SQL**:
 
@@ -211,34 +209,15 @@ No second `bridge_tax_rollup` join is needed. The PIVOT already exposes `resolve
 
 Labeled triples for the matrix join `filtered_triples` to `graph_tax_metadata` on `source_tax_id` (INNER JOIN — every filtered triple has metadata by construction).
 
-### 5.3 `ec_map` (metadata — not used for values)
-
-`ec_map: Record<ec_normalized, list[category_label]>` maps each EC to its annotation category at `ann_level` (superpathway name, pathway name, etc.).
-
-Built from the **EC metadata query** (§5.2) — one entry per EC present in filtered triples, not the full bridge. Each `ec_rows` dict includes `ann_category` at `ann_level` depth. Used by `graph_matrix.py` for:
-
-1. Outer index annotation categories (first-seen dedupe of `ann_category` in EC row order — §6.2)
-2. Per-EC line colors (`get_sub_color` from category color)
-
-EC leaf ordering is enforced by SQL `ORDER BY` in `graph_service` (§5.2), not in `graph_matrix.py`.
-
-Values in the matrix come from triples (§5.1), not from `ec_map`.
-
-### 5.4 `tax_map` (metadata)
+### 5.3 `tax_map` (metadata)
 
 `tax_map: Record<display_name, category_at_tax_level>` maps each taxon column label to its category at `tax_level`.
 
 Built from the **tax metadata query** (§5.2): `display_name → w.<tax_level>` using the lineage PIVOT column at the active rank. Used by `Graph.tsx` for y-axis background surface grouping.
 
-### 5.5 Lineage and pathway sort keys
+### 5.4 Sort keys
 
-**Pathway tuple** per EC — **always** `(superpathway_name, pathway_name, ec_normalized)`, lexicographic. `ann_level` does **not** shorten this tuple; it only controls outer ann-axis category depth (§6.2).
-
-| `ann_level` | EC leaf sort tuple (always) | Outer ann-axis category depth |
-|---|---|---|
-| `superpathway` | `(superpathway_name, pathway_name, ec_normalized)` | 1 segment: `superpathway_name` |
-| `pathway` | `(superpathway_name, pathway_name, ec_normalized)` | 2 segments: through `pathway_name` |
-| `pathway_node` | `(superpathway_name, pathway_name, ec_normalized)` | 2 segments: through `pathway_name` (EC label is `ec_normalized`) |
+**EC tuple** — `(n1, n2, n3, n4, ec_normalized)` where each `n*` is the integer part of the corresponding dot segment (non-numeric → sort last). Applied in SQL `ORDER BY` (§5.2).
 
 **Taxonomy tuple** per taxon (PIVOT `bridge_tax_rollup` + `names`, same pattern as krona `_fetch_taxa`):
 
@@ -248,9 +227,11 @@ Built from the **tax metadata query** (§5.2): `display_name → w.<tax_level>` 
 
 Each element compared alphabetically left-to-right (lexicographic sort).
 
-## 6. Unified Ordering Model
+`ann_level` affects ann **filters** only (`bridge_ec_long` EXISTS); it does not change EC sort or outer index on the DuckDB path.
 
-Inner leaves and outer categories share one ordering philosophy: **hierarchical alphabetical on prefix tuples**. Categories are the first *N* segments of the same hierarchy that leaves use.
+## 6. Ordering and Colors
+
+EC and tax axes use **different** ordering rules. Outer index on the DuckDB path carries **tax categories only** (Graph UI contract).
 
 ### 6.1 Inner matrix index
 
@@ -260,42 +241,39 @@ inner_matrix_index = ['gap_1', ...sorted_ecs..., 'gap_2', ...sorted_taxa..., 'ga
 
 | Segment | Sort key |
 |---|---|
-| ECs | Full pathway tuple `(superpathway_name, pathway_name, ec_normalized)` (§5.5), lexicographic |
-| Taxa | Full lineage tuple (§5.5), lexicographic |
+| ECs | Numeric 4-part tuple `(n1, n2, n3, n4, ec_normalized)` (§5.4) |
+| Taxa | Full lineage tuple (§5.4), lexicographic |
 
-Index members are the distinct EC and taxon labels from filtered triples (§5.1), with sort keys and maps from metadata queries (§5.2) — no zero-sum rows by construction.
+Index members are the distinct EC and taxon labels from filtered triples (§5.1), with order from metadata queries (§5.2) — no zero-sum rows by construction.
 
-### 6.2 Outer matrix index
+### 6.2 Outer matrix index (DuckDB)
 
 ```
-outer_matrix_index = ['gap_1', ...sorted_ann_cats..., 'gap_2', ...sorted_tax_cats..., 'gap_3']
+outer_matrix_index = ['gap_1', 'gap_2', ...sorted_tax_cats..., 'gap_3']
 ```
 
 | Segment | Derivation | Sort key |
 |---|---|---|
-| Ann categories | Distinct `ann_category` labels in EC row order | First-seen dedupe of ordered inner EC categories (§7) |
 | Tax categories | Distinct `tax_map_value` labels in tax row order | First-seen dedupe of ordered inner tax categories (§7) |
 
-**Example (tax):** When `tax_level = phylum`, each phylum category `"Bacillota"` sorts by `(kingdom_label, "Bacillota")` — the first two segments of the lineage tuple for any taxon in that phylum. When `tax_level = genus`, category sort uses `(kingdom, phylum, class, order, family, genus_label)`.
+**Graph UI usage:** `Graph.tsx` slices `outer_matrix_index` between `gap_2` and `gap_3` only — for tax-category background bands on the y-axis. The ann segment present in legacy `parse_graph_data` (`['gap_1', ...annotation_cats..., 'gap_2', ...]`) is **not consumed** by the Graph tab and is omitted on the DuckDB path.
 
-**Example (pathway):** When `ann_level = superpathway`, category `"Amino acid metabolism"` appears in outer index when the first EC in that superpathway appears in the SQL-ordered EC list. Category order follows first appearance among sorted EC leaves, not a separate category sort pass.
-
-Implementation: **inner leaves sorted in SQL** (`graph_service.py`); **outer categories** derived in `graph_matrix.py` by first-seen dedupe (`_dedupe_preserve_order`) on the ordered inner category labels. Because inner leaves are sorted by full pathway/lineage tuple, category order matches prefix-truncated tuple sort in practice.
+**Example (tax):** When `tax_level = phylum`, each phylum category `"Bacillota"` sorts by first appearance among SQL-ordered tax leaves whose `tax_map_value` is `"Bacillota"`.
 
 ### 6.3 Colors
 
-Category colors via `get_color(i, n)` on the **sorted** category lists (same index order as outer segments).
+**Tax:** category colors via `get_color(i, n)` on the sorted tax category list; per-taxon shades via `get_sub_color(category_color, display_name)`.
 
-Per-EC and per-taxon shades via `get_sub_color(category_color, label)` — port `map_lum` + `get_sub_color` from `src/server/utils.ts` into `analytics/api/colors.py`.
+**EC:** per-EC hue via `get_sub_color(get_color(i, len(ecs)), ec_normalized)` — distinct color per EC index, **without** pathway category lookup. Line colors in `Graph.tsx` use `colors[ec_label]` directly.
 
-Color assignment order follows the unified sort order above (not legacy abundance order).
+Color assignment order follows EC/tax row order from `graph_service` (not legacy abundance order).
 
 ## 7. Matrix Builder (`graph_matrix.py`)
 
 Port core logic from `parse_graph_data` / `make_inner_count_matrix` / `add_filler_value` in `src/server/parse.ts`. **`graph_matrix.py` receives pre-ordered triples + metadata from `graph_service` — it does not run SQL, join bridges, or sort rows.**
 
 1. Build `inner_matrix_index` from pre-ordered `ec_rows` and `tax_rows`: `['gap_1', *ecs, 'gap_2', *tax_labels, 'gap_3']` — EC/tax lists are the SQL-ordered row sequences as-is (§6.1)
-2. Build `outer_matrix_index` by first-seen dedupe of `ann_category` (EC rows) and `tax_map_value` (tax rows) in that same order (§6.2)
+2. Build `outer_matrix_index`: `['gap_1', 'gap_2', *tax_cats, 'gap_3']` where `tax_cats` is first-seen dedupe of `tax_map_value` in tax row order (§6.2)
 3. Fill symmetric inner matrix by keyed lookup: for each triple `(ec_normalized, display_tax_label, value)`, place `value` at the corresponding matrix positions
 4. Apply gap fillers on `gap_1`, `gap_2`, `gap_3`
 5. Assign colors (§6.3)
@@ -323,8 +301,8 @@ Default backend: legacy. Sidecar mode (localStorage default) appends `?backend=d
 
 | Layer | Coverage |
 |---|---|
-| Unit | `test_graph_matrix.py` — matrix shape, gap fillers, pre-ordered EC/tax indices, outer category dedupe, colors present |
-| Service | `test_graph_service.py` — triples query has no bridge joins (row count = unique `(ec, source_tax_id)` pairs); SQL-ordered metadata on distinct keys; shape on `fake_rpkm` fixture; filter narrowing; comparison-mode rejection |
+| Unit | `test_graph_matrix.py` — matrix shape, gap fillers, pre-ordered EC/tax indices, tax-only outer index, EC colors without ann metadata |
+| Service | `test_graph_service.py` — triples query has no bridge joins; numeric EC order + SQL lineage tax order; shape on `fake_rpkm` fixture; filter narrowing; comparison-mode rejection |
 | Proxy | Extend or mirror `fastapi_sidecar_proxy.test.ts` for graph route |
 | Cross-backend | **Not required v1** — optional smoke that both backends return valid shapes |
 | Manual | Graph tab 3D plot in legacy and sidecar modes; EC selection from Network |
@@ -347,11 +325,13 @@ All HTTP 200 with envelope (consistent with other migrated endpoints).
 
 | Area | Legacy (Express) | Analytics API |
 |---|---|---|
-| Index ordering | Abundance-based category sort + `sort_by_category` within category | Hierarchical alphabetical (pathway tuple + lineage tuple) |
-| Outer category order | Derived from `ec_map` / `tax_map` with legacy sort | Prefix-truncated tuple sort (§6.2) |
+| Index ordering | Abundance-based category sort + `sort_by_category` within category | EC numeric tuple; tax lineage tuple (SQL) |
+| Outer index | `['gap_1', ...ann_cats..., 'gap_2', ...tax_cats..., 'gap_3']` (ann segment unused by Graph UI) | `['gap_1', 'gap_2', ...tax_cats..., 'gap_3']` |
+| EC line colors | `get_sub_color` from pathway category color | Per-EC hue from index (`get_color(i, n)` base) |
+| Outer category order | Derived from `ec_map` / `tax_map` with legacy sort | Tax categories: first-seen dedupe in SQL tax order |
 | Value source | Wide TSV in memory | `int_rpkm_by_ec_tax` in sample DuckDB |
 | Query structure | Single in-memory pipeline (`agg_by_ec` + `parse_graph_data`) | **Separate triples query** (no bridge joins) + **metadata queries** on distinct triple keys (§5.1–§5.2) |
-| `ec_map` source | SQLite EC reference (can include ECs absent from filtered data) | `bridge_ec_pathway` on distinct EC keys from triples (metadata query) |
+| EC metadata source | SQLite EC reference (can include ECs absent from filtered data) | Distinct EC keys from `filtered_triples` only (no bridge join for sort/color) |
 | Zero-row trim | `idx_to_keep` in `parse_graph_data` — trims reference ECs absent from data | Not needed — inner index built from distinct triple keys only |
 
 These are acceptable under contract parity (B). Graph tab must render correctly; index order need not match legacy byte-for-byte.
@@ -361,7 +341,7 @@ These are acceptable under contract parity (B). Graph tab must render correctly;
 - [ ] `POST /api/viz/graph` on FastAPI returns valid graph blob on `fake_rpkm` fixture
 - [ ] Triples query reads `int_rpkm_by_ec_tax` with `EXISTS` filters only — no bridge joins, no double-counting
 - [ ] Index/metadata from separate queries on distinct triple keys (§5.2)
-- [ ] Inner and outer indices use unified hierarchical alphabetical ordering (§6)
+- [ ] Inner indices use numeric EC order + lineage tax order (§6); outer index is tax-only on DuckDB path
 - [ ] Express sidecar proxy forwards graph requests when `?backend=duckdb`
 - [ ] Graph tab renders 3D plot in sidecar mode with EC selections from Network
 - [ ] Legacy mode unchanged when `vizBackend=legacy`

@@ -74,24 +74,6 @@ def _ensure_bridge_ec(conn: duckdb.DuckDBPyConnection) -> None:
         WHERE filter_name IS NOT NULL
         """
     )
-    conn.execute(
-        """
-        CREATE TEMP TABLE bridge_ec_dedup AS
-        SELECT ec_normalized, superpathway_name, pathway_name
-        FROM (
-            SELECT
-                ec_normalized,
-                superpathway_name,
-                pathway_name,
-                ROW_NUMBER() OVER (
-                    PARTITION BY ec_normalized
-                    ORDER BY superpathway_name, pathway_name
-                ) AS rn
-            FROM bridge_ec
-        )
-        WHERE rn = 1
-        """
-    )
 
 
 def _ann_exists_clause(ann_filter: dict[str, str] | None, ann_level: str) -> tuple[str, list]:
@@ -150,35 +132,20 @@ def _materialize_filtered_triples(
     )
 
 
-def _ann_category(superpathway_name: str | None, pathway_name: str | None, ann_level: str) -> str:
-    if ann_level == "superpathway":
-        return superpathway_name or ""
-    return pathway_name or ""
-
-
-def _fetch_ec_metadata(
-    conn: duckdb.DuckDBPyConnection,
-    *,
-    ann_level: str,
-) -> list[dict]:
-    _ensure_bridge_ec(conn)
+def _fetch_ec_metadata(conn: duckdb.DuckDBPyConnection) -> list[dict]:
     rows = conn.execute(
         """
-        SELECT b.ec_normalized, b.superpathway_name, b.pathway_name
-        FROM (
-            SELECT DISTINCT ec_normalized FROM filtered_triples
-        ) t
-        JOIN bridge_ec_dedup b ON b.ec_normalized = t.ec_normalized
-        ORDER BY b.superpathway_name, b.pathway_name, b.ec_normalized
+        SELECT ec_normalized
+        FROM (SELECT DISTINCT ec_normalized FROM filtered_triples) t
+        ORDER BY
+            COALESCE(TRY_CAST(split_part(ec_normalized, '.', 1) AS INTEGER), 2147483647),
+            COALESCE(TRY_CAST(split_part(ec_normalized, '.', 2) AS INTEGER), 2147483647),
+            COALESCE(TRY_CAST(split_part(ec_normalized, '.', 3) AS INTEGER), 2147483647),
+            COALESCE(TRY_CAST(split_part(ec_normalized, '.', 4) AS INTEGER), 2147483647),
+            ec_normalized
         """
     ).fetchall()
-    return [
-        {
-            "ec_normalized": ec,
-            "ann_category": _ann_category(superpathway, pathway, ann_level),
-        }
-        for ec, superpathway, pathway in rows
-    ]
+    return [{"ec_normalized": ec} for (ec,) in rows]
 
 
 def _materialize_tax_metadata(conn: duckdb.DuckDBPyConnection, *, tax_level: str) -> None:
@@ -283,7 +250,7 @@ def build_graph_from_duckdb(
             taxon_filter=taxon_filter,
             ann_level=ann_level,
         )
-        ec_rows = _fetch_ec_metadata(conn, ann_level=ann_level)
+        ec_rows = _fetch_ec_metadata(conn)
         _materialize_tax_metadata(conn, tax_level=tax_level)
         tax_rows = _read_tax_metadata(conn)
         triples = _fetch_labeled_triples(conn)

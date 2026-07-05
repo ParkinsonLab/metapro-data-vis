@@ -1,12 +1,13 @@
 from api.graph_matrix import build_graph_matrix
 
 
+def _ec_rows(*ecs: str) -> list[dict]:
+    return [{"ec_normalized": ec} for ec in ecs]
+
+
 def test_build_graph_matrix_shape_and_gaps():
     triples = [("1.1.1.1", "TaxA", 10.0), ("1.1.1.2", "TaxB", 5.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "ann_category": "Sp"},
-        {"ec_normalized": "1.1.1.2", "ann_category": "Sp"},
-    ]
+    ec_rows = _ec_rows("1.1.1.1", "1.1.1.2")
     tax_rows = [
         {"display_name": "TaxA", "tax_map_value": "PhA"},
         {"display_name": "TaxB", "tax_map_value": "PhA"},
@@ -28,7 +29,7 @@ def test_build_graph_matrix_shape_and_gaps():
 
 def test_build_graph_matrix_symmetric():
     triples = [("1.1.1.1", "TaxA", 10.0)]
-    ec_rows = [{"ec_normalized": "1.1.1.1", "ann_category": "Sp"}]
+    ec_rows = _ec_rows("1.1.1.1")
     tax_rows = [{"display_name": "TaxA", "tax_map_value": "PhA"}]
     out = build_graph_matrix(
         triples=triples,
@@ -46,7 +47,7 @@ def test_build_graph_matrix_symmetric():
 
 def test_build_graph_matrix_gap_fillers():
     triples = [("1.1.1.1", "TaxA", 8.0)]
-    ec_rows = [{"ec_normalized": "1.1.1.1", "ann_category": "Sp"}]
+    ec_rows = _ec_rows("1.1.1.1")
     tax_rows = [{"display_name": "TaxA", "tax_map_value": "PhA"}]
     out = build_graph_matrix(
         triples=triples,
@@ -68,10 +69,7 @@ def test_build_graph_matrix_gap_fillers():
 
 def test_build_graph_matrix_no_zero_row_trim():
     triples = [("1.1.1.1", "TaxA", 10.0), ("1.1.1.2", "TaxB", 0.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "ann_category": "Sp"},
-        {"ec_normalized": "1.1.1.2", "ann_category": "Sp"},
-    ]
+    ec_rows = _ec_rows("1.1.1.1", "1.1.1.2")
     tax_rows = [
         {"display_name": "TaxA", "tax_map_value": "PhA"},
         {"display_name": "TaxB", "tax_map_value": "PhA"},
@@ -88,12 +86,9 @@ def test_build_graph_matrix_no_zero_row_trim():
     assert len(out["inner_count_matrix"]) == len(out["inner_matrix_index"])
 
 
-def test_outer_matrix_index_has_gap_structure_and_ann_tax_categories():
+def test_outer_matrix_index_tax_categories_only():
     triples = [("1.1.1.1", "TaxA", 10.0), ("2.2.2.2", "TaxB", 5.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "ann_category": "SpA"},
-        {"ec_normalized": "2.2.2.2", "ann_category": "SpB"},
-    ]
+    ec_rows = _ec_rows("1.1.1.1", "2.2.2.2")
     tax_rows = [
         {"display_name": "TaxA", "tax_map_value": "PhA"},
         {"display_name": "TaxB", "tax_map_value": "PhB"},
@@ -106,24 +101,12 @@ def test_outer_matrix_index_has_gap_structure_and_ann_tax_categories():
         tax_level="phylum",
     )
     outer = out["outer_matrix_index"]
-    assert outer[0] == "gap_1"
-    assert outer[-1] == "gap_3"
-    gap2 = outer.index("gap_2")
-    assert gap2 > 0 and gap2 < len(outer) - 1
-    ann_cats = outer[1:gap2]
-    tax_cats = outer[gap2 + 1 : -1]
-    assert "SpA" in ann_cats
-    assert "SpB" in ann_cats
-    assert "PhA" in tax_cats
-    assert "PhB" in tax_cats
+    assert outer == ["gap_1", "gap_2", "PhA", "PhB", "gap_3"]
 
 
-def test_ecs_ordered_by_pathway_tuple_when_shared_ann_category():
+def test_ecs_follow_ec_rows_order():
     triples = [("1.1.1.1", "TaxA", 10.0), ("2.2.2.2", "TaxA", 5.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "ann_category": "Sp"},
-        {"ec_normalized": "2.2.2.2", "ann_category": "Sp"},
-    ]
+    ec_rows = _ec_rows("1.1.1.1", "2.2.2.2")
     tax_rows = [{"display_name": "TaxA", "tax_map_value": "PhA"}]
     out = build_graph_matrix(
         triples=triples,
@@ -136,9 +119,23 @@ def test_ecs_ordered_by_pathway_tuple_when_shared_ann_category():
     assert idx.index("1.1.1.1") < idx.index("2.2.2.2")
 
 
+def test_ec_colors_do_not_require_ann_category():
+    triples = [("1.1.1.1", "TaxA", 10.0), ("2.2.2.2", "TaxA", 5.0)]
+    ec_rows = _ec_rows("1.1.1.1", "2.2.2.2")
+    tax_rows = [{"display_name": "TaxA", "tax_map_value": "PhA"}]
+    out = build_graph_matrix(
+        triples=triples,
+        ec_rows=ec_rows,
+        tax_rows=tax_rows,
+        ann_level="superpathway",
+        tax_level="phylum",
+    )
+    assert out["colors"]["1.1.1.1"] != out["colors"]["2.2.2.2"]
+
+
 def test_tax_level_affects_outer_tax_category_ordering():
     triples = [("1.1.1.1", "TaxA", 10.0), ("1.1.1.1", "TaxB", 5.0)]
-    ec_rows = [{"ec_normalized": "1.1.1.1", "ann_category": "Sp"}]
+    ec_rows = _ec_rows("1.1.1.1")
     tax_rows_phylum = [
         {"display_name": "TaxB", "tax_map_value": "PhylumA"},
         {"display_name": "TaxA", "tax_map_value": "PhylumZ"},

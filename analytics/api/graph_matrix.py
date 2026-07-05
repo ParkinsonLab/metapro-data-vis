@@ -21,18 +21,17 @@ def build_graph_matrix(
     ann_level: str,
     tax_level: str,
 ) -> dict:
-    # ec_rows / tax_rows are pre-ordered by graph_service; ec_rows must include ann_category.
-    ec_by_norm = {row["ec_normalized"]: row for row in ec_rows}
+    # ec_rows / tax_rows are pre-ordered by graph_service.
     tax_map = {row["display_name"]: row["tax_map_value"] for row in tax_rows}
 
     ecs = [row["ec_normalized"] for row in ec_rows]
     tax_labels = [row["display_name"] for row in tax_rows]
 
-    ann_cats = _dedupe_preserve_order([ec_by_norm[ec]["ann_category"] for ec in ecs])
     tax_cats = _dedupe_preserve_order([tax_map[tax] for tax in tax_labels])
 
     inner_matrix_index = ["gap_1", *ecs, "gap_2", *tax_labels, "gap_3"]
-    outer_matrix_index = ["gap_1", *ann_cats, "gap_2", *tax_cats, "gap_3"]
+    # Graph UI reads only tax categories between gap_2 and gap_3 (see Graph.tsx).
+    outer_matrix_index = ["gap_1", "gap_2", *tax_cats, "gap_3"]
 
     n = len(inner_matrix_index)
     pos = {name: i for i, name in enumerate(inner_matrix_index)}
@@ -52,15 +51,9 @@ def build_graph_matrix(
         i = pos[gap_name]
         matrix[i][i] = flat_sum / div
 
-    cat_colors = {
-        **{c: get_color(i, len(ann_cats)) for i, c in enumerate(ann_cats)},
-        **{c: get_color(i, len(tax_cats)) for i, c in enumerate(tax_cats)},
-    }
+    cat_colors = {c: get_color(i, len(tax_cats)) for i, c in enumerate(tax_cats)}
     sub_colors = {
-        **{
-            ec: get_sub_color(cat_colors[ec_by_norm[ec]["ann_category"]], ec)
-            for ec in ecs
-        },
+        **{ec: get_sub_color(get_color(i, len(ecs)), ec) for i, ec in enumerate(ecs)},
         **{tax: get_sub_color(cat_colors[tax_map[tax]], tax) for tax in tax_labels},
     }
     colors = {**sub_colors, **cat_colors}

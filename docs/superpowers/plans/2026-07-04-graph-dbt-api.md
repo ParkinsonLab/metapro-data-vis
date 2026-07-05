@@ -4,7 +4,7 @@
 
 **Goal:** Add FastAPI `POST /api/viz/graph` backed by `int_rpkm_by_ec_tax` (triples + separate metadata queries), standalone `graph_service` / `graph_matrix`, Express sidecar proxy, renderer toggle — preserving the graph blob JSON contract.
 
-**Architecture:** Triples query reads `int_rpkm_by_ec_tax` with `EXISTS` filters only (no bridge joins), materialised as `filtered_triples`. Separate SQL-ordered metadata queries on distinct triple keys join bridges for pathway/lineage sort keys, `ann_category`, and `tax_map`. `graph_matrix.py` assembles pre-ordered inner/outer indices and fills the symmetric matrix by keyed lookup (no Python sort). Express defaults to legacy; renderer appends `?backend=duckdb` for migrated channels.
+**Architecture:** Triples query reads `int_rpkm_by_ec_tax` with `EXISTS` filters only (no bridge joins), materialised as `filtered_triples`. EC metadata = distinct EC keys with numeric sort; tax metadata = lineage PIVOT + `tax_map`. `graph_matrix.py` builds tax-only outer index, per-EC colors without pathway categories, and fills the symmetric matrix by keyed lookup (no Python sort). Express defaults to legacy; renderer appends `?backend=duckdb` for migrated channels.
 
 **Tech Stack:** Python 3.14, FastAPI, DuckDB, pytest; Node 22, Express 5, vitest, React/Plotly
 

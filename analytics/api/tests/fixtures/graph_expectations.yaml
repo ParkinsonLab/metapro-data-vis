@@ -4,6 +4,9 @@ graph_unfiltered:
   tax_level: species
   ann_level: pathway_node
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -42,6 +45,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -59,9 +63,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Clavibacter sp. OL-4
@@ -87,6 +88,9 @@ graph_unfiltered:
   tax_level: species
   ann_level: pathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -125,6 +129,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -142,9 +147,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Clavibacter sp. OL-4
@@ -170,6 +172,9 @@ graph_unfiltered:
   tax_level: species
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -208,6 +213,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -225,8 +231,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Clavibacter sp. OL-4
@@ -252,6 +256,9 @@ graph_unfiltered:
   tax_level: genus
   ann_level: pathway_node
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -290,6 +297,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -307,9 +315,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Clavibacter
@@ -334,6 +339,9 @@ graph_unfiltered:
   tax_level: genus
   ann_level: pathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -372,6 +380,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -389,9 +398,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Clavibacter
@@ -416,6 +422,9 @@ graph_unfiltered:
   tax_level: genus
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -454,6 +463,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -471,8 +481,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Clavibacter
@@ -497,6 +505,9 @@ graph_unfiltered:
   tax_level: family
   ann_level: pathway_node
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -535,6 +546,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -552,9 +564,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Microbacteriaceae
@@ -578,6 +587,9 @@ graph_unfiltered:
   tax_level: family
   ann_level: pathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -616,6 +628,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -633,9 +646,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Microbacteriaceae
@@ -659,6 +669,9 @@ graph_unfiltered:
   tax_level: family
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -697,6 +710,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -714,8 +728,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Microbacteriaceae
@@ -739,6 +751,9 @@ graph_unfiltered:
   tax_level: order
   ann_level: pathway_node
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -777,6 +792,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -794,9 +810,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Micrococcales
@@ -819,6 +832,9 @@ graph_unfiltered:
   tax_level: order
   ann_level: pathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -857,6 +873,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -874,9 +891,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Micrococcales
@@ -899,6 +913,9 @@ graph_unfiltered:
   tax_level: order
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -937,6 +954,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -954,8 +972,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Micrococcales
@@ -978,6 +994,9 @@ graph_unfiltered:
   tax_level: class
   ann_level: pathway_node
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1016,6 +1035,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1033,9 +1053,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Actinomycetes
@@ -1057,6 +1074,9 @@ graph_unfiltered:
   tax_level: class
   ann_level: pathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1095,6 +1115,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1112,9 +1133,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Actinomycetes
@@ -1136,6 +1154,9 @@ graph_unfiltered:
   tax_level: class
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1174,6 +1195,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1191,8 +1213,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Actinomycetes
@@ -1214,6 +1234,9 @@ graph_unfiltered:
   tax_level: phylum
   ann_level: pathway_node
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1252,6 +1275,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1269,9 +1293,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Actinomycetota
@@ -1292,6 +1313,9 @@ graph_unfiltered:
   tax_level: phylum
   ann_level: pathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1330,6 +1354,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1347,9 +1372,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Actinomycetota
@@ -1370,6 +1392,9 @@ graph_unfiltered:
   tax_level: phylum
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1408,6 +1433,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1425,8 +1451,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Actinomycetota
@@ -1447,6 +1471,9 @@ graph_unfiltered:
   tax_level: kingdom
   ann_level: pathway_node
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1485,6 +1512,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1502,9 +1530,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Bacillati
@@ -1524,6 +1549,9 @@ graph_unfiltered:
   tax_level: kingdom
   ann_level: pathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1562,6 +1590,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1579,9 +1608,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Aflatoxin biosynthesis
-  - Methane metabolism
-  - Oxidative phosphorylation
   - gap_2
   - ''
   - Bacillati
@@ -1601,6 +1627,9 @@ graph_unfiltered:
   tax_level: kingdom
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1639,6 +1668,7 @@ graph_unfiltered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1656,8 +1686,6 @@ graph_unfiltered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Bacillati
@@ -1678,6 +1706,9 @@ graph_filtered:
   tax_level: genus
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1692,6 +1723,7 @@ graph_filtered:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1701,8 +1733,6 @@ graph_filtered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - Staphylococcus
   - gap_3
@@ -1766,7 +1796,6 @@ graph_filtered:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Energy metabolism
   - gap_2
   - ''
   - Actinomycetota
@@ -1789,6 +1818,9 @@ edge_cases:
   tax_level: phylum
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1827,6 +1859,7 @@ edge_cases:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1844,8 +1877,6 @@ edge_cases:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Actinomycetota
@@ -1866,6 +1897,9 @@ edge_cases:
   tax_level: phylum
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1904,6 +1938,7 @@ edge_cases:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1921,8 +1956,6 @@ edge_cases:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Actinomycetota
@@ -1943,6 +1976,9 @@ edge_cases:
   tax_level: species
   ann_level: superpathway
   pairs:
+  - - 0.0.0.0
+    - Staphylococcus aureus
+    - 1.0
   - - 1.1.1.349
     - Staphylococcus aureus
     - 1.0
@@ -1981,6 +2017,7 @@ edge_cases:
     - 1.0
   expected_inner_index:
   - gap_1
+  - 0.0.0.0
   - 1.1.1.349
   - 1.5.8.1
   - 1.6.5.9
@@ -1998,8 +2035,6 @@ edge_cases:
   - gap_3
   expected_outer_index:
   - gap_1
-  - Biosynthesis of other secondary metabolites
-  - Energy metabolism
   - gap_2
   - ''
   - Clavibacter sp. OL-4
