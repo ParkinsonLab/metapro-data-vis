@@ -71,6 +71,7 @@ graph_unfiltered:
   - Staphylococcus epidermidis
   - Lactobacillus sp. 100-5
   - Pectinatus frisingensis
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -81,7 +82,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcus epidermidis
     Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
     Pectinatus frisingensis: Pectinatus frisingensis
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: species_pathway
   tax_level: species
   ann_level: pathway
@@ -153,6 +154,7 @@ graph_unfiltered:
   - Staphylococcus epidermidis
   - Lactobacillus sp. 100-5
   - Pectinatus frisingensis
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -163,7 +165,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcus epidermidis
     Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
     Pectinatus frisingensis: Pectinatus frisingensis
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: species_superpathway
   tax_level: species
   ann_level: superpathway
@@ -234,6 +236,7 @@ graph_unfiltered:
   - Staphylococcus epidermidis
   - Lactobacillus sp. 100-5
   - Pectinatus frisingensis
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -244,7 +247,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcus epidermidis
     Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
     Pectinatus frisingensis: Pectinatus frisingensis
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: genus_pathway_node
   tax_level: genus
   ann_level: pathway_node
@@ -315,6 +318,7 @@ graph_unfiltered:
   - Staphylococcus
   - Lactobacillus
   - Pectinatus
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -325,7 +329,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcus
     Lactobacillus sp. 100-5: Lactobacillus
     Pectinatus frisingensis: Pectinatus
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: genus_pathway
   tax_level: genus
   ann_level: pathway
@@ -396,6 +400,7 @@ graph_unfiltered:
   - Staphylococcus
   - Lactobacillus
   - Pectinatus
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -406,7 +411,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcus
     Lactobacillus sp. 100-5: Lactobacillus
     Pectinatus frisingensis: Pectinatus
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: genus_superpathway
   tax_level: genus
   ann_level: superpathway
@@ -476,6 +481,7 @@ graph_unfiltered:
   - Staphylococcus
   - Lactobacillus
   - Pectinatus
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -486,7 +492,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcus
     Lactobacillus sp. 100-5: Lactobacillus
     Pectinatus frisingensis: Pectinatus
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: family_pathway_node
   tax_level: family
   ann_level: pathway_node
@@ -556,6 +562,7 @@ graph_unfiltered:
   - Staphylococcaceae
   - Lactobacillaceae
   - Selenomonadaceae
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -566,7 +573,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcaceae
     Lactobacillus sp. 100-5: Lactobacillaceae
     Pectinatus frisingensis: Selenomonadaceae
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: family_pathway
   tax_level: family
   ann_level: pathway
@@ -636,6 +643,7 @@ graph_unfiltered:
   - Staphylococcaceae
   - Lactobacillaceae
   - Selenomonadaceae
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -646,7 +654,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcaceae
     Lactobacillus sp. 100-5: Lactobacillaceae
     Pectinatus frisingensis: Selenomonadaceae
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: family_superpathway
   tax_level: family
   ann_level: superpathway
@@ -715,6 +723,7 @@ graph_unfiltered:
   - Staphylococcaceae
   - Lactobacillaceae
   - Selenomonadaceae
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -725,7 +734,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Staphylococcaceae
     Lactobacillus sp. 100-5: Lactobacillaceae
     Pectinatus frisingensis: Selenomonadaceae
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: order_pathway_node
   tax_level: order
   ann_level: pathway_node
@@ -794,6 +803,7 @@ graph_unfiltered:
   - Caryophanales
   - Lactobacillales
   - Selenomonadales
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -804,7 +814,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Caryophanales
     Lactobacillus sp. 100-5: Lactobacillales
     Pectinatus frisingensis: Selenomonadales
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: order_pathway
   tax_level: order
   ann_level: pathway
@@ -873,6 +883,7 @@ graph_unfiltered:
   - Caryophanales
   - Lactobacillales
   - Selenomonadales
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -883,7 +894,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Caryophanales
     Lactobacillus sp. 100-5: Lactobacillales
     Pectinatus frisingensis: Selenomonadales
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: order_superpathway
   tax_level: order
   ann_level: superpathway
@@ -951,6 +962,7 @@ graph_unfiltered:
   - Caryophanales
   - Lactobacillales
   - Selenomonadales
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -961,7 +973,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Caryophanales
     Lactobacillus sp. 100-5: Lactobacillales
     Pectinatus frisingensis: Selenomonadales
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: class_pathway_node
   tax_level: class
   ann_level: pathway_node
@@ -1029,6 +1041,7 @@ graph_unfiltered:
   - Actinomycetes
   - Bacilli
   - Negativicutes
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1039,7 +1052,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Bacilli
     Lactobacillus sp. 100-5: Bacilli
     Pectinatus frisingensis: Negativicutes
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: class_pathway
   tax_level: class
   ann_level: pathway
@@ -1107,6 +1120,7 @@ graph_unfiltered:
   - Actinomycetes
   - Bacilli
   - Negativicutes
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1117,7 +1131,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Bacilli
     Lactobacillus sp. 100-5: Bacilli
     Pectinatus frisingensis: Negativicutes
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: class_superpathway
   tax_level: class
   ann_level: superpathway
@@ -1184,6 +1198,7 @@ graph_unfiltered:
   - Actinomycetes
   - Bacilli
   - Negativicutes
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1194,7 +1209,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Bacilli
     Lactobacillus sp. 100-5: Bacilli
     Pectinatus frisingensis: Negativicutes
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: phylum_pathway_node
   tax_level: phylum
   ann_level: pathway_node
@@ -1261,6 +1276,7 @@ graph_unfiltered:
   - ''
   - Actinomycetota
   - Bacillota
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1271,7 +1287,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Bacillota
     Lactobacillus sp. 100-5: Bacillota
     Pectinatus frisingensis: Bacillota
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: phylum_pathway
   tax_level: phylum
   ann_level: pathway
@@ -1338,6 +1354,7 @@ graph_unfiltered:
   - ''
   - Actinomycetota
   - Bacillota
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1348,7 +1365,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Bacillota
     Lactobacillus sp. 100-5: Bacillota
     Pectinatus frisingensis: Bacillota
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: phylum_superpathway
   tax_level: phylum
   ann_level: superpathway
@@ -1414,6 +1431,7 @@ graph_unfiltered:
   - ''
   - Actinomycetota
   - Bacillota
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1424,7 +1442,7 @@ graph_unfiltered:
     Staphylococcus epidermidis: Bacillota
     Lactobacillus sp. 100-5: Bacillota
     Pectinatus frisingensis: Bacillota
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: kingdom_pathway_node
   tax_level: kingdom
   ann_level: pathway_node
@@ -1753,6 +1771,7 @@ graph_filtered:
   - ''
   - Actinomycetota
   - Bacillota
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1763,7 +1782,7 @@ graph_filtered:
     Staphylococcus epidermidis: Bacillota
     Lactobacillus sp. 100-5: Bacillota
     Pectinatus frisingensis: Bacillota
-    Bacteria: ''
+    Bacteria: Bacteria
   selected_ann_cat: Energy metabolism
 edge_cases:
 - case_id: unmapped_ec_snapshot
@@ -1831,6 +1850,7 @@ edge_cases:
   - ''
   - Actinomycetota
   - Bacillota
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1841,7 +1861,7 @@ edge_cases:
     Staphylococcus epidermidis: Bacillota
     Lactobacillus sp. 100-5: Bacillota
     Pectinatus frisingensis: Bacillota
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: unclassified_tax_snapshot
   tax_level: phylum
   ann_level: superpathway
@@ -1907,6 +1927,7 @@ edge_cases:
   - ''
   - Actinomycetota
   - Bacillota
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1917,7 +1938,7 @@ edge_cases:
     Staphylococcus epidermidis: Bacillota
     Lactobacillus sp. 100-5: Bacillota
     Pectinatus frisingensis: Bacillota
-    Bacteria: ''
+    Bacteria: Bacteria
 - case_id: fallback_species_request
   tax_level: species
   ann_level: superpathway
@@ -1988,6 +2009,7 @@ edge_cases:
   - Staphylococcus epidermidis
   - Lactobacillus sp. 100-5
   - Pectinatus frisingensis
+  - Bacteria
   - gap_3
   tax_map:
     '999999999': ''
@@ -1998,4 +2020,4 @@ edge_cases:
     Staphylococcus epidermidis: Staphylococcus epidermidis
     Lactobacillus sp. 100-5: Lactobacillus sp. 100-5
     Pectinatus frisingensis: Pectinatus frisingensis
-    Bacteria: ''
+    Bacteria: Bacteria

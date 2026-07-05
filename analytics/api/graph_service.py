@@ -31,24 +31,16 @@ def _sql_in_list(values: tuple[str, ...]) -> str:
     return ", ".join(f"'{v}'" for v in values)
 
 
-def _lineage_order_by_sql(*, table: str | None = None) -> str:
-    if table is None:
-        parts = list(TAX_RANK_ORDER) + ["display_name"]
-        return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in parts)
-    parts = [f"COALESCE({table}.{rank}, '')" for rank in TAX_RANK_ORDER]
-    parts.append(f"{table}.display_name")
-    return ", ".join(parts)
+def _lineage_order_by_sql() -> str:
+    parts = list(TAX_RANK_ORDER) + ["display_name"]
+    return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in parts)
 
 
 def _ann_filter_key(ann_filter: dict[str, str], ann_level: str) -> tuple[str, str]:
-    level, name = ann_filter["level"], ann_filter["name"]
+    name = ann_filter["name"]
     if ann_level == "superpathway":
         return "superpathway_label", name
-    if ann_level == "pathway_node":
-        if level == "pathway":
-            return "pathway", name
-        return "superpathway", name
-    if level == "pathway":
+    if ann_filter["level"] == "pathway":
         return "pathway", name
     return "superpathway", name
 
@@ -233,10 +225,7 @@ def _materialize_tax_metadata(conn: duckdb.DuckDBPyConnection, *, tax_level: str
             SELECT
                 source_tax_id,
                 requested_rank,
-                CASE
-                    WHEN resolved_tax_rank = requested_rank
-                    THEN resolved_tax_label
-                END AS label
+                resolved_tax_label AS label
             FROM read_parquet('{bridge}')
             WHERE requested_rank IN ({rank_in})
         ),
@@ -261,32 +250,14 @@ def _materialize_tax_metadata(conn: duckdb.DuckDBPyConnection, *, tax_level: str
     )
 
 
-def _rank_select_list() -> str:
-    return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in TAX_RANK_ORDER)
-
-
 def _read_tax_metadata(conn: duckdb.DuckDBPyConnection) -> list[dict]:
     rows = conn.execute(
-        f"""
-        SELECT source_tax_id, {_rank_select_list()}, display_name, tax_map_value
+        """
+        SELECT display_name, COALESCE(tax_map_value, '')
         FROM graph_tax_metadata
         """
     ).fetchall()
-    out: list[dict] = []
-    for row in rows:
-        source_tax_id = int(row[0])
-        rank_values = row[1 : 1 + len(TAX_RANK_ORDER)]
-        display_name = row[1 + len(TAX_RANK_ORDER)]
-        tax_map_value = row[2 + len(TAX_RANK_ORDER)] or ""
-        item = {
-            "source_tax_id": source_tax_id,
-            "display_name": display_name,
-            "tax_map_value": tax_map_value,
-        }
-        for rank, value in zip(TAX_RANK_ORDER, rank_values):
-            item[rank] = value or ""
-        out.append(item)
-    return out
+    return [{"display_name": name, "tax_map_value": tax_map_value} for name, tax_map_value in rows]
 
 
 def _fetch_labeled_triples(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, str, float]]:
