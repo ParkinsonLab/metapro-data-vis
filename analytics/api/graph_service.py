@@ -152,25 +152,6 @@ def _materialize_filtered_triples(
     )
 
 
-def _fetch_triples(
-    conn: duckdb.DuckDBPyConnection,
-    *,
-    ann_filter: dict[str, str] | None,
-    taxon_filter: dict[str, str] | None,
-    ann_level: str,
-) -> list[tuple[str, int, float]]:
-    _materialize_filtered_triples(
-        conn,
-        ann_filter=ann_filter,
-        taxon_filter=taxon_filter,
-        ann_level=ann_level,
-    )
-    rows = conn.execute(
-        "SELECT ec_normalized, source_tax_id, value FROM filtered_triples"
-    ).fetchall()
-    return [(str(ec), int(tax_id), float(value)) for ec, tax_id, value in rows]
-
-
 def _ann_category(superpathway_name: str | None, pathway_name: str | None, ann_level: str) -> str:
     if ann_level == "superpathway":
         return superpathway_name or ""
@@ -196,8 +177,6 @@ def _fetch_ec_metadata(
     return [
         {
             "ec_normalized": ec,
-            "superpathway_name": superpathway or "",
-            "pathway_name": pathway or "",
             "ann_category": _ann_category(superpathway, pathway, ann_level),
         }
         for ec, superpathway, pathway in rows

@@ -4,18 +4,12 @@ from api.graph_matrix import build_graph_matrix
 def test_build_graph_matrix_shape_and_gaps():
     triples = [("1.1.1.1", "TaxA", 10.0), ("1.1.1.2", "TaxB", 5.0)]
     ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
-        {"ec_normalized": "1.1.1.2", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
+        {"ec_normalized": "1.1.1.1", "ann_category": "Sp"},
+        {"ec_normalized": "1.1.1.2", "ann_category": "Sp"},
     ]
     tax_rows = [
-        {"display_name": "TaxA", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-        {"display_name": "TaxB", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
+        {"display_name": "TaxA", "tax_map_value": "PhA"},
+        {"display_name": "TaxB", "tax_map_value": "PhA"},
     ]
     out = build_graph_matrix(
         triples=triples,
@@ -34,15 +28,8 @@ def test_build_graph_matrix_shape_and_gaps():
 
 def test_build_graph_matrix_symmetric():
     triples = [("1.1.1.1", "TaxA", 10.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
-    ]
-    tax_rows = [
-        {"display_name": "TaxA", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-    ]
+    ec_rows = [{"ec_normalized": "1.1.1.1", "ann_category": "Sp"}]
+    tax_rows = [{"display_name": "TaxA", "tax_map_value": "PhA"}]
     out = build_graph_matrix(
         triples=triples,
         ec_rows=ec_rows,
@@ -59,15 +46,8 @@ def test_build_graph_matrix_symmetric():
 
 def test_build_graph_matrix_gap_fillers():
     triples = [("1.1.1.1", "TaxA", 8.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
-    ]
-    tax_rows = [
-        {"display_name": "TaxA", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-    ]
+    ec_rows = [{"ec_normalized": "1.1.1.1", "ann_category": "Sp"}]
+    tax_rows = [{"display_name": "TaxA", "tax_map_value": "PhA"}]
     out = build_graph_matrix(
         triples=triples,
         ec_rows=ec_rows,
@@ -89,18 +69,12 @@ def test_build_graph_matrix_gap_fillers():
 def test_build_graph_matrix_no_zero_row_trim():
     triples = [("1.1.1.1", "TaxA", 10.0), ("1.1.1.2", "TaxB", 0.0)]
     ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
-        {"ec_normalized": "1.1.1.2", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
+        {"ec_normalized": "1.1.1.1", "ann_category": "Sp"},
+        {"ec_normalized": "1.1.1.2", "ann_category": "Sp"},
     ]
     tax_rows = [
-        {"display_name": "TaxA", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-        {"display_name": "TaxB", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
+        {"display_name": "TaxA", "tax_map_value": "PhA"},
+        {"display_name": "TaxB", "tax_map_value": "PhA"},
     ]
     out = build_graph_matrix(
         triples=triples,
@@ -117,18 +91,12 @@ def test_build_graph_matrix_no_zero_row_trim():
 def test_outer_matrix_index_has_gap_structure_and_ann_tax_categories():
     triples = [("1.1.1.1", "TaxA", 10.0), ("2.2.2.2", "TaxB", 5.0)]
     ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "SpA", "pathway_name": "Pw1",
-         "ann_category": "SpA"},
-        {"ec_normalized": "2.2.2.2", "superpathway_name": "SpB", "pathway_name": "Pw2",
-         "ann_category": "SpB"},
+        {"ec_normalized": "1.1.1.1", "ann_category": "SpA"},
+        {"ec_normalized": "2.2.2.2", "ann_category": "SpB"},
     ]
     tax_rows = [
-        {"display_name": "TaxA", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-        {"display_name": "TaxB", "tax_map_value": "PhB",
-         "kingdom": "K", "phylum": "PhB", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
+        {"display_name": "TaxA", "tax_map_value": "PhA"},
+        {"display_name": "TaxB", "tax_map_value": "PhB"},
     ]
     out = build_graph_matrix(
         triples=triples,
@@ -152,18 +120,11 @@ def test_outer_matrix_index_has_gap_structure_and_ann_tax_categories():
 
 def test_ecs_ordered_by_pathway_tuple_when_shared_ann_category():
     triples = [("1.1.1.1", "TaxA", 10.0), ("2.2.2.2", "TaxA", 5.0)]
-    # ec_rows pre-ordered as returned by graph_service metadata query
     ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "PwA",
-         "ann_category": "Sp"},
-        {"ec_normalized": "2.2.2.2", "superpathway_name": "Sp", "pathway_name": "PwB",
-         "ann_category": "Sp"},
+        {"ec_normalized": "1.1.1.1", "ann_category": "Sp"},
+        {"ec_normalized": "2.2.2.2", "ann_category": "Sp"},
     ]
-    tax_rows = [
-        {"display_name": "TaxA", "tax_map_value": "PhA",
-         "kingdom": "K", "phylum": "PhA", "class": "", "order": "",
-         "family": "", "genus": "", "species": ""},
-    ]
+    tax_rows = [{"display_name": "TaxA", "tax_map_value": "PhA"}]
     out = build_graph_matrix(
         triples=triples,
         ec_rows=ec_rows,
@@ -177,17 +138,10 @@ def test_ecs_ordered_by_pathway_tuple_when_shared_ann_category():
 
 def test_tax_level_affects_outer_tax_category_ordering():
     triples = [("1.1.1.1", "TaxA", 10.0), ("1.1.1.1", "TaxB", 5.0)]
-    ec_rows = [
-        {"ec_normalized": "1.1.1.1", "superpathway_name": "Sp", "pathway_name": "Pw",
-         "ann_category": "Sp"},
-    ]
+    ec_rows = [{"ec_normalized": "1.1.1.1", "ann_category": "Sp"}]
     tax_rows_phylum = [
-        {"display_name": "TaxB", "tax_map_value": "PhylumA",
-         "kingdom": "Archaea", "phylum": "PhylumA", "class": "ClsA", "order": "",
-         "family": "", "genus": "", "species": ""},
-        {"display_name": "TaxA", "tax_map_value": "PhylumZ",
-         "kingdom": "Bacteria", "phylum": "PhylumZ", "class": "ClsZ", "order": "",
-         "family": "", "genus": "", "species": ""},
+        {"display_name": "TaxB", "tax_map_value": "PhylumA"},
+        {"display_name": "TaxA", "tax_map_value": "PhylumZ"},
     ]
     out_phylum = build_graph_matrix(
         triples=triples,
@@ -202,12 +156,8 @@ def test_tax_level_affects_outer_tax_category_ordering():
     assert phylum_cats.index("PhylumA") < phylum_cats.index("PhylumZ")
 
     tax_rows_class = [
-        {"display_name": "TaxB", "tax_map_value": "ClsA",
-         "kingdom": "Archaea", "phylum": "PhylumA", "class": "ClsA", "order": "",
-         "family": "", "genus": "", "species": ""},
-        {"display_name": "TaxA", "tax_map_value": "ClsZ",
-         "kingdom": "Bacteria", "phylum": "PhylumZ", "class": "ClsZ", "order": "",
-         "family": "", "genus": "", "species": ""},
+        {"display_name": "TaxB", "tax_map_value": "ClsA"},
+        {"display_name": "TaxA", "tax_map_value": "ClsZ"},
     ]
     out_class = build_graph_matrix(
         triples=triples,

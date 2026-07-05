@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import duckdb
 import pytest
 
-from api.graph_service import _fetch_triples, build_graph_from_duckdb
+from api.graph_service import build_graph_from_duckdb
 from testing.fake_rpkm_fixture import (
     SAMPLE_ID,
     assert_pairs_close,
@@ -49,27 +48,6 @@ def test_build_graph_rejects_comparison():
             selected_ann_cat={},
             selected_taxon={},
         )
-
-
-@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
-def test_build_graph_triples_no_fanout(fake_rpkm_db):
-    conn = duckdb.connect(fake_rpkm_db, read_only=True)
-    try:
-        triples = _fetch_triples(
-            conn, ann_filter=None, taxon_filter=None, ann_level="superpathway"
-        )
-        pairs = {(ec, tax_id) for ec, tax_id, _ in triples}
-        assert len(triples) == len(pairs)
-        raw = conn.execute(
-            """
-            SELECT ec_normalized, source_tax_id
-            FROM int_rpkm_by_ec_tax
-            WHERE value > 0
-            """
-        ).fetchall()
-        assert len(triples) == len(set(raw))
-    finally:
-        conn.close()
 
 
 def _run_case(case: dict) -> dict:
