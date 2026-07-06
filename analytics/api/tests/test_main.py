@@ -100,7 +100,13 @@ def test_pathway_list_endpoint_ok(fake_rpkm_db):
     assert res.status_code == 200
     body = res.json()
     assert body["ok"] is True
-    assert isinstance(body["value"], list)
+    value = body["value"]
+    assert isinstance(value, dict)
+    assert "pathways" in value
+    assert "breakdowns" in value
+    assert isinstance(value["pathways"], list)
+    assert len(value["pathways"]) > 0
+    assert value["pathways"][0] in value["breakdowns"]
 
 
 def test_pathway_list_missing_ann_cat_error_envelope():
