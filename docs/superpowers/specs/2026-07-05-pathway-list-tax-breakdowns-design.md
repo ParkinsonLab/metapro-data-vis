@@ -1,6 +1,6 @@
 # Pathway List Tax Breakdowns — Design Spec
 
-> **Status:** Approved (2026-07-05)  
+> **Status:** Approved (2026-07-05; PR #13 review incorporated — plain `pathway_label`, drop redundant `HAVING`, graph-lineage tax ordering)  
 > **Goal:** Batch per-pathway tax pie data into the DuckDB `pathway-list` response so the Network list view avoids N `/api/viz/counts` calls, while keeping a counts fallback for legacy backend and defensive gaps.
 
 **Parent specs:**
@@ -25,10 +25,11 @@ With pathway-list migrated to the DuckDB analytics API (sidecar default), the li
 | DuckDB pathway-list | Returns `{ pathways: string[], breakdowns: Record<string, OverviewVector> }` | Batch all pie data in one response |
 | `OverviewVector` | Reuse existing `{ index: string[], counts: number[] }` | Same shape as `parse_counts` and overview |
 | UI data priority | Embedded `breakdowns[pathway]` first; per-card counts fallback | Works on legacy and for any missing key |
-| Tax index ordering | Alphabetical by `resolved_tax_label` within each pathway | Matches legacy `make_count_vector` (`_.sortBy` on tax categories) |
-| Pathway ordering | Alphabetical by display label ASC | Unchanged from pathway-list spec |
-| Inclusion rule | Pathway in `pathways` iff `SUM(value) > 0` after filters | Unchanged |
-| Label SQL | Reuse `PATHWAY_LABEL_SQL` | Display strings match chord / counts labels |
+| Tax index ordering | Graph-lineage hierarchical order (not chord) | `bridge_tax_rollup` pivot + `ORDER BY kingdom … species, display_name`; dedupe to active `tax_level` labels |
+| Legacy counts parity | **Not required** for DuckDB breakdowns | Sidecar pies use lineage order; legacy fallback still uses alphabetical `parse_counts` order |
+| Pathway ordering | Alphabetical by `pathway_label` ASC | Unchanged from pathway-list spec |
+| Pathway label column | `cf.pathway_label` (not `PATHWAY_LABEL_SQL`) | Superpathway filter excludes unmapped EC; coalescing unnecessary |
+| Inclusion rule | Pathway in `pathways` iff rows exist after filters | `stg_rpkm_long` drops `value = 0`; `HAVING SUM > 0` is redundant (kept on existing pathway-name query only for consistency) |
 | Request body | Unchanged (`PathwayListRequest`) | No new query params |
 | `/api/viz/counts` | Unchanged; not migrated to DuckDB | Fallback only |
 | Legacy breakdowns | Not computed in Node | Counts fallback covers legacy pies |
@@ -108,47 +109,66 @@ Update `src/tests/data_functions.test.ts` expectations from `string[]` to `{ pat
 
 ## 5. DuckDB Implementation
 
-### 5.1 SQL
+### 5.1 Pathway names SQL
 
-After `build_filtered_rollup_rows` (unchanged), run pathway-name query as today, plus:
+After `build_filtered_rollup_rows` (unchanged), list pathways using plain `pathway_label` — not `PATHWAY_LABEL_SQL`. The request is pinned to a superpathway, so rows are mapped pathways only (no unmapped EC / null `pathway_key` coalescing).
+
+```sql
+SELECT cf.pathway_label AS display_label
+FROM filtered_rollup_rows cf
+WHERE cf.requested_rank = ?
+  AND cf.pathway_level = 'pathway'
+GROUP BY cf.pathway_key, cf.pathway_label
+ORDER BY display_label ASC
+```
+
+`HAVING SUM(cf.value) > 0` is omitted: `stg_rpkm_long` materialises only `value > 0`, so any surviving group has a positive sum.
+
+### 5.2 Breakdown aggregation SQL
 
 ```sql
 SELECT
-  {label_sql} AS display_label,
+  cf.pathway_label AS display_label,
   cf.resolved_tax_label,
   SUM(cf.value) AS value
 FROM filtered_rollup_rows cf
 WHERE cf.requested_rank = ?
   AND cf.pathway_level = 'pathway'
-GROUP BY cf.pathway_key, {label_sql}, cf.resolved_tax_label
-HAVING SUM(cf.value) > 0
-ORDER BY display_label ASC, resolved_tax_label ASC
+GROUP BY cf.pathway_key, cf.pathway_label, cf.resolved_tax_label
+ORDER BY display_label ASC
 ```
 
-`label_sql` is `PATHWAY_LABEL_SQL` with `t.` → `cf.` (same as existing pathway-list query).
+No `HAVING` clause (same rationale as §5.1).
 
-### 5.2 Building vectors
+### 5.3 Tax category ordering (graph lineage)
 
-Group SQL rows by `display_label`. For each pathway, collect distinct `resolved_tax_label` values in encounter order (already sorted alphabetically by SQL `ORDER BY`). Emit:
+Use the **graph** tax-ordering pattern (`graph_service._materialize_tax_metadata` / `_lineage_order_by_sql`), **not** chord's `_fetch_tax_order` (which sorts by ancestor rank totals).
+
+1. From `filtered_rollup_rows` at `requested_rank = tax_level` and `pathway_level = 'pathway'`, collect distinct `source_tax_id` values.
+2. Join `bridge_tax_rollup.parquet` (pivot to kingdom…species) and `names.parquet` as graph does.
+3. `ORDER BY kingdom, phylum, class, "order", family, genus, species, display_name`.
+4. Map each row to `tax_map_value` at the active `tax_level` (= `resolved_tax_label` for rows at that rank).
+5. `_dedupe_preserve_order` on `tax_map_value` → global `tax_cat_order` for the filtered superpathway context.
+
+Per pathway, sum aggregated values by `resolved_tax_label`, then emit `OverviewVector` with `index = tax_cat_order` filtered to categories present in that pathway (or include zero-count slots only for categories with data — golden fixtures lock the chosen behaviour: **include only categories with `count > 0`**, ordered by `tax_cat_order`).
+
+Extract or share a small helper (e.g. `tax_lineage_order.py` or functions imported from `graph_service`) so graph and pathway-list do not drift.
+
+### 5.4 Building vectors
 
 ```python
-OverviewVector(index=[...], counts=[...])
+PathwayListResponse(pathways=pathway_names, breakdowns=breakdown_map)
 ```
 
-Return `PathwayListResponse(pathways=pathway_names, breakdowns=breakdown_map)`.
+Each `breakdowns[pathway_label]` is an `OverviewVector` whose `index` follows graph-lineage order and whose `counts` are the summed values for that pathway.
 
-### 5.3 Parity target
+### 5.5 Golden test target
 
-For each pathway in golden fixtures, `breakdowns[name]` must match the vector produced by legacy `parse_counts` with:
+Golden fixtures (`pathway_list_expectations.yaml`) capture expected `breakdowns` per filter case on `fake_rpkm`. Do **not** assert parity with legacy `parse_counts` (alphabetical order). Assert:
 
-```json
-{
-  "names": ["<sample>"],
-  "tax_rank": "<tax_level>",
-  "selected_taxon": "<filter>",
-  "selected_ann_cat": { "level": "pathway", "name": "<pathway>" }
-}
-```
+- Pathway name set matches existing pathway-list golden cases.
+- Per-pathway count **totals** match sums from legacy `parse_counts` (values correct, order may differ).
+- Tax `index` order matches graph-lineage ordering for the same filter context.
 
 ## 6. Renderer Implementation
 
@@ -213,7 +233,7 @@ Clear `pathway_tax_breakdowns` when superpathway or filter deps change (same `us
 
 | Layer | Test |
 |---|---|
-| `pathway_list_service.py` | Golden YAML extended with `breakdowns`; per-pathway parity vs `parse_counts` on `fake_rpkm` |
+| `pathway_list_service.py` | Golden YAML extended with `breakdowns`; count totals vs `parse_counts`, index order vs graph lineage |
 | `test_main.py` | Assert wrapper shape with `pathways` and `breakdowns` keys |
 | `data_functions.test.ts` | `parse_pathway_list` returns `{ pathways }` object |
 | Renderer | Unit test for `normalizePathwayListResponse` (object, bare array, empty) |
@@ -229,7 +249,7 @@ Clear `pathway_tax_breakdowns` when superpathway or filter deps change (same `us
 
 ## 10. Acceptance Criteria
 
-- [ ] DuckDB `POST /api/viz/pathway-list` returns `{ pathways, breakdowns }` with per-pathway vectors matching `parse_counts` parity.
+- [ ] DuckDB `POST /api/viz/pathway-list` returns `{ pathways, breakdowns }` with graph-lineage tax ordering and count totals matching legacy `parse_counts`.
 - [ ] Legacy `parse_pathway_list` returns `{ pathways: string[] }`.
 - [ ] Network list pies render from embedded breakdowns on sidecar (no per-card counts traffic).
 - [ ] Network list pies still render on legacy backend via counts fallback.
@@ -240,10 +260,11 @@ Clear `pathway_tax_breakdowns` when superpathway or filter deps change (same `us
 | File | Change |
 |---|---|
 | `analytics/api/schemas.py` | Add `PathwayListResponse` |
-| `analytics/api/pathway_list_service.py` | Return wrapper with breakdowns |
+| `analytics/api/pathway_list_service.py` | Return wrapper with breakdowns; `pathway_label` not `PATHWAY_LABEL_SQL` |
+| `analytics/api/tax_lineage_order.py` (or shared extract from `graph_service`) | Graph-lineage tax category ordering |
 | `analytics/api/main.py` | Return `.model_dump()` |
 | `analytics/api/tests/fixtures/pathway_list_expectations.yaml` | Add `breakdowns` per case |
-| `analytics/api/tests/test_pathway_list_service.py` | Assert breakdown parity |
+| `analytics/api/tests/test_pathway_list_service.py` | Assert breakdown totals + lineage order |
 | `analytics/api/tests/test_main.py` | Assert wrapper shape |
 | `src/server/data_functions.ts` | `parse_pathway_list` → `{ pathways }` |
 | `src/tests/data_functions.test.ts` | Update expectations |
