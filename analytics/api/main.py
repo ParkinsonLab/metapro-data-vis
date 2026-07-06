@@ -11,6 +11,7 @@ from api.filters import (
     sample_id_from_names,
 )
 from api.graph_service import build_graph_from_duckdb
+from api.network_service import build_network_from_duckdb
 from api.krona_service import build_krona_from_duckdb
 from api.overview_service import build_overview_from_duckdb
 from api.pathway_list_service import build_pathway_list_from_duckdb
@@ -18,6 +19,7 @@ from api.schemas import (
     ChordRequest,
     GraphRequest,
     KronaRequest,
+    NetworkRequest,
     OverviewRequest,
     PathwayListRequest,
 )
@@ -97,6 +99,23 @@ def graph_endpoint(body: GraphRequest):
             tax_level=body.tax_level,
             selected_ann_cat=body.selected_ann_cat,
             selected_taxon=body.selected_taxon,
+        )
+
+    return wrap_handler(_handle)
+
+
+@app.post("/api/viz/network")
+def network_endpoint(body: NetworkRequest):
+    def _handle():
+        if len(body.names) == 0:
+            raise ValueError("names must contain at least one sample")
+        return build_network_from_duckdb(
+            names=body.names,
+            tax_level=body.tax_level,
+            selected_taxon=body.selected_taxon,
+            pathway_name=body.pathway_name,
+            width=body.width,
+            height=body.height,
         )
 
     return wrap_handler(_handle)

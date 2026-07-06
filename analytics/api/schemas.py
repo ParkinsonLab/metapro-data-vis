@@ -59,3 +59,12 @@ class GraphRequest(BaseModel):
     tax_level: str
     selected_ann_cat: Any = Field(default_factory=dict)
     selected_taxon: Any = Field(default_factory=dict)
+
+
+class NetworkRequest(BaseModel):
+    names: list[str] = Field(default_factory=list)
+    tax_level: str
+    selected_taxon: Any = Field(default_factory=dict)
+    pathway_name: str
+    width: float = 900
+    height: float = 550
