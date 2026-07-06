@@ -11,12 +11,14 @@ from api.chord_service import build_chord_from_duckdb
 from api.filters import normalise_ann_filter, normalise_taxon_filter
 from api.graph_service import build_graph_from_duckdb
 from api.krona_service import build_krona_from_duckdb
+from api.network_service import build_network_from_duckdb
 from api.overview_service import build_overview_from_duckdb
 from testing.fake_rpkm_fixture import (
     ANN_LEVELS,
     CHORD_YAML,
     GRAPH_YAML,
     KRONA_YAML,
+    NETWORK_YAML,
     OVERVIEW_YAML,
     PIPELINE_YAML,
     RANKS,
@@ -28,6 +30,8 @@ from testing.fake_rpkm_fixture import (
     extract_graph_outer_index,
     extract_graph_pairs,
     extract_graph_tax_map,
+    extract_network_colors,
+    extract_network_ec_values,
 )
 
 FOCAL_EC = "1.6.5.9"
@@ -40,6 +44,8 @@ UNKNOWN_TAX_ID = 999999999
 FOCAL_SUPERPATHWAY = "Energy metabolism"
 FOCAL_PATHWAY = "Oxidative phosphorylation"
 FOCAL_PATHWAY_ALT = "Methane metabolism"
+NETWORK_WIDTH = 900
+NETWORK_HEIGHT = 550
 TAX_COLUMNS = {
     "col_tax_focal": 1280,
     "col_tax_sibling_genus": 1282,
@@ -177,6 +183,111 @@ def dump_graph_expectations(focal_species_name: str) -> None:
     print(f"Wrote {GRAPH_YAML}")
 
 
+def _pick_focal_ec(out: dict) -> str:
+    for node in out["nodes"]:
+        if node["values"] and any(v["value"] > 0 for v in node["values"]):
+            return node["label"]
+    raise RuntimeError("no EC with pie data in network output")
+
+
+def dump_network_case(
+    pathway_name: str,
+    tax_level: str,
+    *,
+    case_id: str,
+    focal_ec: str | None = None,
+    selected_taxon: dict | None = None,
+) -> dict:
+    out = build_network_from_duckdb(
+        names=[f"{SAMPLE_ID}.tsv"],
+        tax_level=tax_level,
+        selected_taxon=selected_taxon or {},
+        pathway_name=pathway_name,
+        width=NETWORK_WIDTH,
+        height=NETWORK_HEIGHT,
+    )
+    case: dict = {
+        "case_id": case_id,
+        "pathway_name": pathway_name,
+        "tax_level": tax_level,
+        "width": NETWORK_WIDTH,
+        "height": NETWORK_HEIGHT,
+    }
+    if selected_taxon:
+        case["selected_taxon"] = selected_taxon
+    if case_id == "unknown_pathway":
+        return case
+
+    ec = focal_ec or FOCAL_EC
+    try:
+        values = extract_network_ec_values(out, ec)
+    except StopIteration:
+        values = []
+    if not values:
+        ec = _pick_focal_ec(out)
+        values = extract_network_ec_values(out, ec)
+
+    case["focal_ec"] = ec
+    case["expected_values"] = values
+    case["expected_color_keys"] = list(extract_network_colors(out).keys())
+    node = next(n for n in out["nodes"] if n["label"] == ec)
+    case["expected_layout"] = {
+        "label": node["label"],
+        "x": float(node["x"]),
+        "y": float(node["y"]),
+    }
+    return case
+
+
+def dump_network_expectations(focal_species_name: str) -> None:
+    """Hand-picked network scenarios — pathway_name required."""
+    ensure_pipeline_built()
+    cases = [
+        dump_network_case(
+            FOCAL_PATHWAY,
+            "phylum",
+            case_id="pathway_phylum_baseline",
+            focal_ec=FOCAL_EC,
+        ),
+        dump_network_case(
+            FOCAL_PATHWAY,
+            "species",
+            case_id="pathway_species_tax_rank",
+            focal_ec=FOCAL_EC,
+        ),
+        dump_network_case(
+            FOCAL_PATHWAY,
+            "kingdom",
+            case_id="pathway_kingdom_tax_rank",
+            focal_ec=FOCAL_EC,
+        ),
+        dump_network_case(
+            FOCAL_PATHWAY,
+            "phylum",
+            case_id="pathway_and_taxon_filter",
+            focal_ec=FOCAL_EC,
+            selected_taxon={"level": "species", "name": focal_species_name},
+        ),
+        dump_network_case(
+            FOCAL_PATHWAY_ALT,
+            "phylum",
+            case_id="pathway_methane_metabolism",
+        ),
+        dump_network_case(
+            "__no_such_pathway__",
+            "phylum",
+            case_id="unknown_pathway",
+        ),
+    ]
+    network_doc = {
+        "sample_id": SAMPLE_ID,
+        "cases": cases,
+    }
+    NETWORK_YAML.parent.mkdir(parents=True, exist_ok=True)
+    NETWORK_YAML.write_text(yaml.safe_dump(network_doc, sort_keys=False), encoding="utf-8")
+    print(f"Wrote {NETWORK_YAML}")
+
+
 def dump_krona_expectations() -> None:
     ensure_pipeline_built()
     krona_doc = {
@@ -202,6 +313,11 @@ def main() -> None:
         help="Write graph_expectations.yaml only",
     )
     parser.add_argument(
+        "--network",
+        action="store_true",
+        help="Write network_expectations.yaml only",
+    )
+    parser.add_argument(
         "--krona",
         action="store_true",
         help="Write krona_expectations.yaml only",
@@ -210,6 +326,10 @@ def main() -> None:
 
     if args.graph:
         dump_graph_expectations(args.focal_species_name)
+        return
+
+    if args.network:
+        dump_network_expectations(args.focal_species_name)
         return
 
     if args.krona:
