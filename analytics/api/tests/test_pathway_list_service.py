@@ -119,7 +119,6 @@ def test_pathway_breakdown_tax_index_respects_lineage_order(fake_rpkm_db):
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
-@pytest.mark.skip(reason="Task 5 updates YAML")
 @pytest.mark.parametrize(
     "case_key",
     list(load_pathway_list_expectations()["pathway_list"].keys()),
@@ -134,5 +133,6 @@ def test_pathway_list_matches_golden(fake_rpkm_db, case_key):
         selected_taxon=case["selected_taxon"],
     )
     assert out.model_dump() == case["expected"]
+    assert out.pathways == sorted(out.pathways)
     for pathway in out.pathways:
         assert sum(out.breakdowns[pathway].counts) > 0
