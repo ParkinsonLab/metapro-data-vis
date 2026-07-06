@@ -49,6 +49,11 @@ class PathwayListRequest(BaseModel):
     selected_taxon: Any = Field(default_factory=dict)
 
 
+class PathwayListResponse(BaseModel):
+    pathways: list[str]
+    breakdowns: dict[str, OverviewVector] = Field(default_factory=dict)
+
+
 class GraphRequest(BaseModel):
     names: list[str] = Field(default_factory=list)
     tax_level: str
