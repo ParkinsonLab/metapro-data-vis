@@ -4,6 +4,7 @@ import * as d3 from 'd3'
 import { useState, useEffect, useRef } from 'react'
 import { request } from '../api'
 import { filterName, toApiFilter } from '../chordFilters'
+import type { CountsData } from '../pathwayListResponse'
 
 // ---------------------------------------------------------------------------
 // Network pane
@@ -75,11 +76,6 @@ interface NetworkData {
 
 const get_color = (i: number, n: number): string =>
   `hsl(${Math.trunc((360 / (n + 1)) * i)} 75 50)`
-
-interface CountsData {
-  index: string[]
-  counts: number[]
-}
 
 const PathwayDetail = ({
   base_width,
@@ -247,24 +243,30 @@ const PathwayDetail = ({
 const PathwayPreview = ({
   pathway,
   width,
-  height
+  height,
+  tax_counts: tax_counts_prop
 }: {
   pathway: string
   width: number
   height: number
+  tax_counts?: CountsData
 }): React.JSX.Element => {
   const ref = useRef<SVGSVGElement>(null)
   const selected_file_list = useAppStore((state) => state.selected_file_list)
   const selected_taxon = useAppStore((state) => state.selected_taxon)
   const tax_rank = useAppStore((state) => state.tax_rank)
 
-  const [counts_data, set_counts_data] = useState<CountsData | null>(null)
+  const [counts_data, set_counts_data] = useState<CountsData | null>(tax_counts_prop ?? null)
 
   const base_radius = Math.min(height, width) * 0.3
   const rad_step = Math.ceil(base_radius * 0.2)
   const text_height = 25
 
   useEffect(() => {
+    if (tax_counts_prop !== undefined) {
+      set_counts_data(tax_counts_prop)
+      return
+    }
     if (selected_file_list.length === 0) return
     set_counts_data(null)
     let cancelled = false
@@ -287,7 +289,7 @@ const PathwayPreview = ({
     return () => {
       cancelled = true
     }
-  }, [pathway, selected_file_list, tax_rank, selected_taxon])
+  }, [pathway, selected_file_list, tax_rank, selected_taxon, tax_counts_prop])
 
   useEffect(() => {
     if (!ref.current) return
@@ -359,6 +361,8 @@ const PathwayList = ({
   superpathway: string
   pathways: string[]
 }): React.JSX.Element => {
+  const pathway_tax_breakdowns = useAppStore((state) => state.pathway_tax_breakdowns)
+
   if (pathways.length === 0) {
     return (
       <div id="pathway-preview-outer-container">
@@ -380,7 +384,13 @@ const PathwayList = ({
       </div>
       <div id="pathway-preview-container" style={{ width, height, gap: grid_gap }}>
         {pathways.map((p) => (
-          <PathwayPreview key={p} pathway={p} width={c_width} height={c_height} />
+          <PathwayPreview
+            key={p}
+            pathway={p}
+            width={c_width}
+            height={c_height}
+            tax_counts={pathway_tax_breakdowns[p]}
+          />
         ))}
       </div>
     </div>
