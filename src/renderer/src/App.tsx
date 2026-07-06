@@ -4,6 +4,7 @@ import Network from './components/Network'
 import Overview from './components/Overview'
 import Krona from './components/Krona'
 import Graph from './components/Graph'
+import { normalizePathwayListResponse } from './pathwayListResponse'
 import { useAppStore } from './store/AppStore'
 import { type Channel, registerChannelHandler, request } from './api'
 import { useEffect } from 'react'
@@ -53,7 +54,8 @@ const channel_handlers: Record<Channel, (value: unknown) => void> = {
     useAppStore.setState({ graph_data: value })
   },
   pathway_list: (value) => {
-    useAppStore.setState({ pathway_list: value as string[] })
+    const { pathways, breakdowns } = normalizePathwayListResponse(value)
+    useAppStore.setState({ pathway_list: pathways, pathway_tax_breakdowns: breakdowns })
   }
 }
 
