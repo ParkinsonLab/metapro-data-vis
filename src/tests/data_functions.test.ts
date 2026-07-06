@@ -401,15 +401,17 @@ describe('integration with real DB and real TSV fixtures', () => {
       const sp_value = ec.find((r) => r.superpathway != null)?.superpathway as string
       expect(sp_value).toBeTruthy()
       const out = parse_pathway_list({ superpathway: sp_value })
-      expect(Array.isArray(out)).toBe(true)
-      expect(out.length).toBeGreaterThan(0)
-      for (const p of out) {
+      expect(out).toEqual({ pathways: expect.any(Array) })
+      expect(out.pathways.length).toBeGreaterThan(0)
+      for (const p of out.pathways) {
         expect(typeof p).toBe('string')
       }
     })
 
-    it('returns [] for a superpathway that does not exist', () => {
-      expect(parse_pathway_list({ superpathway: '__no_such_superpathway__' })).toEqual([])
+    it('returns { pathways: [] } for a superpathway that does not exist', () => {
+      expect(parse_pathway_list({ superpathway: '__no_such_superpathway__' })).toEqual({
+        pathways: []
+      })
     })
 
     it('resolves superpathway from selected_ann_cat when superpathway omitted', () => {
@@ -448,7 +450,7 @@ describe('integration with real DB and real TSV fixtures', () => {
       // sanity: at least one node should carry pie data when the pathway has
       // matching ECs in the loaded fixture
       const sp_pathways = parse_pathway_list({ superpathway: sp_value })
-      expect(sp_pathways).toContain(pathway_name)
+      expect(sp_pathways.pathways).toContain(pathway_name)
     }, 60_000)
 
     it('returns the static graph (no pies) when no rows match the filter', () => {

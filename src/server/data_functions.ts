@@ -385,12 +385,12 @@ const parse_pathway_list = ({
 }: {
   superpathway?: string
   selected_ann_cat?: { level?: string; name?: string }
-}): string[] => {
+}): { pathways: string[] } => {
   const sp =
     superpathway?.trim() ||
     (selected_ann_cat?.name?.trim() ?? '')
-  if (!sp) return []
-  return get_pathways_in_superpathway(sp).map((p) => p.name)
+  if (!sp) return { pathways: [] }
+  return { pathways: get_pathways_in_superpathway(sp).map((p) => p.name) }
 }
 
 // the overview always happens at the phylum and superpathway level
