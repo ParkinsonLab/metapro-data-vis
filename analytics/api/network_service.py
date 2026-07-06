@@ -5,7 +5,6 @@ from pathlib import Path
 import duckdb
 
 from api.filters import (
-    TAX_RANK_ORDER,
     normalise_taxon_filter,
     sample_id_from_names,
     validate_tax_level,
@@ -14,8 +13,12 @@ from api.network_assembly import (
     apply_layout,
     attach_pies_to_nodes,
     build_category_colors,
-    dedupe_preserve_order,
     embed_edges,
+)
+from api.tax_lineage_order import (
+    materialize_tax_metadata_from_ids,
+    read_tax_metadata_rows,
+    tax_cat_order_from_metadata_rows,
 )
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
@@ -24,7 +27,6 @@ REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
 BRIDGE_EC_PATH = REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet"
 BRIDGE_TAX_PATH = REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet"
 REPO_ROOT = ANALYTICS_DIR.parent
-NAMES_PATH = REPO_ROOT / "resources/db/parquet/names.parquet"
 RAW_PARQUET_DIR = REPO_ROOT / "resources/db/parquet"
 PATHWAY_SUPERPATHWAYS = RAW_PARQUET_DIR / "pathway_superpathways.parquet"
 PATHWAY_NODES = RAW_PARQUET_DIR / "pathway_nodes.parquet"
@@ -33,15 +35,6 @@ PATHWAY_EDGES = RAW_PARQUET_DIR / "pathway_edges.parquet"
 
 def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
-
-
-def _sql_in_list(values: tuple[str, ...]) -> str:
-    return ", ".join(f"'{v}'" for v in values)
-
-
-def _lineage_order_by_sql() -> str:
-    parts = list(TAX_RANK_ORDER) + ["display_name"]
-    return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in parts)
 
 
 def _ensure_bridge_ec(conn: duckdb.DuckDBPyConnection) -> None:
@@ -107,68 +100,6 @@ def _materialize_filtered_triples(
         """,
         pathway_params + tax_params,
     )
-
-
-def _materialize_tax_metadata(conn: duckdb.DuckDBPyConnection, *, tax_level: str) -> None:
-    if not BRIDGE_TAX_PATH.exists():
-        raise FileNotFoundError(f"reference parquet missing: {BRIDGE_TAX_PATH}")
-    if not NAMES_PATH.exists():
-        raise FileNotFoundError(f"reference parquet missing: {NAMES_PATH}")
-
-    rank_in = _sql_in_list(TAX_RANK_ORDER)
-    lineage_cols = ", ".join(f"COALESCE(w.{rank}, '') AS {rank}" for rank in TAX_RANK_ORDER)
-    order_by = _lineage_order_by_sql()
-    bridge = BRIDGE_TAX_PATH.as_posix()
-    names = NAMES_PATH.as_posix()
-    conn.execute(
-        f"""
-        CREATE OR REPLACE TEMP TABLE network_tax_metadata AS
-        WITH ids AS (
-            SELECT DISTINCT source_tax_id FROM filtered_triples
-        ),
-        bridge_gated AS (
-            SELECT
-                source_tax_id,
-                requested_rank,
-                resolved_tax_label AS label
-            FROM read_parquet('{bridge}')
-            WHERE requested_rank IN ({rank_in})
-        ),
-        bridge_wide AS (
-            SELECT *
-            FROM (
-                SELECT source_tax_id, requested_rank, label
-                FROM bridge_gated
-            )
-            PIVOT (MAX(label) FOR requested_rank IN ({rank_in}))
-        )
-        SELECT
-            d.source_tax_id,
-            {lineage_cols},
-            COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR)) AS display_name,
-            COALESCE(
-                NULLIF(w.{tax_level}, ''),
-                COALESCE(n.name, CAST(d.source_tax_id AS VARCHAR))
-            ) AS tax_map_value
-        FROM ids d
-        LEFT JOIN bridge_wide w USING (source_tax_id)
-        LEFT JOIN read_parquet('{names}') n ON d.source_tax_id = n.tax_id
-        ORDER BY {order_by}
-        """
-    )
-
-
-def _read_tax_metadata(conn: duckdb.DuckDBPyConnection) -> list[dict]:
-    rows = conn.execute(
-        """
-        SELECT source_tax_id, COALESCE(tax_map_value, '')
-        FROM network_tax_metadata
-        """
-    ).fetchall()
-    return [
-        {"source_tax_id": source_tax_id, "tax_map_value": tax_map_value}
-        for source_tax_id, tax_map_value in rows
-    ]
 
 
 def _require_pathway_parquet() -> None:
@@ -266,9 +197,15 @@ def build_network_from_duckdb(
             edges = embed_edges(edges, nodes)
             return {"nodes": nodes, "edges": edges, "colors": {}}
 
-        _materialize_tax_metadata(conn, tax_level=tax_level)
-        tax_meta = _read_tax_metadata(conn)
-        tax_cats = dedupe_preserve_order([row["tax_map_value"] for row in tax_meta])
+        materialize_tax_metadata_from_ids(
+            conn,
+            tax_level=tax_level,
+            ids_table="filtered_triples",
+            output_table="network_tax_metadata",
+        )
+        tax_cats = tax_cat_order_from_metadata_rows(
+            read_tax_metadata_rows(conn, table="network_tax_metadata")
+        )
 
         rows = conn.execute(
             """
