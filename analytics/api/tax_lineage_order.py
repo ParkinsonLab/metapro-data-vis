@@ -64,9 +64,13 @@ def materialize_tax_metadata_from_ids(
             SELECT DISTINCT source_tax_id FROM {ids_table}
         ),
         bridge_gated AS (
-            SELECT source_tax_id, requested_rank, resolved_tax_label AS label
-            FROM read_parquet('{bridge}')
-            WHERE requested_rank IN ({rank_in})
+            SELECT
+                b.source_tax_id,
+                b.requested_rank,
+                b.resolved_tax_label AS label
+            FROM read_parquet('{bridge}') b
+            INNER JOIN ids i ON b.source_tax_id = i.source_tax_id
+            WHERE b.requested_rank IN ({rank_in})
         ),
         bridge_wide AS (
             SELECT *
