@@ -45,7 +45,7 @@ Metapro Viz renders a per-pathway network graph in the Network pane detail view 
 | Taxon filter | `normalise_taxon_filter(selected_taxon)` via `bridge_tax_rollup` EXISTS | Same as graph |
 | Tax category order | **Lineage first-seen dedupe** — distinct `tax_map_value` in SQL lineage row order | Graph-aligned; not legacy alphabetical `_.sortBy` |
 | Tax colors | **Category hues** via `get_color(i, len(tax_cats))` on lineage-ordered categories | Graph outer-band model; no `get_sub_color` (pies are category-granular) |
-| EC → node match | `node.label == ec_normalized` | Legacy behaviour; duplicate EC labels on multiple nodes share the same pie |
+| EC → node match | `node.label == ec_normalized` | Legacy behaviour; pies keyed by EC label, not `node.id` — see §4.4 |
 | API contract | Request: `names`, `tax_level`, `selected_taxon`, `pathway_name`, `width`, `height`; response: `{ nodes, edges, colors }` + envelope | Unchanged from Express |
 | FastAPI route | **`POST /api/viz/network`** — identical path, method, envelope, HTTP 200 as Express | Drop-in sidecar replacement |
 | Default backend | Legacy Node `parse_network` | Safe rollout |
@@ -154,18 +154,34 @@ No `selected_ann_cat`, no `ann_level`.
 |---|---|
 | Unknown `pathway_name` | `{ nodes: [], edges: [], colors: {} }` |
 | Taxon filter matches nothing | Static graph renders; all `values: []`; `colors: {}` |
-| Duplicate EC labels on multiple nodes | Same pie attached to each (keyed by `node.label`) |
+| Duplicate EC labels on multiple nodes (same pathway) | Same pie attached to each (keyed by `node.label`, not `node.id`) |
 | Compound/circle nodes (non-EC labels) | `values: []` |
+
+### 4.4 Duplicate EC labels within a pathway
+
+`pathway_nodes.name` is **not unique within a single pathway** — KEGG KGML can place the same EC on multiple rectangles in one map (distinct `id`, `x`, `y`; same `name`). This is separate from the same EC appearing across different pathways.
+
+Measured on `resources/db/taxonomy.db`:
+
+- **1,460** `(pathway, name)` groups have duplicates within the same pathway (any name)
+- **1,034** for EC-dotted names only
+- Example: **Fatty acid biosynthesis** has **33** nodes all labeled `2.3.1.85`; **Metabolism of xenobiotics by cytochrome P450** has **27** nodes labeled `1.14.14.1`
+
+Legacy `parse_network` builds `ec_to_pie` keyed by EC string, then looks up `ec_to_pie.get(node.label)` per node — so all copies in a pathway share one pie. The DuckDB path must preserve this.
 
 ## 5. Data Query (`network_service.py`)
 
-`network_service` runs **three query roles** — static topology, value triples, and tax metadata — that must not be combined:
+`network_service` has **three data sources**. Only one separation rule is strict:
 
 | Role | Grain | Source | Purpose |
 |---|---|---|---|
-| **Static graph** | 1 row per pathway node/edge | Reference Parquet | Topology + raw layout coords |
-| **Triples** | 1 row = `(ec_normalized, source_tax_id, value)` | `int_rpkm_by_ec_tax` | Pie cell values; must never fan out |
+| **Static graph** | 1 row per pathway node/edge | Reference Parquet | Topology + raw layout coords (sample-independent) |
+| **Triples** | 1 row = `(ec_normalized, source_tax_id, value)` | `int_rpkm_by_ec_tax` | Pie cell values; **must never fan out** |
 | **Tax metadata** | 1 row per distinct `source_tax_id` in triples | Bridges + lineage PIVOT + `names` | `tax_map_value` at `tax_level`, lineage sort order |
+
+**Hard rule (triples creation):** do not join `bridge_ec` (or any bridge) on the `int_rpkm_by_ec_tax` scan — use `EXISTS` filters only. A join can fan out rows and double-count `SUM(value)` (graph spec §5.1).
+
+**Soft rule (metadata + aggregation):** tax metadata may be materialised as a temp table (graph pattern) or inlined — either is fine. Joining `filtered_triples` → tax metadata on `source_tax_id` for pie aggregation is **1:1** and expected (same as `graph_service._fetch_labeled_triples`). Static graph loading stays separate from sample queries.
 
 ### 5.1 Static graph (reference Parquet)
 
@@ -214,7 +230,7 @@ WHERE r.value > 0
 
 ### 5.3 Tax metadata
 
-Materialise `network_tax_metadata` using the same SQL pattern as `graph_service._materialize_tax_metadata` (PIVOT `bridge_tax_rollup` + `names`, `ORDER BY` full lineage tuple). Derive:
+Materialise `network_tax_metadata` (or an equivalent CTE) using the same SQL pattern as `graph_service._materialize_tax_metadata` (PIVOT `bridge_tax_rollup` + `names`, `ORDER BY` full lineage tuple). A separate temp table is optional — implementation may inline metadata into the §5.4 aggregation query as long as lineage ordering for `tax_cats` is preserved. Derive:
 
 - **`tax_map_value`** — PIVOT column at `tax_level`, falling back to `display_name`
 - **`tax_cats`** — first-seen dedupe of `tax_map_value` in lineage row order
