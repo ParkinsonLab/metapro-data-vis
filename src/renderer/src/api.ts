@@ -34,7 +34,7 @@ const endpointFor = (channel: Channel): { method: string; url: string } => {
     counts: { method: 'POST', url: '/api/viz/counts' },
     krona: { method: 'POST', url: `/api/viz/krona${sidecarQuery('krona')}` },
     chord: { method: 'POST', url: `/api/viz/chord${sidecarQuery('chord')}` },
-    network: { method: 'POST', url: '/api/viz/network' },
+    network: { method: 'POST', url: `/api/viz/network${sidecarQuery('network')}` },
     graph: { method: 'POST', url: `/api/viz/graph${sidecarQuery('graph')}` },
     pathway_list: { method: 'POST', url: `/api/viz/pathway-list${sidecarQuery('pathway_list')}` }
   }
