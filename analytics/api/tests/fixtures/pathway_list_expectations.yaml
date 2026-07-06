@@ -8,8 +8,24 @@ pathway_list:
     names:
     - fake_rpkm.tsv
     expected:
-    - Methane metabolism
-    - Oxidative phosphorylation
+      pathways:
+      - Methane metabolism
+      - Oxidative phosphorylation
+      breakdowns:
+        Methane metabolism:
+          index:
+          - Bacillota
+          counts:
+          - 1.0
+        Oxidative phosphorylation:
+          index:
+          - Actinomycetota
+          - Bacillota
+          - Bacteria
+          counts:
+          - 1.0
+          - 7.0
+          - 1.0
   superpathway_energy_metabolism_phylum_filter_actinomycetota_class_rank:
     tax_level: class
     selected_ann_cat:
@@ -21,4 +37,11 @@ pathway_list:
     names:
     - fake_rpkm.tsv
     expected:
-    - Oxidative phosphorylation
+      pathways:
+      - Oxidative phosphorylation
+      breakdowns:
+        Oxidative phosphorylation:
+          index:
+          - Actinomycetes
+          counts:
+          - 1.0

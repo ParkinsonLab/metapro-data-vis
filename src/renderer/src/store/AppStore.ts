@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ChordFilterValue } from '../chordFilters'
+import type { CountsData } from '../pathwayListResponse'
 
 // Define your store state interface
 interface AppState {
@@ -8,6 +9,7 @@ interface AppState {
   network_preview_data: any
   network_data: any
   pathway_list: string[]
+  pathway_tax_breakdowns: Record<string, CountsData>
   krona_data: any
   isLoading: boolean
   file_list: string[]
@@ -33,6 +35,7 @@ export const useAppStore = create<AppState>(() => ({
   network_preview_data: {},
   network_data: {},
   pathway_list: [],
+  pathway_tax_breakdowns: {},
   krona_data: {},
   isLoading: false,
   file_list: [],

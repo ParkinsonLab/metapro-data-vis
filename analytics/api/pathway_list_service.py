@@ -10,7 +10,9 @@ from api.filters import (
     sample_id_from_names,
     validate_tax_level,
 )
-from api.rollup_query import PATHWAY_LABEL_SQL, build_filtered_rollup_rows
+from api.rollup_query import build_filtered_rollup_rows
+from api.schemas import OverviewVector, PathwayListResponse
+from api.tax_lineage_order import tax_cat_order_for_ids_table
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
@@ -26,7 +28,7 @@ def build_pathway_list_from_duckdb(
     tax_level: str,
     selected_ann_cat,
     selected_taxon,
-) -> list[str]:
+) -> PathwayListResponse:
     if len(names) == 0:
         raise ValueError("names must contain at least one sample")
     if len(names) > 1:
@@ -59,20 +61,62 @@ def build_pathway_list_from_duckdb(
             taxon_filter=taxon_filter,
         )
 
-        label_sql = PATHWAY_LABEL_SQL.replace("t.", "cf.")
-        rows = conn.execute(
-            f"""
-            SELECT
-                {label_sql} AS display_label
+        pathway_rows = conn.execute(
+            """
+            SELECT cf.pathway_label AS display_label
             FROM filtered_rollup_rows cf
             WHERE cf.requested_rank = ?
               AND cf.pathway_level = 'pathway'
-            GROUP BY cf.pathway_key, {label_sql}
-            HAVING SUM(cf.value) > 0
+            GROUP BY cf.pathway_key, cf.pathway_label
             ORDER BY display_label ASC
             """,
             [tax_level],
         ).fetchall()
-        return [r[0] for r in rows]
+        pathway_names = [r[0] for r in pathway_rows]
+
+        conn.execute(
+            """
+            CREATE OR REPLACE TEMP TABLE pathway_tax_ids AS
+            SELECT DISTINCT cf.source_tax_id
+            FROM filtered_rollup_rows cf
+            WHERE cf.requested_rank = ?
+              AND cf.pathway_level = 'pathway'
+            """,
+            [tax_level],
+        )
+        tax_cat_order = tax_cat_order_for_ids_table(
+            conn, tax_level=tax_level, ids_table="pathway_tax_ids"
+        )
+
+        breakdown_rows = conn.execute(
+            """
+            SELECT
+              cf.pathway_label AS display_label,
+              cf.resolved_tax_label,
+              SUM(cf.value) AS value
+            FROM filtered_rollup_rows cf
+            WHERE cf.requested_rank = ?
+              AND cf.pathway_level = 'pathway'
+            GROUP BY cf.pathway_key, cf.pathway_label, cf.resolved_tax_label
+            ORDER BY display_label ASC
+            """,
+            [tax_level],
+        ).fetchall()
+
+        by_pathway: dict[str, dict[str, float]] = {}
+        for label, tax_label, value in breakdown_rows:
+            by_pathway.setdefault(label, {})
+            by_pathway[label][tax_label] = by_pathway[label].get(tax_label, 0.0) + float(
+                value
+            )
+
+        breakdowns: dict[str, OverviewVector] = {}
+        for pathway in pathway_names:
+            totals = by_pathway.get(pathway, {})
+            index = [cat for cat in tax_cat_order if totals.get(cat, 0) > 0]
+            counts = [totals[cat] for cat in index]
+            breakdowns[pathway] = OverviewVector(index=index, counts=counts)
+
+        return PathwayListResponse(pathways=pathway_names, breakdowns=breakdowns)
     finally:
         conn.close()

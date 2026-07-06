@@ -4,6 +4,7 @@ import pytest
 
 from api.chord_service import build_chord_from_duckdb
 from api.pathway_list_service import build_pathway_list_from_duckdb
+from api.schemas import PathwayListResponse
 from testing.fake_rpkm_fixture import (
     SAMPLE_ID,
     bridges_available,
@@ -41,12 +42,14 @@ def test_pathway_list_alphabetical_and_matches_chord_set(fake_rpkm_db):
     tax_level = "phylum"
     selected_taxon = {}
 
-    pathways = build_pathway_list_from_duckdb(
+    out = build_pathway_list_from_duckdb(
         names=names,
         tax_level=tax_level,
         selected_ann_cat=ann_filter,
         selected_taxon=selected_taxon,
     )
+    assert isinstance(out, PathwayListResponse)
+    pathways = out.pathways
     assert pathways == sorted(pathways)
     assert len(pathways) > 0
 
@@ -62,6 +65,12 @@ def test_pathway_list_alphabetical_and_matches_chord_set(fake_rpkm_db):
     gap2 = chord["index"].index("gap_2")
     chord_pathways = set(chord["index"][gap1 + 1 : gap2])
     assert set(pathways) == chord_pathways
+    assert out.breakdowns
+    for name in pathways:
+        assert name in out.breakdowns
+        vec = out.breakdowns[name]
+        assert len(vec.index) == len(vec.counts)
+        assert sum(vec.counts) > 0
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
@@ -78,5 +87,7 @@ def test_pathway_list_matches_golden(fake_rpkm_db, case_key):
         selected_ann_cat=case["selected_ann_cat"],
         selected_taxon=case["selected_taxon"],
     )
-    assert out == case["expected"]
-    assert out == sorted(out)
+    assert out.model_dump() == case["expected"]
+    assert out.pathways == sorted(out.pathways)
+    for pathway in out.pathways:
+        assert sum(out.breakdowns[pathway].counts) > 0
