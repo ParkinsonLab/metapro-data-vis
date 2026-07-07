@@ -22,6 +22,7 @@ OVERVIEW_YAML = ANALYTICS_DIR / "api/tests/fixtures/overview_expectations.yaml"
 KRONA_YAML = ANALYTICS_DIR / "api/tests/fixtures/krona_expectations.yaml"
 PATHWAY_LIST_YAML = ANALYTICS_DIR / "api/tests/fixtures/pathway_list_expectations.yaml"
 GRAPH_YAML = ANALYTICS_DIR / "api/tests/fixtures/graph_expectations.yaml"
+NETWORK_YAML = ANALYTICS_DIR / "api/tests/fixtures/network_expectations.yaml"
 NAMES_PATH = REPO_ROOT / "resources/db/parquet/names.parquet"
 
 REQUIRED_BRIDGES = (
@@ -81,6 +82,10 @@ def load_pathway_list_expectations() -> dict[str, Any]:
 
 def load_graph_expectations() -> dict[str, Any]:
     return load_yaml(GRAPH_YAML)
+
+
+def load_network_expectations() -> dict[str, Any]:
+    return load_yaml(NETWORK_YAML)
 
 
 def ensure_pipeline_built() -> Path:
@@ -174,11 +179,34 @@ def extract_graph_tax_map(graph_result: dict) -> dict[str, str]:
     return dict(graph_result["tax_map"])
 
 
+def extract_network_ec_values(out: dict, ec: str) -> list[list]:
+    node = next(n for n in out["nodes"] if n["label"] == ec and n["values"])
+    return [[v["id"], v["value"]] for v in node["values"] if v["value"] > 0]
+
+
+def extract_network_colors(out: dict) -> dict[str, str]:
+    return out["colors"]
+
+
 def assert_pairs_close(
-    actual: list[tuple[str, str, float]],
+    actual: list,
     expected: list[list],
 ) -> None:
     import pytest
+
+    if not expected:
+        assert actual == []
+        return
+    if len(expected[0]) == 2:
+        exp_tuples = [(str(a), float(b)) for a, b in expected]
+        act_tuples = [(str(a), float(b)) for a, b in actual]
+        assert len(act_tuples) == len(exp_tuples), (
+            f"pair count: {act_tuples!r} vs {exp_tuples!r}"
+        )
+        for got, want in zip(act_tuples, exp_tuples):
+            assert got[0] == want[0]
+            assert got[1] == pytest.approx(want[1])
+        return
 
     exp_tuples = [(str(a), str(b), float(v)) for a, b, v in expected]
     assert len(actual) == len(exp_tuples), f"pair count: {actual!r} vs {exp_tuples!r}"

@@ -1,0 +1,124 @@
+sample_id: fake_rpkm
+cases:
+- case_id: pathway_phylum_baseline
+  pathway_name: Oxidative phosphorylation
+  tax_level: phylum
+  width: 900
+  height: 550
+  focal_ec: 1.6.5.9
+  expected_values:
+  - - '999999999'
+    - 1.0
+  - - Actinomycetota
+    - 1.0
+  - - Bacillota
+    - 6.0
+  - - Bacteria
+    - 1.0
+  expected_color_keys:
+  - '999999999'
+  - Actinomycetota
+  - Bacillota
+  - Bacteria
+  expected_layout:
+    label: 1.6.5.9
+    x: 69.72727272727275
+    y: -176.0
+- case_id: pathway_species_tax_rank
+  pathway_name: Oxidative phosphorylation
+  tax_level: species
+  width: 900
+  height: 550
+  focal_ec: 1.6.5.9
+  expected_values:
+  - - '999999999'
+    - 1.0
+  - - Clavibacter sp. OL-4
+    - 1.0
+  - - Bacillus sp. b107A(2010)
+    - 1.0
+  - - Mammaliicoccus sciuri
+    - 1.0
+  - - Staphylococcus aureus
+    - 1.0
+  - - Staphylococcus epidermidis
+    - 1.0
+  - - Lactobacillus sp. 100-5
+    - 1.0
+  - - Pectinatus frisingensis
+    - 1.0
+  - - Bacteria
+    - 1.0
+  expected_color_keys:
+  - '999999999'
+  - Clavibacter sp. OL-4
+  - Bacillus sp. b107A(2010)
+  - Mammaliicoccus sciuri
+  - Staphylococcus aureus
+  - Staphylococcus epidermidis
+  - Lactobacillus sp. 100-5
+  - Pectinatus frisingensis
+  - Bacteria
+  expected_layout:
+    label: 1.6.5.9
+    x: 69.72727272727275
+    y: -176.0
+- case_id: pathway_kingdom_tax_rank
+  pathway_name: Oxidative phosphorylation
+  tax_level: kingdom
+  width: 900
+  height: 550
+  focal_ec: 1.6.5.9
+  expected_values:
+  - - '999999999'
+    - 1.0
+  - - Bacillati
+    - 7.0
+  - - Bacteria
+    - 1.0
+  expected_color_keys:
+  - '999999999'
+  - Bacillati
+  - Bacteria
+  expected_layout:
+    label: 1.6.5.9
+    x: 69.72727272727275
+    y: -176.0
+- case_id: pathway_and_taxon_filter
+  pathway_name: Oxidative phosphorylation
+  tax_level: phylum
+  width: 900
+  height: 550
+  selected_taxon:
+    level: species
+    name: Staphylococcus aureus
+  focal_ec: 1.6.5.9
+  expected_values:
+  - - Bacillota
+    - 1.0
+  expected_color_keys:
+  - Bacillota
+  expected_layout:
+    label: 1.6.5.9
+    x: 69.72727272727275
+    y: -176.0
+- case_id: pathway_methane_metabolism
+  pathway_name: Methane metabolism
+  tax_level: phylum
+  width: 900
+  height: 550
+  focal_ec: 1.5.8.1
+  expected_values:
+  - - Bacillota
+    - 1.0
+  expected_color_keys:
+  - Bacillota
+  expected_layout:
+    label: 1.5.8.1
+    x: 213.72727272727275
+    y: 44.549999999999955
+- case_id: unknown_pathway
+  pathway_name: __no_such_pathway__
+  tax_level: phylum
+  width: 900
+  height: 550

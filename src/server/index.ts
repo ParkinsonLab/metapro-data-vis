@@ -21,7 +21,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200
 
 const vizRoutes: Array<{ path: string; handler: (params?: unknown) => unknown }> = [
   { path: '/api/viz/counts', handler: parse_counts },
-  { path: '/api/viz/network', handler: parse_network },
 ]
 
 export const createApp = (): Express => {
@@ -51,6 +50,7 @@ export const createApp = (): Express => {
     { path: '/api/viz/krona', label: 'krona', legacyHandler: parse_krona },
     { path: '/api/viz/graph', label: 'graph', legacyHandler: parse_graph },
     { path: '/api/viz/pathway-list', label: 'pathway_list', legacyHandler: parse_pathway_list },
+    { path: '/api/viz/network', label: 'network', legacyHandler: parse_network },
   ]
 
   for (const { path, label, legacyHandler } of sidecarRoutes) {

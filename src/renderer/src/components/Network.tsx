@@ -177,7 +177,10 @@ const PathwayDetail = ({
             .arc<d3.PieArcDatum<{ id: string; value: number }>>()
             .innerRadius(base_radius / 0.5)
             .outerRadius(base_radius)
-          const pie = d3.pie<{ id: string; value: number }>().value((d2) => d2.value)
+          const pie = d3
+            .pie<{ id: string; value: number }>()
+            .value((d2) => d2.value)
+            .sort(null) // preserve API tax_cats order (Overview.tsx pattern)
           const pie_g = d3.select(this)
           pie_g.attr('transform', `translate(${d.x}, ${d.y})`)
 
@@ -312,7 +315,10 @@ const PathwayPreview = ({
       .attr('height', height - text_height)
       .attr('viewBox', [-width / 2, -height / 2, width, height])
 
-    const pie = d3.pie<{ id: string; value: number }>().value((d) => d.value)
+    const pie = d3
+      .pie<{ id: string; value: number }>()
+      .value((d) => d.value)
+      .sort(null) // preserve API index order (Overview.tsx pattern)
     svg
       .append('g')
       .selectAll('path')

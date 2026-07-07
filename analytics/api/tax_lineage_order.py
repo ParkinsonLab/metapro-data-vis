@@ -105,6 +105,7 @@ def read_tax_metadata_rows(
         f"""
         SELECT display_name, COALESCE(tax_map_value, '')
         FROM {table}
+        ORDER BY {lineage_order_by_sql()}
         """
     ).fetchall()
     return [
@@ -118,8 +119,14 @@ def tax_cat_order_for_ids_table(
     *,
     tax_level: str,
     ids_table: str,
+    output_table: str = "tax_lineage_metadata",
 ) -> list[str]:
     materialize_tax_metadata_from_ids(
-        conn, tax_level=tax_level, ids_table=ids_table
+        conn,
+        tax_level=tax_level,
+        ids_table=ids_table,
+        output_table=output_table,
     )
-    return tax_cat_order_from_metadata_rows(read_tax_metadata_rows(conn))
+    return tax_cat_order_from_metadata_rows(
+        read_tax_metadata_rows(conn, table=output_table)
+    )

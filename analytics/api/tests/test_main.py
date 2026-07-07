@@ -144,3 +144,22 @@ def test_graph_endpoint_envelope(fake_rpkm_db):
     body = res.json()
     assert body["ok"] is True
     assert "inner_count_matrix" in body["value"]
+
+
+@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
+def test_network_endpoint(fake_rpkm_db):
+    res = client.post(
+        "/api/viz/network",
+        json={
+            "names": ["fake_rpkm.tsv"],
+            "tax_level": "phylum",
+            "selected_taxon": {},
+            "pathway_name": "Oxidative phosphorylation",
+            "width": 900,
+            "height": 550,
+        },
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert body["value"]["nodes"]
