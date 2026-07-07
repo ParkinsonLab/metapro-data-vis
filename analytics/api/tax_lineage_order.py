@@ -119,26 +119,14 @@ def tax_cat_order_for_ids_table(
     *,
     tax_level: str,
     ids_table: str,
-) -> list[str]:
-    materialize_tax_metadata_from_ids(
-        conn, tax_level=tax_level, ids_table=ids_table
-    )
-    return tax_cat_order_from_metadata_rows(read_tax_metadata_rows(conn))
-
-
-def prepare_tax_metadata(
-    conn: duckdb.DuckDBPyConnection,
-    *,
-    tax_level: str,
-    ids_table: str,
     output_table: str = "tax_lineage_metadata",
-) -> tuple[list[dict], list[str]]:
-    """Materialize lineage-ordered tax metadata and return rows + deduped tax_map order."""
+) -> list[str]:
     materialize_tax_metadata_from_ids(
         conn,
         tax_level=tax_level,
         ids_table=ids_table,
         output_table=output_table,
     )
-    tax_rows = read_tax_metadata_rows(conn, table=output_table)
-    return tax_rows, tax_cat_order_from_metadata_rows(tax_rows)
+    return tax_cat_order_from_metadata_rows(
+        read_tax_metadata_rows(conn, table=output_table)
+    )

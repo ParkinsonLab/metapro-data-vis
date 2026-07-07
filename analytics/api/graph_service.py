@@ -12,7 +12,11 @@ from api.filters import (
 )
 from api.ec_tax_triples import materialize_filtered_triples
 from api.graph_matrix import build_graph_matrix
-from api.tax_lineage_order import prepare_tax_metadata
+from api.tax_lineage_order import (
+    materialize_tax_metadata_from_ids,
+    read_tax_metadata_rows,
+    tax_cat_order_from_metadata_rows,
+)
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
@@ -84,12 +88,14 @@ def build_graph_from_duckdb(
             taxon_filter=taxon_filter,
         )
         ec_rows = _fetch_ec_metadata(conn)
-        tax_rows, tax_cats = prepare_tax_metadata(
+        materialize_tax_metadata_from_ids(
             conn,
             tax_level=tax_level,
             ids_table=FILTERED_TRIPLES_TABLE,
             output_table=TAX_METADATA_TABLE,
         )
+        tax_rows = read_tax_metadata_rows(conn, table=TAX_METADATA_TABLE)
+        tax_cats = tax_cat_order_from_metadata_rows(tax_rows)
         triples = _fetch_display_name_triples(conn)
 
         return build_graph_matrix(

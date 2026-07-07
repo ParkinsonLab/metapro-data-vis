@@ -16,7 +16,11 @@ from api.network_assembly import (
     build_category_colors,
     embed_edges,
 )
-from api.tax_lineage_order import prepare_tax_metadata
+from api.tax_lineage_order import (
+    materialize_tax_metadata_from_ids,
+    read_tax_metadata_rows,
+    tax_cat_order_from_metadata_rows,
+)
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
@@ -150,11 +154,14 @@ def build_network_from_duckdb(
             edges = embed_edges(edges, nodes)
             return {"nodes": nodes, "edges": edges, "colors": {}}
 
-        _, tax_cats = prepare_tax_metadata(
+        materialize_tax_metadata_from_ids(
             conn,
             tax_level=tax_level,
             ids_table=FILTERED_TRIPLES_TABLE,
             output_table=TAX_METADATA_TABLE,
+        )
+        tax_cats = tax_cat_order_from_metadata_rows(
+            read_tax_metadata_rows(conn, table=TAX_METADATA_TABLE)
         )
         ec_values = _fetch_ec_values_by_tax_cat(conn, tax_cats=tax_cats)
 

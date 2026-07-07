@@ -50,5 +50,8 @@ def test_read_tax_metadata_rows_preserves_lineage_order(fake_rpkm_db):
             {"display_name": name, "tax_map_value": tax_map_value}
             for name, tax_map_value in ordered
         ]
+        assert tax_cat_order_from_metadata_rows(read_back) == dedupe_preserve_order(
+            [tax_map_value for _, tax_map_value in ordered if tax_map_value]
+        )
     finally:
         conn.close()
