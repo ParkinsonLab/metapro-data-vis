@@ -105,6 +105,7 @@ def read_tax_metadata_rows(
         f"""
         SELECT display_name, COALESCE(tax_map_value, '')
         FROM {table}
+        ORDER BY {lineage_order_by_sql()}
         """
     ).fetchall()
     return [
