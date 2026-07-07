@@ -15,7 +15,6 @@ from api.graph_matrix import build_graph_matrix
 from api.tax_lineage_order import (
     materialize_tax_metadata_from_ids,
     read_tax_metadata_rows,
-    tax_cat_order_from_metadata_rows,
 )
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
@@ -95,14 +94,12 @@ def build_graph_from_duckdb(
             output_table=TAX_METADATA_TABLE,
         )
         tax_rows = read_tax_metadata_rows(conn, table=TAX_METADATA_TABLE)
-        tax_cats = tax_cat_order_from_metadata_rows(tax_rows)
         triples = _fetch_display_name_triples(conn)
 
         return build_graph_matrix(
             triples=triples,
             ec_rows=ec_rows,
             tax_rows=tax_rows,
-            tax_cats=tax_cats,
         )
     finally:
         conn.close()
