@@ -3,16 +3,6 @@ from __future__ import annotations
 from api.colors import get_color
 
 
-def dedupe_preserve_order(items: list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for item in items:
-        if item not in seen:
-            seen.add(item)
-            out.append(item)
-    return out
-
-
 def apply_layout(nodes: list[dict], *, width: float, height: float) -> list[dict]:
     placed = []
     for node in nodes:

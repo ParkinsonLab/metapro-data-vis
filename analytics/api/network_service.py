@@ -9,97 +9,50 @@ from api.filters import (
     sample_id_from_names,
     validate_tax_level,
 )
+from api.ec_tax_triples import FILTERED_TRIPLES_TABLE, materialize_filtered_triples
 from api.network_assembly import (
     apply_layout,
     attach_pies_to_nodes,
     build_category_colors,
     embed_edges,
 )
-from api.tax_lineage_order import (
-    materialize_tax_metadata_from_ids,
-    read_tax_metadata_rows,
-    tax_cat_order_from_metadata_rows,
-)
+from api.tax_lineage_order import prepare_tax_metadata
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
-REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
-BRIDGE_EC_PATH = REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet"
-BRIDGE_TAX_PATH = REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet"
 REPO_ROOT = ANALYTICS_DIR.parent
 RAW_PARQUET_DIR = REPO_ROOT / "resources/db/parquet"
 PATHWAY_SUPERPATHWAYS = RAW_PARQUET_DIR / "pathway_superpathways.parquet"
 PATHWAY_NODES = RAW_PARQUET_DIR / "pathway_nodes.parquet"
 PATHWAY_EDGES = RAW_PARQUET_DIR / "pathway_edges.parquet"
+TAX_METADATA_TABLE = "network_tax_metadata"
 
 
 def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
-def _ensure_bridge_ec(conn: duckdb.DuckDBPyConnection) -> None:
-    if conn.execute(
-        "SELECT 1 FROM duckdb_tables() WHERE table_name = 'bridge_ec'"
-    ).fetchone():
-        return
-    if not BRIDGE_EC_PATH.exists():
-        raise FileNotFoundError(f"reference parquet missing: {BRIDGE_EC_PATH}")
-    path = BRIDGE_EC_PATH.as_posix()
-    conn.execute(f"CREATE TEMP TABLE bridge_ec AS SELECT * FROM read_parquet('{path}')")
-
-
-def _pathway_exists_clause(pathway_filter: dict[str, str] | None) -> tuple[str, list]:
-    if pathway_filter is None:
-        return "TRUE", []
-    return (
-        "EXISTS ("
-        "  SELECT 1 FROM bridge_ec b"
-        "  WHERE b.ec_normalized = r.ec_normalized"
-        "    AND b.pathway_name = ?"
-        ")",
-        [pathway_filter["name"]],
-    )
-
-
-def _taxon_exists_clause(taxon_filter: dict[str, str] | None) -> tuple[str, list]:
-    if taxon_filter is None:
-        return "TRUE", []
-    return (
-        "EXISTS ("
-        "  SELECT 1 FROM read_parquet(?) t"
-        "  WHERE t.source_tax_id = r.source_tax_id"
-        "    AND t.requested_rank = ?"
-        "    AND t.resolved_tax_label = ?"
-        ")",
-        [
-            BRIDGE_TAX_PATH.as_posix(),
-            taxon_filter["level"],
-            taxon_filter["name"],
-        ],
-    )
-
-
-def _materialize_filtered_triples(
+def _fetch_ec_values_by_tax_cat(
     conn: duckdb.DuckDBPyConnection,
     *,
-    pathway_filter: dict[str, str] | None,
-    taxon_filter: dict[str, str] | None,
-) -> None:
-    if pathway_filter is not None:
-        _ensure_bridge_ec(conn)
-    pathway_clause, pathway_params = _pathway_exists_clause(pathway_filter)
-    tax_clause, tax_params = _taxon_exists_clause(taxon_filter)
-    conn.execute(
-        f"""
-        CREATE OR REPLACE TEMP TABLE filtered_triples AS
-        SELECT r.ec_normalized, r.source_tax_id, r.value
-        FROM int_rpkm_by_ec_tax r
-        WHERE r.value > 0
-          AND ({pathway_clause})
-          AND ({tax_clause})
-        """,
-        pathway_params + tax_params,
+    tax_cats: list[str],
+) -> dict[str, list[float]]:
+    if not tax_cats:
+        return {}
+    value_exprs = ", ".join(
+        "COALESCE(SUM(CASE WHEN m.tax_map_value = ? THEN t.value END), 0.0)"
+        for _ in tax_cats
     )
+    rows = conn.execute(
+        f"""
+        SELECT t.ec_normalized, [{value_exprs}]
+        FROM {FILTERED_TRIPLES_TABLE} t
+        INNER JOIN {TAX_METADATA_TABLE} m ON t.source_tax_id = m.source_tax_id
+        GROUP BY t.ec_normalized
+        """,
+        tax_cats,
+    ).fetchall()
+    return {str(ec): [float(v) for v in values] for ec, values in rows}
 
 
 def _require_pathway_parquet() -> None:
@@ -181,7 +134,7 @@ def build_network_from_duckdb(
                 f"int_rpkm_by_ec_tax not materialized for sample: {sample_id}"
             )
 
-        _materialize_filtered_triples(
+        materialize_filtered_triples(
             conn,
             pathway_filter={"name": pathway_name},
             taxon_filter=taxon_filter,
@@ -197,31 +150,13 @@ def build_network_from_duckdb(
             edges = embed_edges(edges, nodes)
             return {"nodes": nodes, "edges": edges, "colors": {}}
 
-        materialize_tax_metadata_from_ids(
+        _, tax_cats = prepare_tax_metadata(
             conn,
             tax_level=tax_level,
-            ids_table="filtered_triples",
-            output_table="network_tax_metadata",
+            ids_table=FILTERED_TRIPLES_TABLE,
+            output_table=TAX_METADATA_TABLE,
         )
-        tax_cats = tax_cat_order_from_metadata_rows(
-            read_tax_metadata_rows(conn, table="network_tax_metadata")
-        )
-
-        rows = conn.execute(
-            """
-            SELECT t.ec_normalized, m.tax_map_value, SUM(t.value) AS value
-            FROM filtered_triples t
-            INNER JOIN network_tax_metadata m ON t.source_tax_id = m.source_tax_id
-            GROUP BY t.ec_normalized, m.tax_map_value
-            """
-        ).fetchall()
-
-        cat_idx = {cat: i for i, cat in enumerate(tax_cats)}
-        ec_values: dict[str, list[float]] = {}
-        for ec, tax_map_value, value in rows:
-            if ec not in ec_values:
-                ec_values[ec] = [0.0] * len(tax_cats)
-            ec_values[ec][cat_idx[tax_map_value]] += float(value)
+        ec_values = _fetch_ec_values_by_tax_cat(conn, tax_cats=tax_cats)
 
         nodes = apply_layout(nodes, width=width, height=height)
         nodes = attach_pies_to_nodes(nodes, tax_cats=tax_cats, ec_values=ec_values)

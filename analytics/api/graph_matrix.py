@@ -9,6 +9,7 @@ def build_graph_matrix(
     triples: list[tuple[str, str, float]],
     ec_rows: list[dict],
     tax_rows: list[dict],
+    tax_cats: list[str] | None = None,
 ) -> dict:
     # ec_rows / tax_rows are pre-ordered by graph_service.
     tax_map = {row["display_name"]: row["tax_map_value"] for row in tax_rows}
@@ -16,7 +17,8 @@ def build_graph_matrix(
     ecs = [row["ec_normalized"] for row in ec_rows]
     tax_labels = [row["display_name"] for row in tax_rows]
 
-    tax_cats = dedupe_preserve_order([tax_map[tax] for tax in tax_labels])
+    if tax_cats is None:
+        tax_cats = dedupe_preserve_order([tax_map[tax] for tax in tax_labels])
 
     inner_matrix_index = ["gap_1", *ecs, "gap_2", *tax_labels, "gap_3"]
     # Graph UI reads only tax categories between gap_2 and gap_3 (see Graph.tsx).

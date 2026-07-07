@@ -2,9 +2,9 @@ from api.network_assembly import (
     apply_layout,
     attach_pies_to_nodes,
     build_category_colors,
-    dedupe_preserve_order,
     embed_edges,
 )
+from api.tax_lineage_order import dedupe_preserve_order
 
 
 def test_apply_layout_swaps_and_scales():
