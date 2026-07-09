@@ -7,7 +7,7 @@ cases:
   height: 550
   focal_ec: 1.6.5.9
   expected_values:
-  - - '999999999'
+  - - Unclassified
     - 1.0
   - - Actinomycetota
     - 1.0
@@ -16,7 +16,7 @@ cases:
   - - Bacteria
     - 1.0
   expected_color_keys:
-  - '999999999'
+  - Unclassified
   - Actinomycetota
   - Bacillota
   - Bacteria
@@ -31,7 +31,7 @@ cases:
   height: 550
   focal_ec: 1.6.5.9
   expected_values:
-  - - '999999999'
+  - - Unclassified
     - 1.0
   - - Clavibacter sp. OL-4
     - 1.0
@@ -50,7 +50,7 @@ cases:
   - - Bacteria
     - 1.0
   expected_color_keys:
-  - '999999999'
+  - Unclassified
   - Clavibacter sp. OL-4
   - Bacillus sp. b107A(2010)
   - Mammaliicoccus sciuri
@@ -70,14 +70,14 @@ cases:
   height: 550
   focal_ec: 1.6.5.9
   expected_values:
-  - - '999999999'
+  - - Unclassified
     - 1.0
   - - Bacillati
     - 7.0
   - - Bacteria
     - 1.0
   expected_color_keys:
-  - '999999999'
+  - Unclassified
   - Bacillati
   - Bacteria
   expected_layout:

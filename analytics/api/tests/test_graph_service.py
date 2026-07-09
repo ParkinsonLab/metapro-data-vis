@@ -98,4 +98,4 @@ def test_graph_baseline_includes_unknown_tax_id(fake_rpkm_db):
     case = next(c for c in _cases if c["case_id"] == "pathway_phylum_baseline")
     out = _run_case(case)
     assert "999999999" in extract_graph_inner_index(out)
-    assert "999999999" in extract_graph_outer_index(out)
+    assert "Unclassified" in extract_graph_outer_index(out)
