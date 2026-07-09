@@ -242,6 +242,18 @@ Strategy: lightweight Jinja render of `rpkm_ingest_long()` (or `dbt compile` ses
 | `int_rpkm_by_ec_tax` rows | 386,700 | 386,700 (unchanged) |
 | `mart_rpkm_enriched` rows | 386,700 | 386,700 (unchanged) |
 
+**Measured (2026-07-09, `feature/api-aligned-dbt-model`):**
+
+| Table | Rows |
+|---|---|
+| `dim_sample_ec` | 3,867 |
+| `dim_sample_taxon` | 100 |
+| `int_rpkm_by_ec_tax` | 386,700 |
+| `mart_rpkm_enriched` | 386,700 |
+
+- Tables in `sample.duckdb`: **4** (no `stg_rpkm_long`)
+- `sample.duckdb` file size: **22.0 MB**
+
 ### 8.2 Build time
 
 TSV is still parsed once per run. Expect **similar or slightly faster** `dbt build` (no 40M-row table write). Exact timing measured at implementation.
