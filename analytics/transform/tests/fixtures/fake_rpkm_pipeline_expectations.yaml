@@ -20,6 +20,12 @@ fixture:
     col_tax_cousin_kingdom: 857891
     col_tax_fallback_kingdom: 2
     col_tax_unknown_header: 999999999
+ingest_expectations:
+  int_row_count: 13
+  zero_mass_genes:
+    - row_ingest_unclass_only
+    - row_ingest_all_zero
+  unclassified_not_source_tax_id: true
 rollup_grid:
 - requested_rank: class
   pathway_level: pathway

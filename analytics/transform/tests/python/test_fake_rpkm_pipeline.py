@@ -57,3 +57,15 @@ def test_rollup_grid_row_count(fake_rpkm_db):
     finally:
         conn.close()
     assert n == 21
+
+
+def test_ingest_expectations(fake_rpkm_db):
+    ingest = _expectations.get("ingest_expectations")
+    if ingest is None:
+        pytest.skip("ingest_expectations not in pipeline YAML")
+    conn = duckdb.connect(fake_rpkm_db, read_only=True)
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM int_rpkm_by_ec_tax").fetchone()[0]
+        assert n == ingest["int_row_count"]
+    finally:
+        conn.close()
