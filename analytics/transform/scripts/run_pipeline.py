@@ -115,7 +115,7 @@ def _run_dbt(sample_id: str, rpkm_path: str, tax_rank: str, pathway_level: str) 
     result = subprocess.run(
         [
             "uv", "run", "dbt", "build",
-            "--select", "stg_rpkm_long+",
+            "--select", "int_rpkm_by_ec_tax+",
             "--project-dir", str(TRANSFORM_DIR),
             "--profiles-dir", str(TRANSFORM_DIR),
             "--vars", vars_json,
