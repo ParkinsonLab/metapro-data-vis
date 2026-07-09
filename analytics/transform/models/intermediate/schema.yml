@@ -16,6 +16,8 @@ models:
         tests: [not_null]
 
   - name: int_rpkm_pathway
+    config:
+      enabled: false
     description: >
       All three pathway levels (superpathway / pathway / pathway_node) via UNION ALL.
       Filter on pathway_level downstream; unmapped ECs have pathway_key IS NULL.
@@ -27,6 +29,8 @@ models:
               values: ['superpathway', 'pathway', 'pathway_node']
 
   - name: int_tax_rollup_resolved
+    config:
+      enabled: false
     description: >
       int_rpkm_pathway × bridge_tax_rollup: all 7 requested_rank values pre-joined.
       Filter on requested_rank downstream.
@@ -35,3 +39,21 @@ models:
         tests:
           - accepted_values:
               values: ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
+
+  - name: dim_sample_taxon
+    description: >
+      Sample-scoped taxonomy dimension: one row per source_tax_id in int_rpkm_by_ec_tax.
+      LEFT JOIN to bridge_tax_lineage; unknown tax_ids retain display_name = CAST(tax_id AS VARCHAR).
+    columns:
+      - name: source_tax_id
+        tests: [not_null, unique]
+      - name: display_name
+        tests: [not_null]
+
+  - name: dim_sample_ec
+    description: >
+      Sample-scoped EC dimension: one row per ec_normalized in int_rpkm_by_ec_tax.
+      LEFT JOIN to bridge_ec_pathway; unmapped ECs have pathway_id IS NULL.
+    columns:
+      - name: ec_normalized
+        tests: [not_null, unique]
