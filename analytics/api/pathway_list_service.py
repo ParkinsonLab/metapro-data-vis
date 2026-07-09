@@ -10,7 +10,12 @@ from api.filters import (
     sample_id_from_names,
     validate_tax_level,
 )
-from api.rollup_query import build_filtered_rollup_rows
+from api.query_enriched import (
+    ann_filter_where_sql,
+    canonical_pathway_label_sql,
+    resolve_tax_label_sql,
+    taxon_filter_where_sql,
+)
 from api.schemas import OverviewVector, PathwayListResponse
 from api.tax_lineage_order import tax_cat_order_for_ids_table
 
@@ -48,67 +53,64 @@ def build_pathway_list_from_duckdb(
     conn = duckdb.connect(str(db_file), read_only=True)
     try:
         tables = {r[0] for r in conn.execute("SHOW TABLES").fetchall()}
-        if "int_tax_rollup_resolved" not in tables:
+        if "mart_rpkm_enriched" not in tables:
             raise RuntimeError(
-                f"int_tax_rollup_resolved not materialized for sample: {sample_id}"
+                f"mart_rpkm_enriched not materialized for sample: {sample_id}"
             )
 
-        build_filtered_rollup_rows(
-            conn,
-            tax_level=tax_level,
-            ann_level="pathway",
-            ann_filter=ann_filter,
-            taxon_filter=taxon_filter,
-        )
+        ann_sql, ann_params = ann_filter_where_sql(ann_filter, "pathway")
+        tax_sql, tax_params = taxon_filter_where_sql(taxon_filter)
+        where_sql = f"({ann_sql}) AND ({tax_sql})"
+        params = ann_params + tax_params
+
+        pathway_label = canonical_pathway_label_sql("pathway")
+        tax_label = resolve_tax_label_sql(tax_level)
 
         pathway_rows = conn.execute(
-            """
-            SELECT cf.pathway_label AS display_label
-            FROM filtered_rollup_rows cf
-            WHERE cf.requested_rank = ?
-              AND cf.pathway_level = 'pathway'
-            GROUP BY cf.pathway_key, cf.pathway_label
+            f"""
+            SELECT {pathway_label} AS display_label
+            FROM mart_rpkm_enriched
+            WHERE {where_sql}
+            GROUP BY pathway_id, {pathway_label}
             ORDER BY display_label ASC
             """,
-            [tax_level],
+            params,
         ).fetchall()
         pathway_names = [r[0] for r in pathway_rows]
 
         conn.execute(
-            """
+            f"""
             CREATE OR REPLACE TEMP TABLE pathway_tax_ids AS
-            SELECT DISTINCT cf.source_tax_id
-            FROM filtered_rollup_rows cf
-            WHERE cf.requested_rank = ?
-              AND cf.pathway_level = 'pathway'
+            SELECT DISTINCT source_tax_id
+            FROM mart_rpkm_enriched
+            WHERE {where_sql}
             """,
-            [tax_level],
+            params,
         )
         tax_cat_order = tax_cat_order_for_ids_table(
             conn, tax_level=tax_level, ids_table="pathway_tax_ids"
         )
 
         breakdown_rows = conn.execute(
-            """
+            f"""
             SELECT
-              cf.pathway_label AS display_label,
-              cf.resolved_tax_label,
-              SUM(cf.value) AS value
-            FROM filtered_rollup_rows cf
-            WHERE cf.requested_rank = ?
-              AND cf.pathway_level = 'pathway'
-            GROUP BY cf.pathway_key, cf.pathway_label, cf.resolved_tax_label
+              {pathway_label} AS display_label,
+              {tax_label} AS resolved_tax_label,
+              SUM(value) AS value
+            FROM mart_rpkm_enriched
+            WHERE {where_sql}
+            GROUP BY pathway_id, {pathway_label}, {tax_label}
             ORDER BY display_label ASC
             """,
-            [tax_level],
+            params,
         ).fetchall()
 
         by_pathway: dict[str, dict[str, float]] = {}
-        for label, tax_label, value in breakdown_rows:
+        for label, tax_label_val, value in breakdown_rows:
             by_pathway.setdefault(label, {})
-            by_pathway[label][tax_label] = by_pathway[label].get(tax_label, 0.0) + float(
-                value
-            )
+            by_pathway[label][tax_label_val] = by_pathway[label].get(
+                tax_label_val, 0.0
+            ) + float(value)
 
         breakdowns: dict[str, OverviewVector] = {}
         for pathway in pathway_names:

@@ -34,6 +34,9 @@ chord_unfiltered:
   - - 1.6.5.9
     - Staphylococcus epidermidis
     - 1.0
+  - - 1.6.5.9
+    - Unclassified
+    - 1.0
   - - 2.7.4.1
     - Staphylococcus aureus
     - 1.0
@@ -48,6 +51,7 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Clavibacter sp. OL-4
   - Pectinatus frisingensis
@@ -91,6 +95,9 @@ chord_unfiltered:
   - - Oxidative phosphorylation
     - Staphylococcus epidermidis
     - 1.0
+  - - Oxidative phosphorylation
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Staphylococcus aureus
     - 1.0
@@ -101,6 +108,7 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Clavibacter sp. OL-4
   - Pectinatus frisingensis
@@ -141,6 +149,9 @@ chord_unfiltered:
   - - Energy metabolism
     - Staphylococcus epidermidis
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Staphylococcus aureus
     - 1.0
@@ -150,6 +161,7 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Clavibacter sp. OL-4
   - Pectinatus frisingensis
@@ -190,6 +202,9 @@ chord_unfiltered:
   - - 1.6.5.9
     - Staphylococcus
     - 2.0
+  - - 1.6.5.9
+    - Unclassified
+    - 1.0
   - - 2.7.4.1
     - Staphylococcus
     - 1.0
@@ -204,6 +219,7 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Clavibacter
   - Pectinatus
@@ -243,6 +259,9 @@ chord_unfiltered:
   - - Oxidative phosphorylation
     - Staphylococcus
     - 3.0
+  - - Oxidative phosphorylation
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Staphylococcus
     - 1.0
@@ -253,6 +272,7 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Clavibacter
   - Pectinatus
@@ -289,6 +309,9 @@ chord_unfiltered:
   - - Energy metabolism
     - Staphylococcus
     - 4.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Staphylococcus
     - 1.0
@@ -298,6 +321,7 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Clavibacter
   - Pectinatus
@@ -334,6 +358,9 @@ chord_unfiltered:
   - - 1.6.5.9
     - Staphylococcaceae
     - 3.0
+  - - 1.6.5.9
+    - Unclassified
+    - 1.0
   - - 2.7.4.1
     - Staphylococcaceae
     - 1.0
@@ -348,6 +375,7 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Microbacteriaceae
   - Selenomonadaceae
@@ -383,6 +411,9 @@ chord_unfiltered:
   - - Oxidative phosphorylation
     - Staphylococcaceae
     - 4.0
+  - - Oxidative phosphorylation
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Staphylococcaceae
     - 1.0
@@ -393,6 +424,7 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Microbacteriaceae
   - Selenomonadaceae
@@ -425,6 +457,9 @@ chord_unfiltered:
   - - Energy metabolism
     - Staphylococcaceae
     - 5.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Staphylococcaceae
     - 1.0
@@ -434,6 +469,7 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Microbacteriaceae
   - Selenomonadaceae
@@ -466,6 +502,9 @@ chord_unfiltered:
   - - 1.6.5.9
     - Selenomonadales
     - 1.0
+  - - 1.6.5.9
+    - Unclassified
+    - 1.0
   - - 2.7.4.1
     - Caryophanales
     - 1.0
@@ -480,6 +519,7 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Micrococcales
   - Selenomonadales
@@ -511,6 +551,9 @@ chord_unfiltered:
   - - Oxidative phosphorylation
     - Selenomonadales
     - 1.0
+  - - Oxidative phosphorylation
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Caryophanales
     - 1.0
@@ -521,6 +564,7 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Micrococcales
   - Selenomonadales
@@ -549,6 +593,9 @@ chord_unfiltered:
   - - Energy metabolism
     - Selenomonadales
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Caryophanales
     - 1.0
@@ -558,6 +605,7 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Micrococcales
   - Selenomonadales
@@ -586,6 +634,9 @@ chord_unfiltered:
   - - 1.6.5.9
     - Negativicutes
     - 1.0
+  - - 1.6.5.9
+    - Unclassified
+    - 1.0
   - - 2.7.4.1
     - Bacilli
     - 1.0
@@ -600,6 +651,7 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetes
   - Negativicutes
@@ -627,6 +679,9 @@ chord_unfiltered:
   - - Oxidative phosphorylation
     - Negativicutes
     - 1.0
+  - - Oxidative phosphorylation
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacilli
     - 1.0
@@ -637,6 +692,7 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetes
   - Negativicutes
@@ -661,6 +717,9 @@ chord_unfiltered:
   - - Energy metabolism
     - Negativicutes
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacilli
     - 1.0
@@ -670,6 +729,7 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetes
   - Negativicutes
@@ -694,6 +754,9 @@ chord_unfiltered:
   - - 1.6.5.9
     - Bacteria
     - 1.0
+  - - 1.6.5.9
+    - Unclassified
+    - 1.0
   - - 2.7.4.1
     - Bacillota
     - 1.0
@@ -708,6 +771,7 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetota
   - Bacillota
@@ -731,6 +795,9 @@ chord_unfiltered:
   - - Oxidative phosphorylation
     - Bacteria
     - 1.0
+  - - Oxidative phosphorylation
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -741,6 +808,7 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetota
   - Bacillota
@@ -761,6 +829,9 @@ chord_unfiltered:
   - - Energy metabolism
     - Bacteria
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -770,6 +841,7 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetota
   - Bacillota
@@ -790,6 +862,9 @@ chord_unfiltered:
   - - 1.6.5.9
     - Bacteria
     - 1.0
+  - - 1.6.5.9
+    - Unclassified
+    - 1.0
   - - 2.7.4.1
     - Bacillati
     - 1.0
@@ -804,6 +879,7 @@ chord_unfiltered:
   - 2.7.4.1
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Bacillati
   - gap_3
@@ -823,6 +899,9 @@ chord_unfiltered:
   - - Oxidative phosphorylation
     - Bacteria
     - 1.0
+  - - Oxidative phosphorylation
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacillati
     - 1.0
@@ -833,6 +912,7 @@ chord_unfiltered:
   - Aflatoxin biosynthesis
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Bacillati
   - gap_3
@@ -849,6 +929,9 @@ chord_unfiltered:
   - - Energy metabolism
     - Bacteria
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacillati
     - 1.0
@@ -858,6 +941,7 @@ chord_unfiltered:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Bacillati
   - gap_3
@@ -899,10 +983,14 @@ chord_filtered:
   - - Energy metabolism
     - Bacteria
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   expected_index:
   - gap_1
   - Energy metabolism
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetota
   - Bacillota
@@ -925,6 +1013,9 @@ edge_cases:
   - - Energy metabolism
     - Bacteria
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -934,6 +1025,7 @@ edge_cases:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetota
   - Bacillota
@@ -954,6 +1046,9 @@ edge_cases:
   - - Energy metabolism
     - Bacteria
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Bacillota
     - 1.0
@@ -963,6 +1058,7 @@ edge_cases:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Actinomycetota
   - Bacillota
@@ -998,6 +1094,9 @@ edge_cases:
   - - Energy metabolism
     - Staphylococcus epidermidis
     - 1.0
+  - - Energy metabolism
+    - Unclassified
+    - 1.0
   - - Unmapped EC
     - Staphylococcus aureus
     - 1.0
@@ -1007,6 +1106,7 @@ edge_cases:
   - Biosynthesis of other secondary metabolites
   - Unmapped EC
   - gap_2
+  - Unclassified
   - Bacteria
   - Clavibacter sp. OL-4
   - Pectinatus frisingensis
