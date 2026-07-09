@@ -1,4 +1,4 @@
 {{ config(severity='error') }}
 SELECT COUNT(*) AS row_count
-FROM {{ ref('mart_pathway_taxonomy_long') }}
+FROM {{ ref('mart_rpkm_enriched') }}
 HAVING COUNT(*) = 0

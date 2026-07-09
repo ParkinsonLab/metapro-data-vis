@@ -1,6 +1,10 @@
--- FAIL if any row has a real pathway name but null pathway_key.
+-- FAIL if any bridge-mapped EC has null pathway_id in the enriched mart.
 {{ config(severity='error') }}
-SELECT pathway_label, pathway_key
-FROM {{ ref('mart_pathway_taxonomy_long') }}
-WHERE pathway_label != 'Unmapped EC'
-  AND pathway_key IS NULL
+SELECT ec_normalized, pathway_id
+FROM {{ ref('mart_rpkm_enriched') }}
+WHERE ec_normalized != '0.0.0.0'
+  AND pathway_id IS NULL
+  AND ec_normalized IN (
+      SELECT DISTINCT ec_normalized
+      FROM {{ source('reference', 'bridge_ec_pathway') }}
+  )

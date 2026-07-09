@@ -27,7 +27,7 @@ NAMES_PATH = REPO_ROOT / "resources/db/parquet/names.parquet"
 
 REQUIRED_BRIDGES = (
     REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet",
-    REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet",
+    REFERENCE_PARQUET_DIR / "bridge_tax_lineage.parquet",
 )
 RANKS = ("species", "genus", "family", "order", "class", "phylum", "kingdom")
 # Finest → coarsest annotation grain (matches tax RANKS ordering intent).

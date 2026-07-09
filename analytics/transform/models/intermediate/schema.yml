@@ -15,31 +15,6 @@ models:
       - name: value
         tests: [not_null]
 
-  - name: int_rpkm_pathway
-    config:
-      enabled: false
-    description: >
-      All three pathway levels (superpathway / pathway / pathway_node) via UNION ALL.
-      Filter on pathway_level downstream; unmapped ECs have pathway_key IS NULL.
-    columns:
-      - name: pathway_level
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['superpathway', 'pathway', 'pathway_node']
-
-  - name: int_tax_rollup_resolved
-    config:
-      enabled: false
-    description: >
-      int_rpkm_pathway × bridge_tax_rollup: all 7 requested_rank values pre-joined.
-      Filter on requested_rank downstream.
-    columns:
-      - name: requested_rank
-        tests:
-          - accepted_values:
-              values: ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species']
-
   - name: dim_sample_taxon
     description: >
       Sample-scoped taxonomy dimension: one row per source_tax_id in int_rpkm_by_ec_tax.
