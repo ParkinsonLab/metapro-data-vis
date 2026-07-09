@@ -88,9 +88,18 @@ def _check_bridges(ref_dir: Path) -> None:
         sys.exit(1)
 
 
+def _prepare_sample_db(db_path: Path) -> None:
+    """Remove prior sample.duckdb so dbt does not leave orphan tables from retired models."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    for suffix in ("", ".wal"):
+        stale = Path(f"{db_path}{suffix}")
+        if stale.exists():
+            stale.unlink()
+
+
 def _run_dbt(sample_id: str, rpkm_path: str, tax_rank: str, pathway_level: str) -> dict:
     db_path = TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    _prepare_sample_db(db_path)
 
     vars_dict = {
         "rpkm_path": rpkm_path,

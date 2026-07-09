@@ -58,6 +58,9 @@ Output in `transform/runs/my_sample/`:
 - `sample.duckdb` — all materialised tables (including `mart_rpkm_enriched`)
 - `run_context.json` — vars, overall status, info metrics
 
+Each run **replaces** `sample.duckdb` from scratch (any prior tables from retired
+models are removed). Do not rely on incremental merges inside the DuckDB file.
+
 ## Rebuild triggers
 
 | Model | Rebuilt when |
