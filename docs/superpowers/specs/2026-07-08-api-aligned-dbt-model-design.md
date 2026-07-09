@@ -5,6 +5,8 @@
 
 **Parent pipeline:** `docs/superpowers/specs/2026-06-15-rpkm-transform-design.md`
 
+**Amendment (2026-07-09):** `stg_rpkm_long` is no longer materialized. Ingest is inlined into SQL `int_rpkm_by_ec_tax` via `rpkm_ingest_long()` macro. See `docs/superpowers/specs/2026-07-09-inline-rpkm-ingest-design.md`.
+
 **Related specs:**
 
 - `docs/superpowers/specs/2026-06-28-stress-rpkm-generator-design.md` — scale / performance validation target
