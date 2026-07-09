@@ -1,7 +1,23 @@
 version: 2
 
 models:
+  - name: mart_rpkm_enriched
+    description: >
+      Primary API mart: int_rpkm_by_ec_tax grain with denormalized EC pathway
+      and taxonomy lineage columns from dim_sample_ec and dim_sample_taxon.
+    columns:
+      - name: sample_id
+        tests: [not_null]
+      - name: ec_normalized
+        tests: [not_null]
+      - name: source_tax_id
+        tests: [not_null]
+      - name: value
+        tests: [not_null]
+
   - name: mart_pathway_taxonomy_long
+    config:
+      enabled: false
     description: >
       Final pathway × taxonomy long mart. Filtered to the configured
       pathway_level and tax_rank. One row per (pathway_key, resolved_tax_id).
