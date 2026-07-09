@@ -7,11 +7,10 @@ and lineage dimensions for the viz API.
 ## Model graph
 
 ```
-stg_rpkm_long
-  → int_rpkm_by_ec_tax
-    → dim_sample_taxon   (join bridge_tax_lineage for sample tax_ids)
-    → dim_sample_ec      (join bridge_ec_pathway for sample ECs)
-      → mart_rpkm_enriched
+int_rpkm_by_ec_tax          (inline TSV ingest + gene aggregation)
+  → dim_sample_taxon   (join bridge_tax_lineage for sample tax_ids)
+  → dim_sample_ec      (join bridge_ec_pathway for sample ECs)
+    → mart_rpkm_enriched
 ```
 
 Reference bridges (`bridge_ec_pathway`, `bridge_tax_lineage`) are built once
@@ -66,8 +65,7 @@ models are removed). Do not rely on incremental merges inside the DuckDB file.
 | Model | Rebuilt when |
 |---|---|
 | `bridge_*` (Parquet) | `build_reference.py` re-run after raw Parquet refresh |
-| `stg_rpkm_long` | New/changed RPKM file |
-| `int_rpkm_by_ec_tax` | `stg_rpkm_long` rebuilds |
+| `int_rpkm_by_ec_tax` | New/changed RPKM file (inline TSV ingest) |
 | `dim_sample_taxon` | `int_rpkm_by_ec_tax` rebuilds |
 | `dim_sample_ec` | `int_rpkm_by_ec_tax` rebuilds |
 | `mart_rpkm_enriched` | Any upstream model rebuilds |
