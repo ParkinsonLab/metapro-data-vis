@@ -380,30 +380,30 @@ Validation during migration is better served by:
 
 ### Sparse sample (`test_rpkm_1` — correctness)
 
-| Metric | Current | Expected |
+| Metric | Current | Measured post-migration |
 |---|---|---|
 | `int_tax_rollup_resolved` rows | 185,150 | 0 (removed) |
-| `mart_rpkm_enriched` rows | — | ~8,800 |
-| `sample.duckdb` size | 7.3 MB | ~3–5 MB (estimate) |
-| Chord request latency | ~375 ms | ~20–40 ms |
-| Krona request latency | ~379 ms | ~15–30 ms |
+| `mart_rpkm_enriched` rows | — | **6,112** |
+| `sample.duckdb` size | 7.3 MB | **2.9 MB** |
+| Chord request latency | ~375 ms | **16.2 ms** (p50, 3 runs, phylum/superpathway) |
+| Krona request latency | ~379 ms | **8.8 ms** (p50, 3 runs, phylum) |
 
 ### Stress sample (`stress_rpkm_1` — measured baseline, 2026-07-09)
 
-Generated and pipelined in `.worktrees/feature/api-aligned-dbt-model/`.
+Generated and pipelined in `.worktrees/feature/api-aligned-dbt-model/`. Post-migration numbers measured 2026-07-09 after Task 11 pipeline re-run.
 
-| Metric | Current (measured) | Expected post-migration |
+| Metric | Current (measured) | Measured post-migration |
 |---|---|---|
-| `stg_rpkm_long` rows | 40,453,328 | unchanged |
-| `int_rpkm_by_ec_tax` rows | 386,700 | folded into `mart_rpkm_enriched` |
+| `stg_rpkm_long` rows | 40,453,328 | 40,453,328 (unchanged) |
+| `int_rpkm_by_ec_tax` rows | 386,700 | 386,700 (still materialized; same grain as mart) |
 | `int_rpkm_pathway` rows | 1,661,100 | 0 (removed) |
 | `int_tax_rollup_resolved` rows | 11,627,700 | 0 (removed) |
 | `mart_rpkm_enriched` rows | — | **386,700** |
-| `sample.duckdb` size | **603 MB** | Smaller — removes 11.6M-row rollup + 1.7M-row pathway tables; `stg_rpkm_long` still dominates (~40M rows). Exact size measured at implementation. |
-| `dbt build` time | ~11 s | TBD (rollup build was 3.9 s of total) |
-| Chord request latency | **586 ms** | < 200 ms (no full bridge scan) |
-| Krona request latency | **447 ms** | < 100 ms |
-| Overview request latency | **195 ms** | < 50 ms |
+| `sample.duckdb` size | **603 MB** | **1,077 MB** — `stg_rpkm_long` still dominates (~40M rows); denormalized dims + enriched mart offset rollup/pathway removal |
+| `dbt build` time | ~11 s | **6.9 s** |
+| Chord request latency | **586 ms** | **40.5 ms** (p50, 3 runs, phylum/superpathway) |
+| Krona request latency | **447 ms** | **14.4 ms** (p50, 3 runs, phylum) |
+| Overview request latency | **195 ms** | **13.8 ms** (p50, 3 runs) |
 
 ### Both tiers
 
