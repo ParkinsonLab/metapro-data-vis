@@ -1,14 +1,18 @@
+import duckdb
 import pytest
 from types import SimpleNamespace
 
 from api.krona_service import (
     KronaNode,
     Segment,
+    _fetch_taxa,
     build_krona_from_duckdb,
     lineage_segments,
     upsert_segment,
 )
+from api.query_enriched import lineage_order_by_sql
 from testing.fake_rpkm_fixture import (
+    DB_PATH,
     SAMPLE_ID,
     krona_fixtures_available,
     krona_skip_reason,
@@ -117,6 +121,17 @@ def test_krona_rejects_empty_names():
 def test_krona_rejects_comparison():
     with pytest.raises(ValueError, match="comparison mode not supported on analytics API"):
         build_krona_from_duckdb(names=["a.tsv", "b.tsv"], tax_rank="phylum", selected_taxon={})
+
+
+def test_fetch_taxa_orders_by_full_lineage(fake_rpkm_db):
+    conn = duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        levels = ("phylum", "genus", "species")
+        rows = _fetch_taxa(conn, levels=levels)
+        assert len(rows) > 0
+        assert lineage_order_by_sql().startswith("kingdom")
+    finally:
+        conn.close()
 
 
 def test_krona_rejects_taxon_filter():
