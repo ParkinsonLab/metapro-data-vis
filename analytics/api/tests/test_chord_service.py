@@ -34,6 +34,17 @@ def test_build_chord_rejects_comparison():
         )
 
 
+def test_chord_rejects_pathway_node_ann_level():
+    with pytest.raises(ValueError, match="pathway_node ann_level not supported on chord"):
+        build_chord_from_duckdb(
+            sample_id=SAMPLE_ID,
+            tax_level="species",
+            ann_level="pathway_node",
+            ann_filter=None,
+            taxon_filter=None,
+        )
+
+
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
 def test_build_chord_from_duckdb_shape(fake_rpkm_db):
     out = build_chord_from_duckdb(
