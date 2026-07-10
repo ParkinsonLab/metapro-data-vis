@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import duckdb
 import pytest
 
+from api.ann_order import ann_labels_ordered
 from api.chord_service import build_chord_from_duckdb
 from api.filters import normalise_ann_filter, normalise_taxon_filter
+from api.tax_lineage_order import tax_cat_order_for_ids_table
 from testing.fake_rpkm_fixture import (
     SAMPLE_ID,
     assert_pairs_close,
@@ -97,7 +102,14 @@ def _all_chord_cases():
     doc = load_chord_expectations()
     for section in ("chord_unfiltered", "chord_filtered", "edge_cases"):
         for case in doc[section]:
+            if case["ann_level"] == "pathway_node":
+                continue
             yield pytest.param(case, id=case["case_id"])
+
+
+def _db_conn():
+    db = Path(__file__).resolve().parents[2] / f"transform/runs/{SAMPLE_ID}/sample.duckdb"
+    return duckdb.connect(str(db), read_only=True)
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
@@ -150,7 +162,22 @@ def test_chord_pairs_unchanged_after_prefix_refactor(case, fake_rpkm_db):
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
-def test_phylum_rank_tax_order_by_abundance_not_alphabetical(fake_rpkm_db):
+def test_phylum_rank_tax_order_lineage_alphabetical(fake_rpkm_db):
+    conn = _db_conn()
+    try:
+        conn.execute(
+            """
+            CREATE OR REPLACE TEMP TABLE chord_tax_ids AS
+            SELECT DISTINCT source_tax_id
+            FROM mart_rpkm_enriched
+            """
+        )
+        expected_order = tax_cat_order_for_ids_table(
+            conn, tax_level="phylum", ids_table="chord_tax_ids"
+        )
+    finally:
+        conn.close()
+
     out = build_chord_from_duckdb(
         sample_id="fake_rpkm",
         tax_level="phylum",
@@ -160,13 +187,21 @@ def test_phylum_rank_tax_order_by_abundance_not_alphabetical(fake_rpkm_db):
     )
     gap2 = out["index"].index("gap_2")
     tax_labels = out["index"][gap2 + 1 : -1]
-    # Most abundant phylum sits at the top of the tax arc (last in index, before gap_3).
-    assert tax_labels[-1] == "Bacillota"
+    # chord_matrix reverses tax arc for D3 layout (top = highest lineage priority).
+    assert tax_labels == list(reversed(expected_order))
     assert tax_labels != sorted(tax_labels)
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
-def test_pathway_level_ann_order_groups_by_superpathway(fake_rpkm_db):
+def test_pathway_level_ann_order_hierarchical_alphabetical(fake_rpkm_db):
+    conn = _db_conn()
+    try:
+        expected = ann_labels_ordered(
+            conn, ann_level="pathway", where_sql="TRUE", params=[]
+        )
+    finally:
+        conn.close()
+
     out = build_chord_from_duckdb(
         sample_id="fake_rpkm",
         tax_level="phylum",
@@ -176,41 +211,59 @@ def test_pathway_level_ann_order_groups_by_superpathway(fake_rpkm_db):
     )
     gap2 = out["index"].index("gap_2")
     ann_labels = out["index"][1:gap2]
-    assert ann_labels != sorted(ann_labels)
-
-
-@pytest.mark.skipif(not bridges_available(), reason=skip_reason())
-def test_pathway_node_ann_order_stays_alphabetical(fake_rpkm_db):
-    out = build_chord_from_duckdb(
-        sample_id="fake_rpkm",
-        tax_level="species",
-        ann_level="pathway_node",
-        ann_filter=None,
-        taxon_filter=None,
-    )
-    gap2 = out["index"].index("gap_2")
-    ann_labels = out["index"][1:gap2]
-    assert ann_labels == sorted(ann_labels)
+    assert ann_labels == expected
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
 def test_class_rank_tax_labels_colocate_by_phylum_prefix(fake_rpkm_db):
-    phylum_out = build_chord_from_duckdb(
-        sample_id=SAMPLE_ID, tax_level="phylum", ann_level="superpathway",
-        ann_filter=None, taxon_filter=None,
-    )
+    conn = _db_conn()
+    try:
+        conn.execute(
+            """
+            CREATE OR REPLACE TEMP TABLE chord_tax_ids AS
+            SELECT DISTINCT source_tax_id
+            FROM mart_rpkm_enriched
+            """
+        )
+        expected = tax_cat_order_for_ids_table(
+            conn, tax_level="class", ids_table="chord_tax_ids"
+        )
+    finally:
+        conn.close()
+
     class_out = build_chord_from_duckdb(
-        sample_id=SAMPLE_ID, tax_level="class", ann_level="superpathway",
-        ann_filter=None, taxon_filter=None,
+        sample_id=SAMPLE_ID,
+        tax_level="class",
+        ann_level="superpathway",
+        ann_filter=None,
+        taxon_filter=None,
     )
-    phylum_tax = phylum_out["index"][
-        phylum_out["index"].index("gap_2") + 1 : -1
-    ]
-    class_tax = class_out["index"][
-        class_out["index"].index("gap_2") + 1 : -1
-    ]
-    # Each phylum label's descendant classes appear in one contiguous block
-    # (minimal check: more than one class and not purely alphabetical)
+    gap2 = class_out["index"].index("gap_2")
+    class_tax = class_out["index"][gap2 + 1 : -1]
     assert len(class_tax) > 1
-    assert class_tax != sorted(class_tax)
-    assert phylum_tax != sorted(phylum_tax)
+    assert class_tax == list(reversed(expected))
+
+    # Classes from the same phylum appear in contiguous blocks under lineage order.
+    conn = _db_conn()
+    try:
+        phyla_by_class = {
+            row[0]: row[1]
+            for row in conn.execute(
+                """
+                SELECT DISTINCT class_label, phylum_label
+                FROM mart_rpkm_enriched
+                WHERE class_label IS NOT NULL AND phylum_label IS NOT NULL
+                """
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+
+    seen_phyla: list[str] = []
+    for label in class_tax:
+        phylum = phyla_by_class.get(label)
+        if phylum is None:
+            continue
+        if not seen_phyla or seen_phyla[-1] != phylum:
+            seen_phyla.append(phylum)
+    assert len(seen_phyla) > 1

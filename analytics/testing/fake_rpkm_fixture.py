@@ -32,6 +32,7 @@ REQUIRED_BRIDGES = (
 RANKS = ("species", "genus", "family", "order", "class", "phylum", "kingdom")
 # Finest → coarsest annotation grain (matches tax RANKS ordering intent).
 ANN_LEVELS = ("pathway_node", "pathway", "superpathway")
+CHORD_ANN_LEVELS = ("pathway", "superpathway")
 
 
 def bridges_available() -> bool:

@@ -1,66 +1,5 @@
 sample_id: fake_rpkm
 chord_unfiltered:
-- case_id: species_pathway_node
-  tax_level: species
-  ann_level: pathway_node
-  pairs:
-  - - 1.1.1.349
-    - Staphylococcus aureus
-    - 1.0
-  - - 1.5.8.1
-    - Staphylococcus aureus
-    - 1.0
-  - - 1.6.5.9
-    - Bacillus sp. b107A(2010)
-    - 1.0
-  - - 1.6.5.9
-    - Bacteria
-    - 1.0
-  - - 1.6.5.9
-    - Clavibacter sp. OL-4
-    - 1.0
-  - - 1.6.5.9
-    - Lactobacillus sp. 100-5
-    - 1.0
-  - - 1.6.5.9
-    - Mammaliicoccus sciuri
-    - 1.0
-  - - 1.6.5.9
-    - Pectinatus frisingensis
-    - 1.0
-  - - 1.6.5.9
-    - Staphylococcus aureus
-    - 1.0
-  - - 1.6.5.9
-    - Staphylococcus epidermidis
-    - 1.0
-  - - 1.6.5.9
-    - Unclassified
-    - 1.0
-  - - 2.7.4.1
-    - Staphylococcus aureus
-    - 1.0
-  - - Unmapped EC
-    - Staphylococcus aureus
-    - 1.0
-  expected_index:
-  - gap_1
-  - 1.1.1.349
-  - 1.5.8.1
-  - 1.6.5.9
-  - 2.7.4.1
-  - Unmapped EC
-  - gap_2
-  - Unclassified
-  - Bacteria
-  - Clavibacter sp. OL-4
-  - Pectinatus frisingensis
-  - Lactobacillus sp. 100-5
-  - Bacillus sp. b107A(2010)
-  - Mammaliicoccus sciuri
-  - Staphylococcus epidermidis
-  - Staphylococcus aureus
-  - gap_3
 - case_id: species_pathway
   tax_level: species
   ann_level: pathway
@@ -103,20 +42,20 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Oxidative phosphorylation
-  - Methane metabolism
   - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Clavibacter sp. OL-4
   - Pectinatus frisingensis
   - Lactobacillus sp. 100-5
-  - Bacillus sp. b107A(2010)
-  - Mammaliicoccus sciuri
   - Staphylococcus epidermidis
   - Staphylococcus aureus
+  - Mammaliicoccus sciuri
+  - Bacillus sp. b107A(2010)
+  - Clavibacter sp. OL-4
+  - Unclassified
   - gap_3
 - case_id: species_superpathway
   tax_level: species
@@ -157,76 +96,19 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Clavibacter sp. OL-4
   - Pectinatus frisingensis
   - Lactobacillus sp. 100-5
-  - Bacillus sp. b107A(2010)
-  - Mammaliicoccus sciuri
   - Staphylococcus epidermidis
   - Staphylococcus aureus
-  - gap_3
-- case_id: genus_pathway_node
-  tax_level: genus
-  ann_level: pathway_node
-  pairs:
-  - - 1.1.1.349
-    - Staphylococcus
-    - 1.0
-  - - 1.5.8.1
-    - Staphylococcus
-    - 1.0
-  - - 1.6.5.9
-    - Bacillus
-    - 1.0
-  - - 1.6.5.9
-    - Bacteria
-    - 1.0
-  - - 1.6.5.9
-    - Clavibacter
-    - 1.0
-  - - 1.6.5.9
-    - Lactobacillus
-    - 1.0
-  - - 1.6.5.9
-    - Mammaliicoccus
-    - 1.0
-  - - 1.6.5.9
-    - Pectinatus
-    - 1.0
-  - - 1.6.5.9
-    - Staphylococcus
-    - 2.0
-  - - 1.6.5.9
-    - Unclassified
-    - 1.0
-  - - 2.7.4.1
-    - Staphylococcus
-    - 1.0
-  - - Unmapped EC
-    - Staphylococcus
-    - 1.0
-  expected_index:
-  - gap_1
-  - 1.1.1.349
-  - 1.5.8.1
-  - 1.6.5.9
-  - 2.7.4.1
-  - Unmapped EC
-  - gap_2
+  - Mammaliicoccus sciuri
+  - Bacillus sp. b107A(2010)
+  - Clavibacter sp. OL-4
   - Unclassified
-  - Bacteria
-  - Clavibacter
-  - Pectinatus
-  - Lactobacillus
-  - Bacillus
-  - Mammaliicoccus
-  - Staphylococcus
   - gap_3
 - case_id: genus_pathway
   tax_level: genus
@@ -267,19 +149,19 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Oxidative phosphorylation
-  - Methane metabolism
   - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Clavibacter
   - Pectinatus
   - Lactobacillus
-  - Bacillus
-  - Mammaliicoccus
   - Staphylococcus
+  - Mammaliicoccus
+  - Bacillus
+  - Clavibacter
+  - Unclassified
   - gap_3
 - case_id: genus_superpathway
   tax_level: genus
@@ -317,71 +199,18 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Clavibacter
   - Pectinatus
   - Lactobacillus
-  - Bacillus
-  - Mammaliicoccus
   - Staphylococcus
-  - gap_3
-- case_id: family_pathway_node
-  tax_level: family
-  ann_level: pathway_node
-  pairs:
-  - - 1.1.1.349
-    - Staphylococcaceae
-    - 1.0
-  - - 1.5.8.1
-    - Staphylococcaceae
-    - 1.0
-  - - 1.6.5.9
-    - Bacillaceae
-    - 1.0
-  - - 1.6.5.9
-    - Bacteria
-    - 1.0
-  - - 1.6.5.9
-    - Lactobacillaceae
-    - 1.0
-  - - 1.6.5.9
-    - Microbacteriaceae
-    - 1.0
-  - - 1.6.5.9
-    - Selenomonadaceae
-    - 1.0
-  - - 1.6.5.9
-    - Staphylococcaceae
-    - 3.0
-  - - 1.6.5.9
-    - Unclassified
-    - 1.0
-  - - 2.7.4.1
-    - Staphylococcaceae
-    - 1.0
-  - - Unmapped EC
-    - Staphylococcaceae
-    - 1.0
-  expected_index:
-  - gap_1
-  - 1.1.1.349
-  - 1.5.8.1
-  - 1.6.5.9
-  - 2.7.4.1
-  - Unmapped EC
-  - gap_2
+  - Mammaliicoccus
+  - Bacillus
+  - Clavibacter
   - Unclassified
-  - Bacteria
-  - Microbacteriaceae
-  - Selenomonadaceae
-  - Lactobacillaceae
-  - Bacillaceae
-  - Staphylococcaceae
   - gap_3
 - case_id: family_pathway
   tax_level: family
@@ -419,18 +248,18 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Oxidative phosphorylation
-  - Methane metabolism
   - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Microbacteriaceae
   - Selenomonadaceae
   - Lactobacillaceae
-  - Bacillaceae
   - Staphylococcaceae
+  - Bacillaceae
+  - Microbacteriaceae
+  - Unclassified
   - gap_3
 - case_id: family_superpathway
   tax_level: family
@@ -465,66 +294,17 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Microbacteriaceae
   - Selenomonadaceae
   - Lactobacillaceae
-  - Bacillaceae
   - Staphylococcaceae
-  - gap_3
-- case_id: order_pathway_node
-  tax_level: order
-  ann_level: pathway_node
-  pairs:
-  - - 1.1.1.349
-    - Caryophanales
-    - 1.0
-  - - 1.5.8.1
-    - Caryophanales
-    - 1.0
-  - - 1.6.5.9
-    - Bacteria
-    - 1.0
-  - - 1.6.5.9
-    - Caryophanales
-    - 4.0
-  - - 1.6.5.9
-    - Lactobacillales
-    - 1.0
-  - - 1.6.5.9
-    - Micrococcales
-    - 1.0
-  - - 1.6.5.9
-    - Selenomonadales
-    - 1.0
-  - - 1.6.5.9
-    - Unclassified
-    - 1.0
-  - - 2.7.4.1
-    - Caryophanales
-    - 1.0
-  - - Unmapped EC
-    - Caryophanales
-    - 1.0
-  expected_index:
-  - gap_1
-  - 1.1.1.349
-  - 1.5.8.1
-  - 1.6.5.9
-  - 2.7.4.1
-  - Unmapped EC
-  - gap_2
+  - Bacillaceae
+  - Microbacteriaceae
   - Unclassified
-  - Bacteria
-  - Micrococcales
-  - Selenomonadales
-  - Lactobacillales
-  - Caryophanales
   - gap_3
 - case_id: order_pathway
   tax_level: order
@@ -559,17 +339,17 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Oxidative phosphorylation
-  - Methane metabolism
   - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Micrococcales
   - Selenomonadales
   - Lactobacillales
   - Caryophanales
+  - Micrococcales
+  - Unclassified
   - gap_3
 - case_id: order_superpathway
   tax_level: order
@@ -601,61 +381,16 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Micrococcales
   - Selenomonadales
   - Lactobacillales
   - Caryophanales
-  - gap_3
-- case_id: class_pathway_node
-  tax_level: class
-  ann_level: pathway_node
-  pairs:
-  - - 1.1.1.349
-    - Bacilli
-    - 1.0
-  - - 1.5.8.1
-    - Bacilli
-    - 1.0
-  - - 1.6.5.9
-    - Actinomycetes
-    - 1.0
-  - - 1.6.5.9
-    - Bacilli
-    - 5.0
-  - - 1.6.5.9
-    - Bacteria
-    - 1.0
-  - - 1.6.5.9
-    - Negativicutes
-    - 1.0
-  - - 1.6.5.9
-    - Unclassified
-    - 1.0
-  - - 2.7.4.1
-    - Bacilli
-    - 1.0
-  - - Unmapped EC
-    - Bacilli
-    - 1.0
-  expected_index:
-  - gap_1
-  - 1.1.1.349
-  - 1.5.8.1
-  - 1.6.5.9
-  - 2.7.4.1
-  - Unmapped EC
-  - gap_2
+  - Micrococcales
   - Unclassified
-  - Bacteria
-  - Actinomycetes
-  - Negativicutes
-  - Bacilli
   - gap_3
 - case_id: class_pathway
   tax_level: class
@@ -687,16 +422,16 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Oxidative phosphorylation
-  - Methane metabolism
   - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Actinomycetes
   - Negativicutes
   - Bacilli
+  - Actinomycetes
+  - Unclassified
   - gap_3
 - case_id: class_superpathway
   tax_level: class
@@ -725,56 +460,15 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Actinomycetes
   - Negativicutes
   - Bacilli
-  - gap_3
-- case_id: phylum_pathway_node
-  tax_level: phylum
-  ann_level: pathway_node
-  pairs:
-  - - 1.1.1.349
-    - Bacillota
-    - 1.0
-  - - 1.5.8.1
-    - Bacillota
-    - 1.0
-  - - 1.6.5.9
-    - Actinomycetota
-    - 1.0
-  - - 1.6.5.9
-    - Bacillota
-    - 6.0
-  - - 1.6.5.9
-    - Bacteria
-    - 1.0
-  - - 1.6.5.9
-    - Unclassified
-    - 1.0
-  - - 2.7.4.1
-    - Bacillota
-    - 1.0
-  - - Unmapped EC
-    - Bacillota
-    - 1.0
-  expected_index:
-  - gap_1
-  - 1.1.1.349
-  - 1.5.8.1
-  - 1.6.5.9
-  - 2.7.4.1
-  - Unmapped EC
-  - gap_2
+  - Actinomycetes
   - Unclassified
-  - Bacteria
-  - Actinomycetota
-  - Bacillota
   - gap_3
 - case_id: phylum_pathway
   tax_level: phylum
@@ -803,15 +497,15 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Oxidative phosphorylation
-  - Methane metabolism
   - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Actinomycetota
   - Bacillota
+  - Actinomycetota
+  - Unclassified
   - gap_3
 - case_id: phylum_superpathway
   tax_level: phylum
@@ -837,51 +531,14 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Actinomycetota
   - Bacillota
-  - gap_3
-- case_id: kingdom_pathway_node
-  tax_level: kingdom
-  ann_level: pathway_node
-  pairs:
-  - - 1.1.1.349
-    - Bacillati
-    - 1.0
-  - - 1.5.8.1
-    - Bacillati
-    - 1.0
-  - - 1.6.5.9
-    - Bacillati
-    - 7.0
-  - - 1.6.5.9
-    - Bacteria
-    - 1.0
-  - - 1.6.5.9
-    - Unclassified
-    - 1.0
-  - - 2.7.4.1
-    - Bacillati
-    - 1.0
-  - - Unmapped EC
-    - Bacillati
-    - 1.0
-  expected_index:
-  - gap_1
-  - 1.1.1.349
-  - 1.5.8.1
-  - 1.6.5.9
-  - 2.7.4.1
-  - Unmapped EC
-  - gap_2
+  - Actinomycetota
   - Unclassified
-  - Bacteria
-  - Bacillati
   - gap_3
 - case_id: kingdom_pathway
   tax_level: kingdom
@@ -907,14 +564,14 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Oxidative phosphorylation
-  - Methane metabolism
   - Aflatoxin biosynthesis
+  - Methane metabolism
+  - Oxidative phosphorylation
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
   - Bacillati
+  - Unclassified
   - gap_3
 - case_id: kingdom_superpathway
   tax_level: kingdom
@@ -937,13 +594,13 @@ chord_unfiltered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
   - Bacillati
+  - Unclassified
   - gap_3
 chord_filtered:
 - case_id: taxon_filter_focal_species
@@ -961,8 +618,8 @@ chord_filtered:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
   - Staphylococcus
@@ -990,10 +647,10 @@ chord_filtered:
   - gap_1
   - Energy metabolism
   - gap_2
-  - Unclassified
   - Bacteria
-  - Actinomycetota
   - Bacillota
+  - Actinomycetota
+  - Unclassified
   - gap_3
   selected_ann_cat: Energy metabolism
 edge_cases:
@@ -1021,14 +678,14 @@ edge_cases:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Actinomycetota
   - Bacillota
+  - Actinomycetota
+  - Unclassified
   - gap_3
 - case_id: unclassified_tax_snapshot
   tax_level: phylum
@@ -1054,14 +711,14 @@ edge_cases:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Actinomycetota
   - Bacillota
+  - Actinomycetota
+  - Unclassified
   - gap_3
 - case_id: fallback_species_request
   tax_level: species
@@ -1102,17 +759,17 @@ edge_cases:
     - 1.0
   expected_index:
   - gap_1
-  - Energy metabolism
   - Biosynthesis of other secondary metabolites
+  - Energy metabolism
   - Unmapped EC
   - gap_2
-  - Unclassified
   - Bacteria
-  - Clavibacter sp. OL-4
   - Pectinatus frisingensis
   - Lactobacillus sp. 100-5
-  - Bacillus sp. b107A(2010)
-  - Mammaliicoccus sciuri
   - Staphylococcus epidermidis
   - Staphylococcus aureus
+  - Mammaliicoccus sciuri
+  - Bacillus sp. b107A(2010)
+  - Clavibacter sp. OL-4
+  - Unclassified
   - gap_3

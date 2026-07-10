@@ -15,6 +15,7 @@ from api.network_service import build_network_from_duckdb
 from api.overview_service import build_overview_from_duckdb
 from testing.fake_rpkm_fixture import (
     ANN_LEVELS,
+    CHORD_ANN_LEVELS,
     CHORD_YAML,
     GRAPH_YAML,
     KRONA_YAML,
@@ -363,7 +364,7 @@ def main() -> None:
     unfiltered = [
         dump_chord_case(rank, ann, case_id=f"{rank}_{ann}")
         for rank in RANKS
-        for ann in ANN_LEVELS
+        for ann in CHORD_ANN_LEVELS
     ]
 
     filtered = [
