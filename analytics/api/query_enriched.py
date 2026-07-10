@@ -61,6 +61,16 @@ def lineage_order_by_sql() -> str:
     return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in parts)
 
 
+def ann_order_by_sql(ann_level: str) -> str:
+    """ORDER BY keys for pathway hierarchy on mart_rpkm_enriched."""
+    validate_ann_level(ann_level)
+    if ann_level == "superpathway":
+        return "superpathway_name ASC"
+    if ann_level == "pathway":
+        return "superpathway_name ASC, pathway_name ASC"
+    raise ValueError(f"unsupported ann_level for ann ordering: {ann_level}")
+
+
 def ann_filter_where_sql(
     ann_filter: dict[str, str] | None,
     ann_level: str,

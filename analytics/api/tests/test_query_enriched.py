@@ -4,6 +4,7 @@ import pytest
 
 from api.query_enriched import (
     ann_filter_where_sql,
+    ann_order_by_sql,
     canonical_pathway_label_sql,
     lineage_order_by_sql,
     resolve_tax_id_sql,
@@ -76,6 +77,19 @@ def test_canonical_pathway_label_sql_with_prefix():
 def test_lineage_order_by_sql_quotes_order_rank():
     sql = lineage_order_by_sql()
     assert sql == 'kingdom, phylum, class, "order", family, genus, species, display_name'
+
+
+def test_ann_order_by_sql_superpathway():
+    assert ann_order_by_sql("superpathway") == "superpathway_name ASC"
+
+
+def test_ann_order_by_sql_pathway():
+    assert ann_order_by_sql("pathway") == "superpathway_name ASC, pathway_name ASC"
+
+
+def test_ann_order_by_sql_rejects_pathway_node():
+    with pytest.raises(ValueError, match="unsupported ann_level"):
+        ann_order_by_sql("pathway_node")
 
 
 def test_ann_filter_where_sql_none():
