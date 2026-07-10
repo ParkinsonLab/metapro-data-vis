@@ -19,10 +19,12 @@ pathway_list:
           - 1.0
         Oxidative phosphorylation:
           index:
+          - Unclassified
           - Actinomycetota
           - Bacillota
           - Bacteria
           counts:
+          - 1.0
           - 1.0
           - 7.0
           - 1.0

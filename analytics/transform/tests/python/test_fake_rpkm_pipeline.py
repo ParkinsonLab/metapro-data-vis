@@ -3,6 +3,7 @@ from __future__ import annotations
 import duckdb
 import pytest
 
+from testing.enriched_query import count_rollup_cells, fetch_rollup_cell
 from testing.fake_rpkm_fixture import (
     bridges_available,
     load_pipeline_expectations,
@@ -28,31 +29,19 @@ else:
 def test_rollup_grid_row(row, fake_rpkm_db):
     conn = duckdb.connect(fake_rpkm_db, read_only=True)
     try:
-        result = conn.execute(
-            """
-            SELECT pathway_label, resolved_tax_label, value
-            FROM int_tax_rollup_resolved
-            WHERE ec_normalized = ?
-              AND source_tax_id = ?
-              AND requested_rank = ?
-              AND pathway_level = ?
-            """,
-            [
-                _fixture["focal_ec"],
-                _fixture["focal_tax_id"],
-                row["requested_rank"],
-                row["pathway_level"],
-            ],
-        ).fetchone()
+        result = fetch_rollup_cell(
+            conn,
+            ec=_fixture["focal_ec"],
+            tax_id=_fixture["focal_tax_id"],
+            tax_level=row["requested_rank"],
+            ann_level=row["pathway_level"],
+        )
     finally:
         conn.close()
 
     assert result is not None, f"missing row: {row}"
     pathway_label, resolved_tax_label, value = result
-    expected_label = row["pathway_label"]
-    if pathway_label is None:
-        pathway_label = "Unmapped EC"
-    assert pathway_label == expected_label
+    assert pathway_label == row["pathway_label"]
     assert resolved_tax_label == row["resolved_tax_label"]
     assert float(value) == pytest.approx(float(row["value"]))
 
@@ -60,13 +49,23 @@ def test_rollup_grid_row(row, fake_rpkm_db):
 def test_rollup_grid_row_count(fake_rpkm_db):
     conn = duckdb.connect(fake_rpkm_db, read_only=True)
     try:
-        n = conn.execute(
-            """
-            SELECT COUNT(*) FROM int_tax_rollup_resolved
-            WHERE ec_normalized = ? AND source_tax_id = ?
-            """,
-            [_fixture["focal_ec"], _fixture["focal_tax_id"]],
-        ).fetchone()[0]
+        n = count_rollup_cells(
+            conn,
+            ec=_fixture["focal_ec"],
+            tax_id=_fixture["focal_tax_id"],
+        )
     finally:
         conn.close()
     assert n == 21
+
+
+def test_ingest_expectations(fake_rpkm_db):
+    ingest = _expectations.get("ingest_expectations")
+    if ingest is None:
+        pytest.skip("ingest_expectations not in pipeline YAML")
+    conn = duckdb.connect(fake_rpkm_db, read_only=True)
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM int_rpkm_by_ec_tax").fetchone()[0]
+        assert n == ingest["int_row_count"]
+    finally:
+        conn.close()

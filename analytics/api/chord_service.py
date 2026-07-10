@@ -5,59 +5,102 @@ from pathlib import Path
 import duckdb
 
 from api.chord_matrix import build_chord_matrix
-from api.filters import validate_ann_level, validate_tax_level
-from api.rollup_query import PATHWAY_LABEL_SQL, build_filtered_rollup_rows
+from api.filters import TAX_RANK_ORDER, validate_ann_level, validate_tax_level
+from api.query_enriched import (
+    ann_filter_where_sql,
+    canonical_pathway_label_sql,
+    resolve_tax_id_sql,
+    resolve_tax_label_sql,
+    taxon_filter_where_sql,
+)
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
-REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
-BRIDGE_EC_PATH = REFERENCE_PARQUET_DIR / "bridge_ec_pathway.parquet"
-BRIDGE_TAX_PATH = REFERENCE_PARQUET_DIR / "bridge_tax_rollup.parquet"
+
+_LINEAGE_RANKS = TAX_RANK_ORDER
+_ANN_ORDER_RANKS = ("superpathway", "pathway")
 
 
 def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
-def _fetch_tax_order(conn, tax_level: str, ann_level: str) -> list[str]:
-    if not BRIDGE_TAX_PATH.exists():
-        return []
+def _enriched_where(
+    *,
+    ann_level: str,
+    ann_filter: dict[str, str] | None,
+    taxon_filter: dict[str, str] | None,
+) -> tuple[str, list]:
+    ann_sql, ann_params = ann_filter_where_sql(ann_filter, ann_level)
+    tax_sql, tax_params = taxon_filter_where_sql(taxon_filter)
+    return f"({ann_sql}) AND ({tax_sql})", ann_params + tax_params
 
-    conn.execute(
-        f"CREATE TEMP TABLE bridge_tax AS "
-        f"SELECT source_tax_id, requested_rank, resolved_tax_label "
-        f"FROM read_parquet('{BRIDGE_TAX_PATH.as_posix()}')"
+
+def _rank_totals_cte(*, filtered_alias: str = "f") -> str:
+    parts: list[str] = []
+    for rank in _LINEAGE_RANKS:
+        col = f"{rank}_label"
+        parts.append(
+            f"SELECT '{rank}' AS anc_rank, {filtered_alias}.{col} AS resolved_label, "
+            f"SUM({filtered_alias}.value) AS total "
+            f"FROM filtered {filtered_alias} GROUP BY {filtered_alias}.{col}"
+        )
+    return " UNION ALL ".join(parts)
+
+
+def _tax_lineage_select(tax_level: str) -> str:
+    tax_label = resolve_tax_label_sql(tax_level, prefix="f")
+    lineage_cols = ", ".join(
+        f"MIN(f.{rank}_label) AS {rank}_label" for rank in _LINEAGE_RANKS
     )
-    conn.execute(
-        """
-        CREATE TEMP TABLE rank_totals AS
-        SELECT requested_rank, resolved_tax_label, SUM(value) AS total
-        FROM filtered_rollup_rows
-        GROUP BY requested_rank, resolved_tax_label
-        """
-    )
-    conn.execute(
-        f"""
-        CREATE TEMP TABLE tax_label_totals_long AS
+    return f"""
         SELECT
-            d.display_label,
-            b.requested_rank AS anc_rank,
-            rt.total AS anc_total
-        FROM (
-            SELECT DISTINCT source_tax_id, resolved_tax_label AS display_label
-            FROM filtered_rollup_rows
-            WHERE requested_rank = ?
-              AND pathway_level = ?
-        ) d
-        JOIN bridge_tax b ON b.source_tax_id = d.source_tax_id
-        JOIN rank_totals rt
-          ON rt.requested_rank = b.requested_rank
-         AND rt.resolved_tax_label = b.resolved_tax_label
-        """,
-        [tax_level, ann_level],
-    )
-    rows = conn.execute(
-        """
+            {tax_label} AS display_label,
+            {lineage_cols}
+        FROM filtered f
+        GROUP BY {tax_label}
+    """
+
+
+def _tax_label_totals_long_sql(tax_level: str) -> str:
+    joins: list[str] = []
+    for rank in _LINEAGE_RANKS:
+        joins.append(
+            f"""
+            SELECT tl.display_label, '{rank}' AS anc_rank, rt.total AS anc_total
+            FROM tax_lineage tl
+            JOIN rank_totals rt
+              ON rt.anc_rank = '{rank}' AND rt.resolved_label = tl.{rank}_label
+            """
+        )
+    return " UNION ALL ".join(joins)
+
+
+def _fetch_tax_order(
+    conn,
+    *,
+    tax_level: str,
+    where_sql: str,
+    params: list,
+) -> list[str]:
+    tax_lineage_sql = _tax_lineage_select(tax_level)
+    sql = f"""
+        WITH filtered AS (
+            SELECT
+                m.value,
+                {", ".join(f"m.{rank}_label" for rank in _LINEAGE_RANKS)}
+            FROM mart_rpkm_enriched m
+            WHERE {where_sql}
+        ),
+        rank_totals AS (
+            {_rank_totals_cte()}
+        ),
+        tax_lineage AS (
+            {tax_lineage_sql}
+        ),
+        tax_label_totals_long AS (
+            {_tax_label_totals_long_sql(tax_level)}
+        )
         SELECT display_label
         FROM (
             SELECT *
@@ -75,86 +118,110 @@ def _fetch_tax_order(conn, tax_level: str, ann_level: str) -> list[str]:
             genus DESC NULLS LAST,
             species DESC NULLS LAST,
             display_label
-        """
-    ).fetchall()
+    """
+    rows = conn.execute(sql, params).fetchall()
     return [r[0] for r in rows]
 
 
-def _fetch_ann_order(conn, tax_level: str, ann_level: str) -> list[str] | None:
+def _ann_level_totals_cte(pathway_label_sql: str) -> str:
+    parts = [
+        f"""
+        SELECT 'superpathway' AS pathway_level,
+               m.superpathway_name AS ann_label,
+               SUM(m.value) AS total
+        FROM filtered m
+        GROUP BY m.superpathway_name
+        """
+    ]
+    if "pathway" in _ANN_ORDER_RANKS:
+        parts.append(
+            f"""
+            SELECT 'pathway' AS pathway_level,
+                   {pathway_label_sql} AS ann_label,
+                   SUM(m.value) AS total
+            FROM filtered m
+            GROUP BY {pathway_label_sql}
+            """
+        )
+    return " UNION ALL ".join(parts)
+
+
+def _fetch_ann_order(
+    conn,
+    *,
+    tax_level: str,
+    ann_level: str,
+    where_sql: str,
+    params: list,
+) -> list[str] | None:
     if ann_level == "pathway_node":
         return None
 
-    if not BRIDGE_EC_PATH.exists():
-        return None
-
-    conn.execute(
-        """
-        CREATE TEMP TABLE ann_level_totals AS
-        SELECT pathway_level, """
-        + PATHWAY_LABEL_SQL.replace("t.", "cf.")
-        + """ AS ann_label, SUM(value) AS total
-        FROM filtered_rollup_rows cf
-        GROUP BY pathway_level, """
-        + PATHWAY_LABEL_SQL.replace("t.", "cf.")
-    )
-
-    label_sql = PATHWAY_LABEL_SQL.replace("t.", "cf.")
+    pathway_label = canonical_pathway_label_sql(ann_level)
 
     if ann_level == "superpathway":
-        conn.execute(
-            f"""
-            CREATE TEMP TABLE ann_label_totals_long AS
+        ann_label_totals_long = f"""
             SELECT d.display_label, 'superpathway' AS anc_level, lt.total AS anc_total
             FROM (
-                SELECT DISTINCT {label_sql} AS display_label
-                FROM filtered_rollup_rows cf
-                WHERE cf.pathway_level = 'superpathway'
-                  AND cf.requested_rank = ?
+                SELECT DISTINCT {pathway_label} AS display_label
+                FROM filtered m
             ) d
             JOIN ann_level_totals lt
               ON lt.pathway_level = 'superpathway' AND lt.ann_label = d.display_label
-            """,
-            [tax_level],
-        )
+        """
+        pivot_cols = "('superpathway')"
+        order_by = "superpathway DESC NULLS LAST, display_label"
     elif ann_level == "pathway":
-        conn.execute(
-            f"""
-            CREATE TEMP TABLE ann_label_totals_long AS
+        ann_label_totals_long = f"""
             SELECT d.display_label, 'superpathway' AS anc_level, lt.total AS anc_total
             FROM (
-                SELECT DISTINCT {label_sql} AS display_label, b.superpathway_name
-                FROM filtered_rollup_rows cf
-                LEFT JOIN bridge_ec b ON cf.ec_normalized = b.ec_normalized
-                WHERE cf.pathway_level = 'pathway' AND cf.requested_rank = ?
+                SELECT DISTINCT {pathway_label} AS display_label, m.superpathway_name
+                FROM filtered m
             ) d
             JOIN ann_level_totals lt
               ON lt.pathway_level = 'superpathway' AND lt.ann_label = d.superpathway_name
             UNION ALL
             SELECT d.display_label, 'pathway' AS anc_level, lt.total AS anc_total
             FROM (
-                SELECT DISTINCT {label_sql} AS display_label
-                FROM filtered_rollup_rows cf
-                WHERE cf.pathway_level = 'pathway' AND cf.requested_rank = ?
+                SELECT DISTINCT {pathway_label} AS display_label
+                FROM filtered m
             ) d
             JOIN ann_level_totals lt
               ON lt.pathway_level = 'pathway' AND lt.ann_label = d.display_label
-            """,
-            [tax_level, tax_level],
-        )
+        """
+        pivot_cols = "('superpathway', 'pathway')"
+        order_by = "superpathway DESC NULLS LAST, pathway DESC NULLS LAST, display_label"
     else:
         return None
 
-    rows = conn.execute(
-        """
+    pathway_label_pathway = canonical_pathway_label_sql("pathway")
+    sql = f"""
+        WITH filtered AS (
+            SELECT
+                m.value,
+                m.superpathway_name,
+                m.ec_normalized,
+                m.pathway_id,
+                m.pathway_name,
+                {pathway_label} AS ann_display_label
+            FROM mart_rpkm_enriched m
+            WHERE {where_sql}
+        ),
+        ann_level_totals AS (
+            {_ann_level_totals_cte(pathway_label_pathway)}
+        ),
+        ann_label_totals_long AS (
+            {ann_label_totals_long}
+        )
         SELECT display_label
         FROM (
             SELECT *
             FROM ann_label_totals_long
-            PIVOT (MAX(anc_total) FOR anc_level IN ('superpathway', 'pathway'))
+            PIVOT (MAX(anc_total) FOR anc_level IN {pivot_cols})
         )
-        ORDER BY superpathway DESC NULLS LAST, pathway DESC NULLS LAST, display_label
-        """
-    ).fetchall()
+        ORDER BY {order_by}
+    """
+    rows = conn.execute(sql, params).fetchall()
     return [r[0] for r in rows]
 
 
@@ -180,36 +247,42 @@ def build_chord_from_duckdb(
     conn = duckdb.connect(str(db_file), read_only=True)
     try:
         tables = {r[0] for r in conn.execute("SHOW TABLES").fetchall()}
-        if "int_tax_rollup_resolved" not in tables:
+        if "mart_rpkm_enriched" not in tables:
             raise RuntimeError(
-                f"int_tax_rollup_resolved not materialized for sample: {sample_id}"
+                f"mart_rpkm_enriched not materialized for sample: {sample_id}"
             )
 
-        build_filtered_rollup_rows(
-            conn,
-            tax_level=tax_level,
+        where_sql, params = _enriched_where(
             ann_level=ann_level,
             ann_filter=ann_filter,
             taxon_filter=taxon_filter,
         )
+        pathway_label = canonical_pathway_label_sql(ann_level)
+        tax_label = resolve_tax_label_sql(tax_level)
+        tax_id = resolve_tax_id_sql(tax_level)
 
         pair_sql = f"""
             SELECT
-                {PATHWAY_LABEL_SQL} AS pathway_label,
-                t.resolved_tax_label,
-                SUM(t.value) AS value
-            FROM filtered_rollup_rows t
-            WHERE t.requested_rank = ?
-              AND t.pathway_level = ?
-            GROUP BY t.pathway_key, t.resolved_tax_id,
-                     {PATHWAY_LABEL_SQL},
-                     t.resolved_tax_label
-            HAVING SUM(t.value) > 0
+                {pathway_label} AS pathway_label,
+                {tax_label} AS resolved_tax_label,
+                SUM(value) AS value
+            FROM mart_rpkm_enriched
+            WHERE {where_sql}
+            GROUP BY {tax_id}, {tax_label}, {pathway_label}
+            HAVING SUM(value) > 0
         """
-        rows = conn.execute(pair_sql, [tax_level, ann_level]).fetchall()
+        rows = conn.execute(pair_sql, params).fetchall()
         pairs = [(r[0], r[1], float(r[2])) for r in rows]
-        tax_order = _fetch_tax_order(conn, tax_level, ann_level)
-        ann_order = _fetch_ann_order(conn, tax_level, ann_level)
+        tax_order = _fetch_tax_order(
+            conn, tax_level=tax_level, where_sql=where_sql, params=params
+        )
+        ann_order = _fetch_ann_order(
+            conn,
+            tax_level=tax_level,
+            ann_level=ann_level,
+            where_sql=where_sql,
+            params=params,
+        )
         return build_chord_matrix(
             pairs, tax_order=tax_order or None, ann_order=ann_order
         )

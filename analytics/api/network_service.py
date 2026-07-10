@@ -9,13 +9,13 @@ from api.filters import (
     sample_id_from_names,
     validate_tax_level,
 )
-from api.ec_tax_triples import FILTERED_TRIPLES_TABLE, materialize_filtered_triples
 from api.network_assembly import (
     apply_layout,
     attach_pies_to_nodes,
     build_category_colors,
     embed_edges,
 )
+from api.query_enriched import resolve_tax_label_sql, taxon_filter_where_sql
 from api.tax_lineage_order import (
     materialize_tax_metadata_from_ids,
     read_tax_metadata_rows,
@@ -29,6 +29,7 @@ RAW_PARQUET_DIR = REPO_ROOT / "resources/db/parquet"
 PATHWAY_SUPERPATHWAYS = RAW_PARQUET_DIR / "pathway_superpathways.parquet"
 PATHWAY_NODES = RAW_PARQUET_DIR / "pathway_nodes.parquet"
 PATHWAY_EDGES = RAW_PARQUET_DIR / "pathway_edges.parquet"
+FILTERED_IDS_TABLE = "network_tax_ids"
 TAX_METADATA_TABLE = "network_tax_metadata"
 
 
@@ -36,25 +37,75 @@ def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
+def _enriched_where(
+    *,
+    pathway_name: str,
+    taxon_filter: dict[str, str] | None,
+) -> tuple[str, list]:
+    tax_sql, tax_params = taxon_filter_where_sql(taxon_filter)
+    return f"pathway_name = ? AND ({tax_sql})", [pathway_name] + tax_params
+
+
+def _materialize_filtered_ids(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    where_sql: str,
+    params: list,
+) -> None:
+    conn.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE {FILTERED_IDS_TABLE} AS
+        SELECT DISTINCT source_tax_id
+        FROM mart_rpkm_enriched
+        WHERE {where_sql}
+        """,
+        params,
+    )
+
+
+def _has_matching_values(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    where_sql: str,
+    params: list,
+) -> bool:
+    row = conn.execute(
+        f"SELECT COUNT(*) FROM mart_rpkm_enriched WHERE {where_sql}",
+        params,
+    ).fetchone()
+    return bool(row and row[0] > 0)
+
+
 def _fetch_ec_values_by_tax_cat(
     conn: duckdb.DuckDBPyConnection,
     *,
+    where_sql: str,
+    params: list,
+    tax_level: str,
     tax_cats: list[str],
 ) -> dict[str, list[float]]:
     if not tax_cats:
         return {}
+    tax_label = resolve_tax_label_sql(tax_level)
     value_exprs = ", ".join(
-        "COALESCE(SUM(CASE WHEN m.tax_map_value = ? THEN t.value END), 0.0)"
+        "COALESCE(SUM(CASE WHEN tax_map_value = ? THEN value END), 0.0)"
         for _ in tax_cats
     )
     rows = conn.execute(
         f"""
-        SELECT t.ec_normalized, [{value_exprs}]
-        FROM {FILTERED_TRIPLES_TABLE} t
-        INNER JOIN {TAX_METADATA_TABLE} m ON t.source_tax_id = m.source_tax_id
-        GROUP BY t.ec_normalized
+        SELECT ec_normalized, [{value_exprs}]
+        FROM (
+            SELECT
+                ec_normalized,
+                {tax_label} AS tax_map_value,
+                SUM(value) AS value
+            FROM mart_rpkm_enriched
+            WHERE {where_sql}
+            GROUP BY ec_normalized, {tax_label}
+        ) aggregated
+        GROUP BY ec_normalized
         """,
-        tax_cats,
+        tax_cats + params,
     ).fetchall()
     return {str(ec): [float(v) for v in values] for ec, values in rows}
 
@@ -133,37 +184,41 @@ def build_network_from_duckdb(
     conn = duckdb.connect(str(db_file), read_only=True)
     try:
         tables = {r[0] for r in conn.execute("SHOW TABLES").fetchall()}
-        if "int_rpkm_by_ec_tax" not in tables:
+        if "mart_rpkm_enriched" not in tables:
             raise RuntimeError(
-                f"int_rpkm_by_ec_tax not materialized for sample: {sample_id}"
+                f"mart_rpkm_enriched not materialized for sample: {sample_id}"
             )
 
-        materialize_filtered_triples(
-            conn,
-            pathway_filter={"name": pathway_name},
+        where_sql, params = _enriched_where(
+            pathway_name=pathway_name,
             taxon_filter=taxon_filter,
         )
-
-        triple_count = conn.execute("SELECT COUNT(*) FROM filtered_triples").fetchone()[0]
         nodes = static["nodes"]
         edges = static["edges"]
 
-        if triple_count == 0:
+        if not _has_matching_values(conn, where_sql=where_sql, params=params):
             nodes = apply_layout(nodes, width=width, height=height)
             nodes = attach_pies_to_nodes(nodes, tax_cats=[], ec_values={})
             edges = embed_edges(edges, nodes)
             return {"nodes": nodes, "edges": edges, "colors": {}}
 
+        _materialize_filtered_ids(conn, where_sql=where_sql, params=params)
         materialize_tax_metadata_from_ids(
             conn,
             tax_level=tax_level,
-            ids_table=FILTERED_TRIPLES_TABLE,
+            ids_table=FILTERED_IDS_TABLE,
             output_table=TAX_METADATA_TABLE,
         )
         tax_cats = tax_cat_order_from_metadata_rows(
             read_tax_metadata_rows(conn, table=TAX_METADATA_TABLE)
         )
-        ec_values = _fetch_ec_values_by_tax_cat(conn, tax_cats=tax_cats)
+        ec_values = _fetch_ec_values_by_tax_cat(
+            conn,
+            where_sql=where_sql,
+            params=params,
+            tax_level=tax_level,
+            tax_cats=tax_cats,
+        )
 
         nodes = apply_layout(nodes, width=width, height=height)
         nodes = attach_pies_to_nodes(nodes, tax_cats=tax_cats, ec_values=ec_values)

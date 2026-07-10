@@ -20,10 +20,6 @@ vars:
 
 models:
   rpkm_transform:
-    staging:
-      +materialized: table
-      +rpkm_path: "{{ var('rpkm_path', '') }}"
-      +sample_id: "{{ var('sample_id', '') }}"
     intermediate:
       +materialized: table
     marts:

@@ -9,7 +9,7 @@ sources:
         meta:
           external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_ec_pathway.parquet')"
 
-      - name: bridge_tax_rollup
-        description: "Pre-resolved taxonomy rollup — one row per (source_tax_id, requested_rank)"
+      - name: bridge_tax_lineage
+        description: "Wide taxonomy lineage — one row per tax_id"
         meta:
-          external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_tax_rollup.parquet')"
+          external_location: "read_parquet('{{ var(\"reference_parquet_dir\") }}/bridge_tax_lineage.parquet')"

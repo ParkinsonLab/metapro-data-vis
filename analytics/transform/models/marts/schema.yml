@@ -1,24 +1,16 @@
 version: 2
 
 models:
-  - name: mart_pathway_taxonomy_long
+  - name: mart_rpkm_enriched
     description: >
-      Final pathway × taxonomy long mart. Filtered to the configured
-      pathway_level and tax_rank. One row per (pathway_key, resolved_tax_id).
+      Primary API mart: int_rpkm_by_ec_tax grain with denormalized EC pathway
+      and taxonomy lineage columns from dim_sample_ec and dim_sample_taxon.
     columns:
       - name: sample_id
         tests: [not_null]
-      - name: pathway_level
+      - name: ec_normalized
         tests: [not_null]
-      - name: pathway_key
-        description: "NULL for unmapped ECs"
-      - name: pathway_label
-        description: "'Unmapped EC' when pathway_key IS NULL"
-        tests: [not_null]
-      - name: resolved_tax_id
-        description: "NULL for Unclassified taxa"
-      - name: resolved_tax_label
-        description: "'Unclassified' when resolved_tax_id IS NULL"
+      - name: source_tax_id
         tests: [not_null]
       - name: value
         tests: [not_null]

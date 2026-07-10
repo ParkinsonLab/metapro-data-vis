@@ -54,13 +54,13 @@ cases:
   expected_outer_index:
   - gap_1
   - gap_2
-  - '999999999'
+  - Unclassified
   - Actinomycetota
   - Bacillota
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': '999999999'
+    '999999999': Unclassified
     Clavibacter sp. OL-4: Actinomycetota
     Bacillus sp. b107A(2010): Bacillota
     Mammaliicoccus sciuri: Bacillota
@@ -121,7 +121,7 @@ cases:
   expected_outer_index:
   - gap_1
   - gap_2
-  - '999999999'
+  - Unclassified
   - Clavibacter sp. OL-4
   - Bacillus sp. b107A(2010)
   - Mammaliicoccus sciuri
@@ -132,7 +132,7 @@ cases:
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': '999999999'
+    '999999999': Unclassified
     Clavibacter sp. OL-4: Clavibacter sp. OL-4
     Bacillus sp. b107A(2010): Bacillus sp. b107A(2010)
     Mammaliicoccus sciuri: Mammaliicoccus sciuri
@@ -193,12 +193,12 @@ cases:
   expected_outer_index:
   - gap_1
   - gap_2
-  - '999999999'
+  - Unclassified
   - Bacillati
   - Bacteria
   - gap_3
   tax_map:
-    '999999999': '999999999'
+    '999999999': Unclassified
     Clavibacter sp. OL-4: Bacillati
     Bacillus sp. b107A(2010): Bacillati
     Mammaliicoccus sciuri: Bacillati

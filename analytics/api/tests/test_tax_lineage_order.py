@@ -32,7 +32,7 @@ def test_read_tax_metadata_rows_preserves_lineage_order(fake_rpkm_db):
         conn.execute(
             """
             CREATE OR REPLACE TEMP TABLE ids AS
-            SELECT DISTINCT source_tax_id FROM int_rpkm_by_ec_tax
+            SELECT DISTINCT source_tax_id FROM mart_rpkm_enriched
             """
         )
         materialize_tax_metadata_from_ids(

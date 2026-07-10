@@ -7,8 +7,7 @@ Usage:
         --sample-id test_rpkm_1 \\
         --rpkm-path ../resources/example_data/test_rpkm_1.tsv \\
         --tax-rank phylum \\
-        --pathway-level pathway \\
-        [--export-mart]
+        --pathway-level pathway
 """
 from __future__ import annotations
 
@@ -26,52 +25,56 @@ ANALYTICS_DIR = Path(__file__).resolve().parents[2]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
 
-REQUIRED_BRIDGES = ["bridge_ec_pathway.parquet", "bridge_tax_rollup.parquet"]
+REQUIRED_BRIDGES = ["bridge_ec_pathway.parquet", "bridge_tax_lineage.parquet"]
+
+_LINEAGE_RANKS = ("kingdom", "phylum", "class", "order", "family", "genus", "species")
 
 INFO_METRICS_SQL = {
     "rpkm_ec_kegg_coverage": """
         SELECT
-            COUNT(DISTINCT ec_normalized) FILTER (
-                WHERE pathway_key IS NOT NULL AND pathway_level = 'pathway_node'
-            )::DOUBLE / NULLIF(COUNT(DISTINCT ec_normalized), 0)
-        FROM int_rpkm_pathway
+            COUNT(DISTINCT ec_normalized) FILTER (WHERE pathway_id IS NOT NULL)::DOUBLE
+                / NULLIF(COUNT(DISTINCT ec_normalized), 0)
+        FROM mart_rpkm_enriched
     """,
     "pathway_join_fanout_rate": """
         SELECT
-            COUNT(*) FILTER (
-                WHERE pathway_level = 'pathway_node' AND pathway_key IS NOT NULL
-            )::DOUBLE /
-            NULLIF(COUNT(DISTINCT (ec_normalized, source_tax_id)) FILTER (
-                WHERE pathway_key IS NOT NULL
-            ), 0)
-        FROM int_rpkm_pathway
+            COUNT(DISTINCT (ec_normalized, pathway_id)) FILTER (WHERE pathway_id IS NOT NULL)::DOUBLE
+                / NULLIF(COUNT(DISTINCT ec_normalized) FILTER (WHERE pathway_id IS NOT NULL), 0)
+        FROM mart_rpkm_enriched
     """,
     "unmapped_ec_value_rate": """
-        SELECT SUM(value) FILTER (WHERE pathway_key IS NULL) / NULLIF(SUM(value), 0)
-        FROM mart_pathway_taxonomy_long
+        SELECT SUM(value) FILTER (WHERE pathway_id IS NULL) / NULLIF(SUM(value), 0)
+        FROM mart_rpkm_enriched
     """,
     "mart_rollup_exact_match_rate": """
-        SELECT
-            SUM(value) FILTER (
-                WHERE resolved_tax_rank = '{tax_rank}'
-                  AND resolved_tax_label != 'Unclassified'
-            ) / NULLIF(SUM(value), 0)
-        FROM mart_pathway_taxonomy_long
+        SELECT SUM(value) FILTER (WHERE {tax_rank}_id IS NOT NULL) / NULLIF(SUM(value), 0)
+        FROM mart_rpkm_enriched
     """,
     "mart_rollup_fallback_rate": """
-        SELECT
-            SUM(value) FILTER (
-                WHERE resolved_tax_rank != '{tax_rank}'
-                  AND resolved_tax_label != 'Unclassified'
-                  AND resolved_tax_id IS NOT NULL
-            ) / NULLIF(SUM(value), 0)
-        FROM mart_pathway_taxonomy_long
+        SELECT SUM(value) FILTER (WHERE {fallback_cond}) / NULLIF(SUM(value), 0)
+        FROM mart_rpkm_enriched
     """,
     "mart_unclassified_rate": """
-        SELECT SUM(value) FILTER (WHERE resolved_tax_label = 'Unclassified') / NULLIF(SUM(value), 0)
-        FROM mart_pathway_taxonomy_long
+        SELECT SUM(value) FILTER (
+            WHERE kingdom_id IS NULL AND phylum_id IS NULL AND class_id IS NULL
+              AND order_id IS NULL AND family_id IS NULL
+              AND genus_id IS NULL AND species_id IS NULL
+        ) / NULLIF(SUM(value), 0)
+        FROM mart_rpkm_enriched
     """,
 }
+
+
+def _rollup_fallback_condition(tax_rank: str) -> str:
+    try:
+        idx = _LINEAGE_RANKS.index(tax_rank)
+    except ValueError as exc:
+        raise ValueError(f"unknown tax_rank: {tax_rank!r}") from exc
+    coarser = _LINEAGE_RANKS[:idx]
+    if not coarser:
+        return "FALSE"
+    parts = [f"{rank}_id IS NOT NULL" for rank in reversed(coarser)]
+    return f"({tax_rank}_id IS NULL AND ({' OR '.join(parts)}))"
 
 
 def _check_bridges(ref_dir: Path) -> None:
@@ -85,9 +88,18 @@ def _check_bridges(ref_dir: Path) -> None:
         sys.exit(1)
 
 
+def _prepare_sample_db(db_path: Path) -> None:
+    """Remove prior sample.duckdb so dbt does not leave orphan tables from retired models."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    for suffix in ("", ".wal"):
+        stale = Path(f"{db_path}{suffix}")
+        if stale.exists():
+            stale.unlink()
+
+
 def _run_dbt(sample_id: str, rpkm_path: str, tax_rank: str, pathway_level: str) -> dict:
     db_path = TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    _prepare_sample_db(db_path)
 
     vars_dict = {
         "rpkm_path": rpkm_path,
@@ -103,7 +115,7 @@ def _run_dbt(sample_id: str, rpkm_path: str, tax_rank: str, pathway_level: str) 
     result = subprocess.run(
         [
             "uv", "run", "dbt", "build",
-            "--select", "stg_rpkm_long+",
+            "--select", "int_rpkm_by_ec_tax+",
             "--project-dir", str(TRANSFORM_DIR),
             "--profiles-dir", str(TRANSFORM_DIR),
             "--vars", vars_json,
@@ -134,22 +146,17 @@ def _parse_overall_status(transform_dir: Path) -> str:
 def _compute_info_metrics(db_path: str, tax_rank: str) -> dict:
     metrics = {}
     conn = duckdb.connect(db_path, read_only=True)
+    fallback_cond = _rollup_fallback_condition(tax_rank)
     for name, sql in INFO_METRICS_SQL.items():
         try:
-            value = conn.execute(sql.format(tax_rank=tax_rank)).fetchone()[0]
+            value = conn.execute(
+                sql.format(tax_rank=tax_rank, fallback_cond=fallback_cond)
+            ).fetchone()[0]
             metrics[name] = round(float(value), 6) if value is not None else None
         except Exception as e:
             metrics[name] = f"error: {e}"
+    conn.close()
     return metrics
-
-
-def _export_mart(db_path: str, sample_id: str) -> str:
-    out_path = str(TRANSFORM_DIR / f"runs/{sample_id}/mart_pathway_taxonomy_long.parquet")
-    conn = duckdb.connect(db_path)
-    conn.execute(
-        f"COPY mart_pathway_taxonomy_long TO '{out_path}' (FORMAT PARQUET)"
-    )
-    return out_path
 
 
 def main() -> None:
@@ -158,7 +165,6 @@ def main() -> None:
     parser.add_argument("--rpkm-path", required=True)
     parser.add_argument("--tax-rank", default="phylum")
     parser.add_argument("--pathway-level", default="pathway")
-    parser.add_argument("--export-mart", action="store_true")
     args = parser.parse_args()
 
     _check_bridges(REFERENCE_PARQUET_DIR)
@@ -186,10 +192,6 @@ def main() -> None:
     context_path.write_text(json.dumps(context, indent=2))
     print(f"\nrun_context.json written to {context_path}")
     print(f"overall_status: {overall_status}")
-
-    if args.export_mart:
-        mart_path = _export_mart(dbt_result["db_path"], args.sample_id)
-        print(f"mart exported to {mart_path}")
 
     sys.exit(0 if dbt_result["returncode"] == 0 else 1)
 

@@ -20,6 +20,12 @@ fixture:
     col_tax_cousin_kingdom: 857891
     col_tax_fallback_kingdom: 2
     col_tax_unknown_header: 999999999
+ingest_expectations:
+  int_row_count: 13
+  zero_mass_genes:
+    - row_ingest_unclass_only
+    - row_ingest_all_zero
+  unclassified_not_source_tax_id: true
 rollup_grid:
 - requested_rank: class
   pathway_level: pathway
@@ -28,7 +34,7 @@ rollup_grid:
   value: 1.0
 - requested_rank: class
   pathway_level: pathway_node
-  pathway_label: Unmapped EC
+  pathway_label: 1.6.5.9
   resolved_tax_label: Bacilli
   value: 1.0
 - requested_rank: class
@@ -43,7 +49,7 @@ rollup_grid:
   value: 1.0
 - requested_rank: family
   pathway_level: pathway_node
-  pathway_label: Unmapped EC
+  pathway_label: 1.6.5.9
   resolved_tax_label: Staphylococcaceae
   value: 1.0
 - requested_rank: family
@@ -58,7 +64,7 @@ rollup_grid:
   value: 1.0
 - requested_rank: genus
   pathway_level: pathway_node
-  pathway_label: Unmapped EC
+  pathway_label: 1.6.5.9
   resolved_tax_label: Staphylococcus
   value: 1.0
 - requested_rank: genus
@@ -73,7 +79,7 @@ rollup_grid:
   value: 1.0
 - requested_rank: kingdom
   pathway_level: pathway_node
-  pathway_label: Unmapped EC
+  pathway_label: 1.6.5.9
   resolved_tax_label: Bacillati
   value: 1.0
 - requested_rank: kingdom
@@ -88,7 +94,7 @@ rollup_grid:
   value: 1.0
 - requested_rank: order
   pathway_level: pathway_node
-  pathway_label: Unmapped EC
+  pathway_label: 1.6.5.9
   resolved_tax_label: Caryophanales
   value: 1.0
 - requested_rank: order
@@ -103,7 +109,7 @@ rollup_grid:
   value: 1.0
 - requested_rank: phylum
   pathway_level: pathway_node
-  pathway_label: Unmapped EC
+  pathway_label: 1.6.5.9
   resolved_tax_label: Bacillota
   value: 1.0
 - requested_rank: phylum
@@ -118,7 +124,7 @@ rollup_grid:
   value: 1.0
 - requested_rank: species
   pathway_level: pathway_node
-  pathway_label: Unmapped EC
+  pathway_label: 1.6.5.9
   resolved_tax_label: Staphylococcus aureus
   value: 1.0
 - requested_rank: species

@@ -1,9 +1,7 @@
 -- WARN if the unmapped value total in the mart differs from the upstream
 -- unmapped total by more than 0.01%.
 -- Unmapped upstream = ec_tax rows whose ec_normalized has no bridge match.
--- Unmapped mart = rows where pathway_key IS NULL (all resolved_tax_ids summed).
--- NOTE: This will likely fire as WARN because mart is filtered to one pathway_level
--- while upstream covers all levels. See spec §7 for rationale.
+-- Unmapped mart = rows where pathway_id IS NULL.
 {{ config(severity='warn') }}
 
 WITH upstream_unmapped AS (
@@ -15,8 +13,8 @@ WITH upstream_unmapped AS (
 ),
 mart_unmapped AS (
     SELECT SUM(value) AS total
-    FROM {{ ref('mart_pathway_taxonomy_long') }}
-    WHERE pathway_key IS NULL
+    FROM {{ ref('mart_rpkm_enriched') }}
+    WHERE pathway_id IS NULL
 ),
 comparison AS (
     SELECT

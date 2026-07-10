@@ -70,53 +70,23 @@ def conn_with_tax():
     return c
 
 
-def test_bridge_tax_rollup_schema(conn_with_tax):
-    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
-    rel = build_bridge_tax_rollup(conn_with_tax)
-    df = rel.df()
-    assert set(df.columns) == {
-        "source_tax_id",
-        "requested_rank",
-        "resolved_tax_id",
-        "resolved_tax_rank",
-        "resolved_tax_label",
-    }
+RANKS = ("kingdom", "phylum", "class", "order", "family", "genus", "species")
 
 
-def test_bridge_tax_rollup_seven_ranks(conn_with_tax):
-    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
-    rel = build_bridge_tax_rollup(conn_with_tax)
-    df = rel.df()
-    ranks = set(df["requested_rank"].unique())
-    assert ranks == {"kingdom", "phylum", "class", "order", "family", "genus", "species"}
+def test_bridge_tax_lineage_schema(conn_with_tax):
+    from analytics.transform.scripts.build_reference import build_bridge_tax_lineage
+    df = build_bridge_tax_lineage(conn_with_tax).df()
+    expected = {"tax_id", "display_name"}
+    for rank in RANKS:
+        expected.add(f"{rank}_id")
+        expected.add(f"{rank}_label")
+    assert set(df.columns) == expected
 
 
-def test_bridge_tax_rollup_one_row_per_tax_rank(conn_with_tax):
-    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
-    rel = build_bridge_tax_rollup(conn_with_tax)
-    df = rel.df()
-    dupes = df.groupby(["source_tax_id", "requested_rank"]).size()
-    assert (dupes > 1).sum() == 0, "Duplicate (source_tax_id, requested_rank) rows found"
-
-
-def test_bridge_tax_rollup_unclassified_label(conn_with_tax):
-    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
-    rel = build_bridge_tax_rollup(conn_with_tax)
-    df = rel.df()
-    null_rows = df[df["resolved_tax_id"].isnull()]
-    # Conditional: if any null resolved_tax_id rows exist, their label must be 'Unclassified'.
-    # (All taxa in this DB are fully resolvable, so null_rows may legitimately be empty.)
-    if len(null_rows) > 0:
-        assert (null_rows["resolved_tax_label"] == "Unclassified").all()
-
-
-def test_bridge_tax_rollup_known_taxon(conn_with_tax):
-    """Homo sapiens (tax_id=9606) should resolve exactly at species rank."""
-    from analytics.transform.scripts.build_reference import build_bridge_tax_rollup
-    rel = build_bridge_tax_rollup(conn_with_tax)
-    df = rel.df()
-    row = df[(df["source_tax_id"] == 9606) & (df["requested_rank"] == "species")]
-    assert len(row) == 1
-    assert row.iloc[0]["resolved_tax_id"] == 9606
-    assert row.iloc[0]["resolved_tax_rank"] == "species"
-    assert row.iloc[0]["resolved_tax_label"] is not None
+def test_bridge_tax_lineage_homo_sapiens(conn_with_tax):
+    from analytics.transform.scripts.build_reference import build_bridge_tax_lineage
+    df = build_bridge_tax_lineage(conn_with_tax).df()
+    row = df[df["tax_id"] == 9606].iloc[0]
+    assert row["display_name"] == "Homo sapiens"
+    assert row["species_id"] == 9606
+    assert row["species_label"] == "Homo sapiens"
