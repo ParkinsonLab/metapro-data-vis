@@ -6,7 +6,8 @@ from types import SimpleNamespace
 
 import duckdb
 
-from api.filters import krona_levels, sample_id_from_names
+from api.filters import TAX_RANK_ORDER, krona_levels, sample_id_from_names
+from api.query_enriched import lineage_order_by_sql
 from api.schemas import KronaNode
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
@@ -106,33 +107,22 @@ def _db_path(sample_id: str) -> Path:
     return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
-def _order_by_clause(levels: tuple[str, ...]) -> str:
-    if len(levels) == 1:
-        return f"COALESCE({levels[0]}_label, display_name)"
-    parts: list[str] = []
-    for i, rank in enumerate(levels):
-        col = f"{rank}_label"
-        if i == 0:
-            parts.append(f"COALESCE({col}, 'Unclassified ' || display_name)")
-        elif i == len(levels) - 1:
-            parts.append("COALESCE(species_label, display_name)")
-        else:
-            parts.append(f"COALESCE({col}, '')")
-    return ",\n    ".join(parts)
-
-
 def _fetch_taxa(conn, *, levels: tuple[str, ...]) -> list:
-    lineage_cols = ", ".join(f"{rank}_label AS {rank}" for rank in levels)
-    group_cols = ", ".join(f"{rank}_label" for rank in levels)
-    order_by = _order_by_clause(levels)
+    inner_lineage = ", ".join(f"{rank}_label AS {rank}" for rank in TAX_RANK_ORDER)
+    group_lineage = ", ".join(f"{rank}_label" for rank in TAX_RANK_ORDER)
+    outer_lineage = ", ".join(levels)
+    order_by = lineage_order_by_sql()
     sql = f"""
-    SELECT
-        display_name,
-        SUM(value) AS total,
-        {lineage_cols}
-    FROM mart_rpkm_enriched
-    GROUP BY source_tax_id, display_name, {group_cols}
-    HAVING SUM(value) > 0
+    SELECT display_name, total, {outer_lineage}
+    FROM (
+        SELECT
+            display_name,
+            SUM(value) AS total,
+            {inner_lineage}
+        FROM mart_rpkm_enriched
+        GROUP BY source_tax_id, display_name, {group_lineage}
+        HAVING SUM(value) > 0
+    ) sub
     ORDER BY
         {order_by}
     """

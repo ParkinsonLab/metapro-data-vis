@@ -61,6 +61,26 @@ def lineage_order_by_sql() -> str:
     return ", ".join(f'"{rank}"' if rank == "order" else rank for rank in parts)
 
 
+def ann_order_by_sql(ann_level: str) -> str:
+    """ORDER BY keys for pathway hierarchy on mart_rpkm_enriched."""
+    validate_ann_level(ann_level)
+    if ann_level == "superpathway":
+        return "superpathway_name ASC"
+    if ann_level == "pathway":
+        return "superpathway_name ASC, pathway_name ASC"
+    raise ValueError(f"unsupported ann_level for ann ordering: {ann_level}")
+
+
+def ann_order_distinct_cols_sql(ann_level: str) -> str:
+    """SELECT list for ann DISTINCT subquery (display label + sort keys)."""
+    validate_ann_level(ann_level)
+    pathway_label = canonical_pathway_label_sql(ann_level)
+    cols = f"{pathway_label} AS display_label, superpathway_name"
+    if ann_level == "pathway":
+        cols += ", pathway_name"
+    return cols
+
+
 def ann_filter_where_sql(
     ann_filter: dict[str, str] | None,
     ann_level: str,
