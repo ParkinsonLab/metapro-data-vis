@@ -2,16 +2,10 @@ from __future__ import annotations
 
 import duckdb
 
-from api.filters import validate_ann_level
-from api.query_enriched import ann_order_by_sql, canonical_pathway_label_sql
-
-
-def _distinct_cols(pathway_label: str, ann_level: str) -> str:
-    validate_ann_level(ann_level)
-    cols = f"{pathway_label} AS display_label, superpathway_name"
-    if ann_level == "pathway":
-        cols += ", pathway_name"
-    return cols
+from api.query_enriched import (
+    ann_order_by_sql,
+    ann_order_distinct_cols_sql,
+)
 
 
 def ann_labels_ordered(
@@ -21,9 +15,8 @@ def ann_labels_ordered(
     where_sql: str,
     params: list,
 ) -> list[str]:
-    pathway_label = canonical_pathway_label_sql(ann_level)
+    distinct_cols = ann_order_distinct_cols_sql(ann_level)
     order_by = ann_order_by_sql(ann_level)
-    distinct_cols = _distinct_cols(pathway_label, ann_level)
     rows = conn.execute(
         f"""
         SELECT display_label

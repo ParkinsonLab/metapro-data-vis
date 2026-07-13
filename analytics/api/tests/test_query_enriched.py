@@ -5,6 +5,7 @@ import pytest
 from api.query_enriched import (
     ann_filter_where_sql,
     ann_order_by_sql,
+    ann_order_distinct_cols_sql,
     canonical_pathway_label_sql,
     lineage_order_by_sql,
     resolve_tax_id_sql,
@@ -90,6 +91,20 @@ def test_ann_order_by_sql_pathway():
 def test_ann_order_by_sql_rejects_pathway_node():
     with pytest.raises(ValueError, match="unsupported ann_level"):
         ann_order_by_sql("pathway_node")
+
+
+def test_ann_order_distinct_cols_sql_superpathway():
+    sql = ann_order_distinct_cols_sql("superpathway")
+    assert "AS display_label" in sql
+    assert sql.endswith("superpathway_name")
+    assert ", pathway_name" not in sql
+
+
+def test_ann_order_distinct_cols_sql_pathway():
+    sql = ann_order_distinct_cols_sql("pathway")
+    assert "AS display_label" in sql
+    assert "superpathway_name" in sql
+    assert "pathway_name" in sql
 
 
 def test_ann_filter_where_sql_none():
