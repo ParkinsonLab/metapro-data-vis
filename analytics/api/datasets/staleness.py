@@ -10,6 +10,7 @@ from pathlib import Path
 class StalenessReason(str, Enum):
     FRESH = "fresh"
     MISSING_ARTIFACTS = "missing_artifacts"
+    FAILED_RUN = "failed_run"
     MTIME_SIZE_MISMATCH = "mtime_size_mismatch"
     SHA256_MISMATCH = "sha256_mismatch"
 
@@ -42,6 +43,13 @@ def verify_staleness(
         return StalenessResult(
             needs_pipeline=True,
             reason=StalenessReason.MISSING_ARTIFACTS,
+        )
+
+    overall_status = context.get("overall_status")
+    if overall_status not in ("success", "success_with_warnings"):
+        return StalenessResult(
+            needs_pipeline=True,
+            reason=StalenessReason.FAILED_RUN,
         )
 
     resolved = rpkm_path.resolve()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from io import StringIO
 from pathlib import Path
@@ -199,6 +200,65 @@ def test_select_stale_starts_pipeline(dataset_env):
 
     assert res.status_code == 200
     assert res.json() == {"status": "running", "sample_id": "proj"}
+    assert store.running_sample_id == "proj"
+
+
+def test_select_sets_running_before_task_spawn(dataset_env, monkeypatch):
+    client, store, _runner, settings, data_root, runs_dir = dataset_env
+    rpkm = _write_rpkm(data_root / "proj" / "RPKM_table.tsv")
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=1,
+        size=2,
+    )
+    store.refresh(settings)
+
+    order: list[str] = []
+    original_set_running = store.set_running
+
+    def tracking_set_running(sample_id: str | None) -> None:
+        order.append("set_running")
+        original_set_running(sample_id)
+
+    monkeypatch.setattr(store, "set_running", tracking_set_running)
+
+    def tracking_create_task(coro):
+        order.append("create_task")
+        coro.close()
+        return MagicMock()
+
+    monkeypatch.setattr(asyncio, "create_task", tracking_create_task)
+
+    res = client.post("/api/datasets/select", json={"sample_id": "proj"})
+
+    assert res.status_code == 200
+    assert order == ["set_running", "create_task"]
+    assert store.running_sample_id == "proj"
+
+
+def test_select_clears_running_on_spawn_failure(dataset_env, monkeypatch):
+    client, store, _runner, settings, data_root, runs_dir = dataset_env
+    rpkm = _write_rpkm(data_root / "proj" / "RPKM_table.tsv")
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=1,
+        size=2,
+    )
+    store.refresh(settings)
+
+    def failing_create_task(_coro):
+        raise RuntimeError("spawn failed")
+
+    monkeypatch.setattr(asyncio, "create_task", failing_create_task)
+
+    with pytest.raises(RuntimeError, match="spawn failed"):
+        client.post("/api/datasets/select", json={"sample_id": "proj"})
+
+    assert store.running_sample_id is None
 
 
 def test_sse_streams_progress_and_complete(dataset_env):

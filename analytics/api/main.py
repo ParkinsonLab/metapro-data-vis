@@ -81,6 +81,11 @@ app.add_middleware(
 app.include_router(datasets_router, prefix="/api/datasets", tags=["datasets"])
 
 
+@app.get("/api/health")
+def health_endpoint() -> dict[str, bool | int]:
+    return {"ok": True, "value": 0}
+
+
 @app.post("/api/viz/chord")
 def chord_endpoint(body: ChordRequest):
     def _handle():

@@ -12,6 +12,12 @@ def client():
         yield test_client
 
 
+def test_health_endpoint_envelope(client):
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.json() == {"ok": True, "value": 0}
+
+
 FIXTURE_DB = db_path("test_rpkm_1")
 
 

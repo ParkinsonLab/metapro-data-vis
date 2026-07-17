@@ -100,7 +100,12 @@ async def select_dataset(body: SelectRequest) -> dict[str, Any]:
         store.set_active(body.sample_id)
         return {"status": "ready"}
 
-    asyncio.create_task(runner.run(body.sample_id, entry.path))
+    store.set_running(body.sample_id)
+    try:
+        asyncio.create_task(runner.run(body.sample_id, entry.path))
+    except Exception:
+        store.set_running(None)
+        raise
     return {"status": "running", "sample_id": body.sample_id}
 
 

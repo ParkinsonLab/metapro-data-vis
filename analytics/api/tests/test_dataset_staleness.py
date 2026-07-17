@@ -22,6 +22,7 @@ def _write_run_context(
     mtime: int,
     size: int,
     rpkm_sha256: str | None = None,
+    overall_status: str = "success",
 ) -> None:
     run_dir = runs_dir / sample_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -31,7 +32,7 @@ def _write_run_context(
         "rpkm_path": str(rpkm_path),
         "rpkm_mtime": mtime,
         "rpkm_size": size,
-        "overall_status": "success",
+        "overall_status": overall_status,
         "run_at": "2026-07-16T12:00:00+00:00",
     }
     if rpkm_sha256 is not None:
@@ -124,6 +125,46 @@ def test_verify_staleness_fresh_when_mtime_differs_but_sha256_matches(tmp_path):
         mtime=int(stat.st_mtime) - 100,
         size=stat.st_size,
         rpkm_sha256=_sha256(rpkm),
+    )
+
+    result = verify_staleness(rpkm, runs_dir, "proj")
+
+    assert result.needs_pipeline is False
+    assert result.reason == StalenessReason.FRESH
+
+
+def test_verify_staleness_failed_run_when_overall_status_not_success(tmp_path):
+    runs_dir = tmp_path / "runs"
+    rpkm = tmp_path / "proj" / "RPKM_table.tsv"
+    _write_rpkm(rpkm)
+    stat = rpkm.stat()
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=int(stat.st_mtime),
+        size=stat.st_size,
+        overall_status="failed",
+    )
+
+    result = verify_staleness(rpkm, runs_dir, "proj")
+
+    assert result.needs_pipeline is True
+    assert result.reason == StalenessReason.FAILED_RUN
+
+
+def test_verify_staleness_fresh_when_success_with_warnings(tmp_path):
+    runs_dir = tmp_path / "runs"
+    rpkm = tmp_path / "proj" / "RPKM_table.tsv"
+    _write_rpkm(rpkm)
+    stat = rpkm.stat()
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=int(stat.st_mtime),
+        size=stat.st_size,
+        overall_status="success_with_warnings",
     )
 
     result = verify_staleness(rpkm, runs_dir, "proj")
