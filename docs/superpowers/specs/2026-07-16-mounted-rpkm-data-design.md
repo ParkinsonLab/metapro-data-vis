@@ -32,7 +32,9 @@ Comparison mode (two datasets) is **deferred**.
 | `test_rpkm_1` | 51 MB | 0.7 s | 3.8 s | ~22 MB |
 | `stress_rpkm_1` | 388 MB | 2.8 s | 6.3 s | 20 MB |
 
-SHA-256 of `stress_rpkm_1` (388 MB): ~230 ms. Pipeline duration dominates; live progress via SSE is worthwhile but not blocking.
+SHA-256 of `stress_rpkm_1` (388 MB): ~230 ms. Pipeline duration dominates.
+
+**SSE rationale:** Stress data completes in ~6 s on a dev Mac, but user machines vary (CPU, disk, Docker overhead, concurrent load). SSE provides live step progress so the UI remains responsive and informative for runs that take minutes. Polling-only would work for happy-path latency but is weaker UX under load.
 
 ### 1.3 Locked decisions (brainstorming)
 
@@ -44,7 +46,9 @@ SHA-256 of `stress_rpkm_1` (388 MB): ~230 ms. Pipeline duration dominates; live 
 | `sample_id` (dev fixtures) | Filename stem (e.g. `test_rpkm_1.tsv` → `test_rpkm_1`) |
 | Selection semantics | Select = checksum check → pipeline if stale → activate for viz (no separate Update button) |
 | Comparison mode | Out of scope (single select only) |
-| Container | Single image; **FastAPI only** (drop Express) |
+| Container | Single image; **FastAPI only** (no Express in image) |
+| Express code (repo) | **Keep during migration**; full delete deferred to a later retire PR |
+| Dev data mode | Toggle controls upload UI vs mounted-data UI (see §3.2) |
 | Pipeline output | `{RUNS_DIR}/{sample_id}/sample.duckdb` + `run_context.json` |
 | Default `RUNS_DIR` | `{DATA_ROOT}/vis/runs` |
 | Reference bridges | Baked in image at fixed app path; **never** under data root |
@@ -77,12 +81,28 @@ Paths are **not hardcoded** to `/data`. Environment variables with container-fri
 
 ```
 local-data/
-  proj1/run2/RPKM_table.tsv    # discovered dataset
+  proj1/run2/RPKM_table.tsv    # discovered dataset → sample_id proj1__run2
   vis/runs/
     proj1__run2/
       sample.duckdb
       run_context.json
 ```
+
+**Example mount (host folder → container `/data`):**
+
+```bash
+docker run -p 8080:8080 \
+  -v /Users/sibyl/Downloads/tutorial_files:/data \
+  metapro-viz
+```
+
+If MetaPro output is directly in that folder:
+
+| Host path | Container path | `sample_id` |
+|---|---|---|
+| `tutorial_files/RPKM_table.tsv` | `/data/RPKM_table.tsv` | `_root` |
+
+Nested output is also supported, e.g. `tutorial_files/run1/RPKM_table.tsv` → `/data/run1/RPKM_table.tsv` → `run1`.
 
 ## 3. Architecture
 
@@ -108,9 +128,41 @@ local-data/
   /app/resources/...              dev fixtures (flag-gated)
 ```
 
-**Removed:** Express server (`src/server/index.ts` routes), multer upload, legacy in-memory `add_data` path for viz (legacy Node viz handlers may remain behind `?backend=legacy` until fully retired, or removed in same effort — see §9).
+**Production container:** FastAPI only — no Express binary or Node server in the image.
 
-**Static UI:** Vite `dist/` served by FastAPI `StaticFiles` with SPA fallback.
+**Repo / dev (phased):** Do **not** delete `src/server/` in the initial implementation PR. Express remains in the repo for cross-checking until a dedicated retire PR.
+
+**Static UI:** Vite `dist/` served by FastAPI `StaticFiles` with SPA fallback in the container. Dev hot reload is unchanged (see §3.2).
+
+### 3.1 Production vs development
+
+| Surface | Data loading | Viz backend | API process |
+|---|---|---|---|
+| **Docker container** | Mounted `DATA_ROOT` only | FastAPI + DuckDB | `uvicorn` only |
+| **Dev — mounted mode** | Data panel + catalog/SSE | FastAPI + DuckDB (direct or via proxy) | `uvicorn --reload` + Vite |
+| **Dev — legacy mode** | Upload UI + `POST /api/data` | Express in-memory and/or `?backend=duckdb` proxy | Express `:3001` + Vite (today) |
+
+### 3.2 Dev toggles and hot reload
+
+Two toggles in dev (container has no toggles — mounted + FastAPI only):
+
+1. **Data mode** (`dataMode`: `mounted` \| `upload`) — Data panel vs Upload UI
+2. **Viz backend** (`vizBackend`: `legacy` \| `sidecar`) — Express in-memory viz vs FastAPI DuckDB
+
+#### Toggle viability matrix
+
+| | **viz: sidecar** (DuckDB / FastAPI) | **viz: legacy** (Express in-memory) |
+|---|---|---|
+| **data: mounted** | **Yes** — primary target. Pipeline → `RUNS_DIR`; viz reads `names[0]` as `sample_id` | **No** — mounted data never enters Express `data{}`. Disable or hide this combo in the UI. |
+| **data: upload** | **Yes** — with constraint: `names[0]` must match `runs/{sample_id}/` (see §9.1). Upload does not run the pipeline; use pre-built runs or dev fixtures. | **Yes** — today's default. `names[0]` is the upload label key in Express memory. |
+
+**Conclusion:** toggles are **not fully independent**. When `dataMode=mounted`, force `vizBackend=sidecar` (or auto-switch with a one-line notice). When `dataMode=upload`, both viz modes are valid.
+
+**Mounted mode:** renderer talks to FastAPI for `/api/datasets/*` and viz. Vite proxies `/api` to FastAPI.
+
+**Legacy/upload mode:** renderer uses Upload UI + Express `:3001`; optional `?backend=duckdb` for viz cross-check.
+
+**Hot reload:** Vite HMR (`dev:web`, `:5173`) is independent of the API server. Only the Vite `server.proxy` target changes per data mode. FastAPI supports `--reload` for Python separately.
 
 ## 4. Sample identity
 
@@ -119,12 +171,14 @@ local-data/
 ```python
 def sample_id_from_path(data_root: Path, rpkm_path: Path) -> str:
     rel = rpkm_path.relative_to(data_root)
-    # drop filename RPKM_table.tsv
     parent = rel.parent
     if str(parent) == ".":
-        raise ValueError("RPKM_table.tsv at data root is not allowed")
+        # File directly under DATA_ROOT (e.g. /data/RPKM_table.tsv)
+        return "_root"
     return str(parent).replace("/", "__")
 ```
+
+**Root-level files:** A file at `{DATA_ROOT}/RPKM_table.tsv` is allowed with `sample_id = "_root"`. The earlier draft rejected this only because an empty parent path has no natural slug; `_root` is an explicit reserved id.
 
 Display path in UI: **full absolute container path** (e.g. `/data/proj1/run2/RPKM_table.tsv`).
 
@@ -193,6 +247,23 @@ Mark `is_dev_fixture: true` in catalog entries.
 
 Checksum (`rpkm_sha256`) is computed on select (or when mtime/size changed vs catalog), not on every scan.
 
+### 5.6 Catalog `stale` vs select-time verification
+
+**When catalog shows `stale`:**
+
+| Cause | Example |
+|---|---|
+| User replaced or edited the TSV | MetaPro re-run wrote new `RPKM_table.tsv` |
+| User deleted `vis/runs/{sample_id}/` | DB gone; mtime/size may still match old context if partial delete |
+| Scan saw mtime/size ≠ `run_context.json` | Catalog flags `stale` without computing SHA-256 yet |
+| Race | File changed after last scan but before select |
+
+**Impact of a stale catalog badge alone:** cosmetic — user sees "needs rebuild". Viz still serves the **last successful** `sample.duckdb` until they select the dataset (select will rebuild if truly stale).
+
+**False `ready` in catalog** (file changed after scan): possible until next scan/refresh. Mitigated because **select always re-verifies** (see §7.1) — catalog status is a hint, not the gate for pipeline execution.
+
+**On select:** always `stat` the file fresh, compare mtime/size to `run_context.json`, and compute SHA-256 when mtime/size differ. Do not skip pipeline based on catalog status alone.
+
 ## 6. Pipeline staleness and `run_context.json`
 
 Extend `run_context.json` written by `run_pipeline.py`:
@@ -229,10 +300,10 @@ POST /api/datasets/select
 ```
 
 1. Resolve `rpkm_path` from catalog.
-2. If status is `ready` → set `active_sample_id`, return `{ "status": "ready" }`.
-3. If `running` for same id → return `{ "status": "running" }` (idempotent).
-4. If another pipeline is `running` → reject with 409 or queue (v1: **reject** — single concurrent pipeline).
-5. Compute checksum if mtime/size changed vs `run_context.json`.
+2. **Re-verify staleness** — fresh `stat` + mtime/size compare to `run_context.json`; SHA-256 when mtime/size differ (do not trust catalog status alone).
+3. If verified `ready` → set `active_sample_id`, return `{ "status": "ready" }`.
+4. If `running` for **same** `sample_id` → return `{ "status": "running" }` (idempotent; client may reconnect SSE).
+5. If **another** `sample_id` is `running` → **409 Conflict** (v1: single concurrent pipeline).
 6. If stale/missing → set status `running`, spawn background pipeline.
 7. Return `{ "status": "running", "sample_id": "..." }`.
 
@@ -274,16 +345,16 @@ data: {"status": "failed", "message": "..."}
 
 ### 7.3 Active dataset
 
-Global server state: `active_sample_id: str | null`.
+Global server state: `active_sample_id: str | null` (mirrors `selected_file_list[0]` in the renderer).
 
-Viz endpoints use `sample_id` directly (replace `names: ["test_rpkm_1.tsv"]`):
+Viz endpoints keep the existing `names` field; mounted mode sends `names: [sample_id]`:
 
 ```json
 POST /api/viz/overview
-{ "sample_id": "proj1__run2" }
+{ "names": ["proj1__run2"] }
 ```
 
-DB path: `{RUNS_DIR}/{sample_id}/sample.duckdb`.
+DB path: `{RUNS_DIR}/{sample_id}/sample.duckdb` where `sample_id = sample_id_from_names(names)`.
 
 ## 8. UI changes
 
@@ -294,29 +365,59 @@ Replace `Upload.tsx` with a **Data** panel:
 | Dataset table | Full container path, status badge, last-run time |
 | Row click | `POST /api/datasets/select` + open SSE |
 | Progress | Step bar or log from SSE events while `running` |
-| Refresh button | `POST /api/datasets/refresh` |
+| Refresh button | `POST /api/datasets/refresh` — allowed while pipeline runs (see below) |
 | Active indicator | Highlight selected row; `DataInfoBar` shows path |
-| Removed | File input, label field, Load Files, Load Test Files, Update, second dropdown |
+| Removed (mounted mode) | File input, label field, Load Files, Load Test Files, Update, second dropdown |
+| Legacy mode (dev) | Upload UI unchanged for cross-check |
 
-Nav label: **Upload → Data**.
+Nav label: **Upload → Data** (mounted mode).
 
-Disable row selection while `running` (except show progress on active row).
+### 8.1 Interaction while pipeline is `running`
+
+| Action | UI | Server |
+|---|---|---|
+| Click **same** row again | Show progress; reconnect SSE if dropped | Idempotent `running` |
+| Click **different** row | **Disabled** (greyed out) + tooltip "Pipeline in progress" | 409 if attempted |
+| **Refresh** | Enabled — updates file list and badges; does not cancel pipeline | Rescan; preserve `running` state for active job |
+| Navigate viz tabs | Disabled or show stale data from prior active sample until new run completes | N/A |
+
+Only one pipeline at a time in v1. The in-progress row shows the SSE progress bar; all other rows are not selectable until complete or failed.
 
 ## 9. API and code migration
 
 | Area | Change |
 |---|---|
-| Express server | Remove from production path; delete upload routes |
-| FastAPI | Serve static UI; add dataset catalog + select + SSE |
+| Express server | **Keep in repo** for dev legacy mode; **omit from container image** |
+| FastAPI | Serve static UI (container); add dataset catalog + select + SSE |
 | `run_pipeline.py` | `--runs-dir`, `--data-root`; write checksum fields; subprocess JSON logs |
-| `analytics/api/filters.py` | `sample_id` param; `_db_path` → `{RUNS_DIR}/{id}/sample.duckdb` |
-| Viz services | Accept `sample_id` in request bodies (breaking change for renderer) |
-| Renderer `AppStore` | `active_sample_id` replaces `selected_file_list` (length 1) |
-| `vizBackend.ts` | Remove `?backend=duckdb` proxy indirection when Express is gone |
-| Dockerfile | Multi-stage: build frontend; install Python/uv/dbt; `uvicorn api.main:app`; `DATA_ROOT=/data` |
-| README | Document volume mounts, `local-data` dev setup |
+| `analytics/api/filters.py` | `_db_path` → `{RUNS_DIR}/{id}/sample.duckdb` |
+| Viz request bodies | **Keep `names`** — `names[0]` is `sample_id` in mounted mode (see §9.1) |
+| Renderer `AppStore` | `selected_file_list` unchanged; mounted mode sets `[sample_id]`; optional `active_dataset_path` for display |
+| `vizBackend.ts` / `dataMode` | Viz toggle + data-mode toggle; auto-force sidecar when mounted (see §3.2) |
+| Dockerfile | Multi-stage: build frontend; install Python/uv/dbt; `uvicorn api.main:app`; `DATA_ROOT=/data`; no Node server |
+| README | Document volume mounts, `local-data` dev setup, dev toggles |
 
-**Legacy Node viz:** Remove with Express in the same effort. All viz traffic goes to FastAPI + DuckDB.
+**Express retire:** separate follow-up PR after mounted mode ships and is validated in the container.
+
+### 9.1 Viz `names` contract (unchanged)
+
+**Today there are two uses of `names[0]`** (already inconsistent in label vs filename):
+
+| Source | What `names[0]` is | Legacy Express lookup | DuckDB `sample_id_from_names` |
+|---|---|---|---|
+| Upload + user label | User-entered `data_name` (e.g. `"my experiment"`) | `data["my experiment"]` | `sample_id = "my experiment"` → `runs/my experiment/` (only if pre-built) |
+| Load test / pinned dropdown | Filename (e.g. `test_rpkm_1.tsv`) | `data["test_rpkm_1.tsv"]` | `test_rpkm_1` (`.tsv` stripped) |
+
+So `names` was never strictly "filename" — for upload it is the **dataset key / label**. The DuckDB path already treats `names[0]` as an opaque id (strip `.tsv` if present).
+
+**Mounted mode — keep the same contract:**
+
+- `selected_file_list = [sample_id]` (e.g. `["_root"]`, `["proj1__run2"]`)
+- Viz requests continue to send `{ names: selected_file_list, ... }` — **no schema rename**
+- `sample_id_from_names(["proj1__run2"])` → `proj1__run2` (unchanged helper)
+- UI displays the **full path** in the Data panel / `DataInfoBar`; `names` holds the opaque `sample_id`
+
+No Pydantic or renderer field rename required for mounted mode.
 
 ## 10. Error handling
 
@@ -333,7 +434,7 @@ Disable row selection while `running` (except show progress on active row).
 
 | Layer | Tests |
 |---|---|
-| `sample_id_from_path` | Unit: nested paths, `__` joining, reject root-level file |
+| `sample_id_from_path` | Unit: nested paths, `__` joining, `_root` for data-root file |
 | Catalog scan | Temp `DATA_ROOT` tree; assert `vis/` excluded; dev fixtures merged when flag on |
 | Staleness | mtime/size/sha256 mismatch detection |
 | SSE | Integration: mock subprocess JSON lines → SSE events |
@@ -344,21 +445,22 @@ Disable row selection while `running` (except show progress on active row).
 
 - Comparison mode (two datasets / delta viz)
 - Polling-based discovery (may add later)
-- Upload endpoint / browser file ingest
+- Deleting Express from the repo (deferred retire PR)
+- Upload endpoint removal in legacy dev mode (upload remains for cross-check until retire)
 - Multiple concurrent pipeline runs
 - Persisting catalog to disk (in-memory + rescan is sufficient for v1)
 - Generating `stress_rpkm_*.tsv` at image build time (optional follow-up)
 
 ## 13. Acceptance criteria
 
-- [ ] No browser file upload in UI
+- [ ] No browser file upload in **mounted** mode UI (legacy upload mode remains in dev until retire PR)
 - [ ] `DATA_ROOT` and `RUNS_DIR` configurable; dev defaults to `./local-data`
 - [ ] Discovers `RPKM_table.tsv` under `DATA_ROOT`, excludes `vis/`
 - [ ] Watcher + Refresh update catalog
 - [ ] Select runs pipeline when stale; auto-activates on success
 - [ ] SSE streams dbt step progress during pipeline run
 - [ ] `run_context.json` includes checksum fields
-- [ ] Viz endpoints use `sample_id`; DB read from `RUNS_DIR`
+- [ ] Viz reads `RUNS_DIR` via `sample_id_from_names(names)`; `names` contract unchanged
 - [ ] Single-container FastAPI serves UI + API
 - [ ] `ENABLE_DEV_DATASETS=1` lists bundled test/stress fixtures
 - [ ] Deleting `vis/runs/` does not break the app
