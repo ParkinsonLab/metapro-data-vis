@@ -14,6 +14,7 @@ interface AppState {
   isLoading: boolean
   file_list: string[]
   selected_file_list: string[]
+  active_dataset_path: string | null
   selectedFile: File | null
   selected_ann_cat: ChordFilterValue
   graph_data: any
@@ -41,6 +42,7 @@ export const useAppStore = create<AppState>(() => ({
   file_list: [],
   selectedFile: null,
   selected_file_list: [],
+  active_dataset_path: null,
   selected_ann_cat: {},
   graph_data: {},
   selected_taxon: {},

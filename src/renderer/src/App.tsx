@@ -1,4 +1,5 @@
 import Upload from './components/Upload'
+import DataPanel from './components/DataPanel'
 import Chord from './components/Chord'
 import Network from './components/Network'
 import Overview from './components/Overview'
@@ -6,6 +7,7 @@ import Krona from './components/Krona'
 import Graph from './components/Graph'
 import { normalizePathwayListResponse } from './pathwayListResponse'
 import { useAppStore } from './store/AppStore'
+import { getDataMode } from './dataMode'
 import { type Channel, registerChannelHandler, request } from './api'
 import { useEffect } from 'react'
 import { Oval } from 'react-loader-spinner'
@@ -60,6 +62,9 @@ const channel_handlers: Record<Channel, (value: unknown) => void> = {
 }
 
 const NavBar = () => {
+  const dataMode = getDataMode()
+  const uploadLabel = dataMode === 'mounted' ? 'Data' : 'Upload'
+
   const state_map = {
     'nav-upload': 'upload',
     'nav-chord': 'chord',
@@ -84,7 +89,7 @@ const NavBar = () => {
           onClick={handleNavClick}
           className={mainState === state_map['nav-upload'] ? 'bold' : ''}
         >
-          Upload
+          {uploadLabel}
         </div>
         <div
           id="nav-overview"
@@ -145,16 +150,17 @@ const LoadingLayer = () => {
 }
 
 const DataInfoBar = () => {
-  const selected_file_list = useAppStore(state => state.selected_file_list)
+  const active_dataset_path = useAppStore((state) => state.active_dataset_path)
+  const selected_file_list = useAppStore((state) => state.selected_file_list)
   let text
-  if (selected_file_list.length === 0){
+  if (active_dataset_path) {
+    text = active_dataset_path
+  } else if (selected_file_list.length === 0) {
     text = 'no data selected'
   } else {
     text = selected_file_list.join(' vs ')
   }
-  return (
-    <p>{text}</p>
-  )
+  return <p>{text}</p>
 }
 
 const ErrorBanner = (): React.JSX.Element | null => {
@@ -182,27 +188,13 @@ const ErrorBanner = (): React.JSX.Element | null => {
 }
 
 const App = (): React.JSX.Element => {
-  // use the useStore hook to check the overall state of the app called appState. Depending on whether the state is
-  // upload, chord, network, or plot, show the corresponding component.
   const mainState = useAppStore((state) => state.mainState)
   const isLoading = useAppStore((state) => state.isLoading)
-  // const data = useAppStore((state) => state.data)
-  // const ec = useAppStore((state) => state.ec)
-
-  // // data reparse triggers
-  // const selected_trank = useAppStore((state) => state.tax_rank)
-  // const selected_arank = useAppStore((state) => state.ann_rank)
-  // const selected_ann_cat = useAppStore((state) => state.selected_ann_cat)
-  // const selected_taxon = useAppStore((state) => state.selected_taxon)
-
-  console.log(mainState + ' from app')
-  // useEffect(() => {
-  //   if (data.length > 0 && ec.length > 0) {
-  //     parse_data(data, ec, selected_trank, selected_arank, selected_ann_cat, selected_taxon)
-  //   }
-  // }, [data, ec, selected_trank, selected_arank, selected_ann_cat, selected_taxon])
-
+  const dataMode = getDataMode()
   useEffect(() => {
+    if (dataMode === 'mounted') {
+      localStorage.setItem('vizBackend', 'sidecar')
+    }
     for (const [channel, handler] of Object.entries(channel_handlers) as [
       Channel,
       (v: unknown) => void
@@ -210,7 +202,7 @@ const App = (): React.JSX.Element => {
       registerChannelHandler(channel, handler)
     }
     request('handshake', undefined, { silent: true })
-  }, [])
+  }, [dataMode])
 
   return (
     <>
@@ -219,7 +211,7 @@ const App = (): React.JSX.Element => {
       <DataInfoBar />
       {isLoading && <LoadingLayer />}
       <div id="main-container">
-        {mainState === 'upload' && <Upload />}
+        {mainState === 'upload' && (dataMode === 'mounted' ? <DataPanel /> : <Upload />)}
         {mainState === 'overview' && <Overview />}
         {mainState === 'krona' && <Krona />}
         {mainState === 'chord' && <Chord />}
