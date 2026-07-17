@@ -1,6 +1,6 @@
 # Mounted RPKM Data — Design Spec
 
-> **Status:** Draft (2026-07-16)  
+> **Status:** Approved (2026-07-16)  
 > **Goal:** Replace UI file upload with filesystem-mounted datasets under a configurable data root. FastAPI-only single container discovers `RPKM_table.tsv` files, runs the dbt pipeline on selection when stale, streams build progress via SSE, and activates the dataset for visualization.
 
 **Parent specs:**
