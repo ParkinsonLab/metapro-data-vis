@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.chord_service import build_chord_from_duckdb
 from api.config import get_settings
@@ -30,6 +33,21 @@ from api.schemas import (
 )
 
 _watcher: DatasetWatcher | None = None
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DIST_DIR = REPO_ROOT / "dist"
+
+
+class SPAStaticFiles(StaticFiles):
+    """Serve the Vite build; unknown paths fall back to index.html."""
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise exc
 
 
 @asynccontextmanager
@@ -148,3 +166,12 @@ def network_endpoint(body: NetworkRequest):
         )
 
     return wrap_handler(_handle)
+
+
+if DIST_DIR.is_dir():
+    # StaticFiles on repo-root dist/; SPAStaticFiles serves index.html for unknown paths.
+    app.mount(
+        "/",
+        SPAStaticFiles(directory=str(DIST_DIR), html=True),
+        name="frontend",
+    )
