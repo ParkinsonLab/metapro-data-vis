@@ -70,7 +70,7 @@ def _derive_status(
 
     last_run_at = context.get("run_at")
     overall_status = context.get("overall_status")
-    if overall_status != "success":
+    if overall_status not in ("success", "success_with_warnings"):
         last_error = context.get("last_error") or f"pipeline status: {overall_status}"
         return "failed", last_run_at, last_error
 

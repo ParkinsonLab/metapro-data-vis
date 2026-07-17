@@ -121,6 +121,27 @@ def test_scan_stale_when_mtime_or_size_differs(tmp_path):
     assert entries[0].status == "stale"
 
 
+def test_scan_ready_when_overall_status_success_with_warnings(tmp_path):
+    data_root = tmp_path / "data"
+    runs_dir = data_root / "vis" / "runs"
+    rpkm = data_root / "proj" / "RPKM_table.tsv"
+    _write_rpkm(rpkm)
+    stat = rpkm.stat()
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=int(stat.st_mtime),
+        size=stat.st_size,
+        overall_status="success_with_warnings",
+    )
+
+    entries = scan_datasets(_settings(data_root, runs_dir))
+
+    assert entries[0].status == "ready"
+    assert entries[0].last_error is None
+
+
 def test_scan_failed_when_overall_status_not_success(tmp_path):
     data_root = tmp_path / "data"
     runs_dir = data_root / "vis" / "runs"
