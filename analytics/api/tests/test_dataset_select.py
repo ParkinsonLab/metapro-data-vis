@@ -16,18 +16,33 @@ from api.datasets.pipeline_runner import ProgressEvent
 from api.datasets.routes import get_catalog_store, get_pipeline_runner, reset_dataset_services
 from api.main import app
 
-FIXTURE_NODE_START = json.dumps(
+FIXTURE_LOG_START_LINE = json.dumps(
     {
         "data": {
+            "description": "sql table model main.int_rpkm_by_ec_tax",
+            "index": 1,
+            "total": 1,
             "node_info": {
                 "node_name": "int_rpkm_by_ec_tax",
-                "node_path": "models/int_rpkm_by_ec_tax.sql",
                 "resource_type": "model",
                 "node_status": "started",
-                "unique_id": "model.metapro.int_rpkm_by_ec_tax",
-            }
+            },
         },
-        "info": {"name": "NodeStart", "level": "info", "code": "Q024"},
+        "info": {"name": "LogStartLine", "level": "info", "code": "Q011"},
+    }
+)
+
+FIXTURE_LOG_MODEL_RESULT = json.dumps(
+    {
+        "data": {
+            "description": "sql table model main.int_rpkm_by_ec_tax",
+            "execution_time": 0.05,
+            "index": 1,
+            "node_info": {"node_name": "int_rpkm_by_ec_tax", "resource_type": "model"},
+            "status": "OK",
+            "total": 1,
+        },
+        "info": {"name": "LogModelResult", "level": "info", "code": "Q012"},
     }
 )
 
@@ -191,7 +206,7 @@ def test_select_stale_starts_pipeline(dataset_env):
     store.refresh(settings)
 
     mock_proc = MagicMock()
-    mock_proc.stdout = [FIXTURE_NODE_START + "\n"]
+    mock_proc.stdout = [FIXTURE_LOG_START_LINE + "\n", FIXTURE_LOG_MODEL_RESULT + "\n"]
     mock_proc.stderr = StringIO("")
     mock_proc.wait.return_value = 0
     runner._popen = lambda cmd, **kwargs: mock_proc  # type: ignore[method-assign]
@@ -274,7 +289,7 @@ def test_sse_streams_progress_and_complete(dataset_env):
     store.refresh(settings)
 
     mock_proc = MagicMock()
-    mock_proc.stdout = [FIXTURE_NODE_START + "\n"]
+    mock_proc.stdout = [FIXTURE_LOG_START_LINE + "\n", FIXTURE_LOG_MODEL_RESULT + "\n"]
     mock_proc.stderr = StringIO("")
     mock_proc.wait.return_value = 0
     runner._popen = lambda cmd, **kwargs: mock_proc  # type: ignore[method-assign]
@@ -313,7 +328,9 @@ def test_sse_streams_progress_and_complete(dataset_env):
     anyio.run(_run_select_and_stream)
 
     assert events[0][0] == "progress"
+    assert events[0][1]["name"] == "int_rpkm_by_ec_tax"
     assert events[0][1]["state"] == "started"
+    assert events[1][1]["state"] == "OK"
     assert events[-1] == (
         "complete",
         {"status": "ready", "sample_id": "proj"},

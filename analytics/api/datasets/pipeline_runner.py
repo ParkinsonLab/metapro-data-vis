@@ -21,6 +21,35 @@ class ProgressEvent:
     data: dict[str, Any]
 
 
+def _node_result_progress(
+    data: dict[str, Any],
+    *,
+    name: str | None,
+    status: str | None,
+    total: int | None,
+) -> ProgressEvent:
+    progress: dict[str, Any] = {
+        "step": data.get("index"),
+        "total": total,
+        "name": name,
+        "state": status,
+    }
+    elapsed = data.get("execution_time")
+    if elapsed is not None:
+        progress["elapsed_s"] = elapsed
+    return ProgressEvent(kind="progress", data=progress)
+
+
+def _node_start_progress(data: dict[str, Any]) -> ProgressEvent:
+    node_info = data.get("node_info") or {}
+    return _node_result_progress(
+        data,
+        name=node_info.get("node_name"),
+        status="started",
+        total=data.get("total"),
+    )
+
+
 def parse_dbt_json_line(
     line: str,
     *,
@@ -61,17 +90,25 @@ def parse_dbt_json_line(
             progress["elapsed_s"] = elapsed
         return ProgressEvent(kind="progress", data=progress)
 
+    if event_name == "LogStartLine":
+        return _node_start_progress(data)
+
+    if event_name == "LogModelResult":
+        node_info = data.get("node_info") or {}
+        return _node_result_progress(
+            data,
+            name=node_info.get("node_name"),
+            status=data.get("status"),
+            total=data.get("total"),
+        )
+
     if event_name == "LogTestResult":
-        progress = {
-            "step": data.get("index"),
-            "total": data.get("num_models"),
-            "name": data.get("name"),
-            "state": data.get("status"),
-        }
-        elapsed = data.get("execution_time")
-        if elapsed is not None:
-            progress["elapsed_s"] = elapsed
-        return ProgressEvent(kind="progress", data=progress)
+        return _node_result_progress(
+            data,
+            name=data.get("name"),
+            status=data.get("status"),
+            total=data.get("num_models"),
+        )
 
     return None
 
