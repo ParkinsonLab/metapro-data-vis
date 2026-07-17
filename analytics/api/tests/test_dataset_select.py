@@ -74,7 +74,7 @@ def _write_run_context(
 
 
 @pytest.fixture
-def dataset_env(tmp_path, monkeypatch):
+def dataset_env(tmp_path, monkeypatch, reference_parquet_env):
     data_root = tmp_path / "data"
     runs_dir = data_root / "vis" / "runs"
     monkeypatch.setenv("DATA_ROOT", str(data_root))
@@ -86,8 +86,8 @@ def dataset_env(tmp_path, monkeypatch):
     store = get_catalog_store()
     store.refresh(settings)
     runner = get_pipeline_runner()
-    client = TestClient(app)
-    yield client, store, runner, settings, data_root, runs_dir
+    with TestClient(app) as client:
+        yield client, store, runner, settings, data_root, runs_dir
     reset_dataset_services()
     _clear_settings_cache()
 

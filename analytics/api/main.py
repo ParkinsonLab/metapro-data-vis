@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.chord_service import build_chord_from_duckdb
-from api.datasets.routes import router as datasets_router
+from api.config import get_settings
+from api.datasets.routes import get_catalog_store, router as datasets_router
+from api.datasets.watcher import DatasetWatcher, check_reference_parquet
 from api.envelope import wrap_handler
 from api.filters import (
     normalise_ann_filter,
@@ -25,7 +29,29 @@ from api.schemas import (
     PathwayListRequest,
 )
 
-app = FastAPI(title="Metapro Viz API (Python)")
+_watcher: DatasetWatcher | None = None
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    global _watcher
+    settings = get_settings()
+    check_reference_parquet(settings)
+
+    store = get_catalog_store()
+    store.refresh(settings)
+
+    _watcher = DatasetWatcher(store, settings)
+    _watcher.start()
+
+    yield
+
+    if _watcher is not None:
+        _watcher.stop()
+        _watcher = None
+
+
+app = FastAPI(title="Metapro Viz API (Python)", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
