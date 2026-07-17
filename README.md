@@ -35,10 +35,49 @@ Open http://localhost:8080
 
 ```bash
 npm install   # Node 22, see .nvmrc
-npm run dev   # API :3001 + Vite :5173
 npm test
 npm run build
 npm start     # production on :8080
+```
+
+### Dev modes
+
+| Command | Data UI | API backend | Vite proxy `/api` → |
+|---|---|---|---|
+| `npm run dev` | Upload (legacy) | Express `:3001` | `localhost:3001` |
+| `npm run dev:mounted` | Data panel (mounted) | FastAPI `:8080` | `localhost:8080` |
+
+`npm run dev` starts Express + Vite (today's default). `npm run dev:mounted` starts FastAPI + Vite with `VITE_DATA_MODE=mounted`, which shows the Data panel and proxies all `/api` traffic to FastAPI.
+
+You can also run the backends separately:
+
+```bash
+npm run dev:api       # Express only (:3001)
+npm run dev:fastapi   # FastAPI only (:8080, reads local-data/)
+npm run dev:web       # Vite only (:5173)
+```
+
+Set `VITE_DATA_MODE=mounted` (or `upload`) when starting `dev:web` to pick the default data mode. The in-app toggle persists the choice in `localStorage`.
+
+### Mounted data (local)
+
+FastAPI discovers `RPKM_table.tsv` files under `DATA_ROOT`. For local dev, `dev:fastapi` sets `DATA_ROOT=../local-data` relative to `analytics/`.
+
+Create a fixture dataset:
+
+```bash
+mkdir -p local-data/tutorial
+cp analytics/transform/tests/fixtures/fake_rpkm.tsv local-data/tutorial/RPKM_table.tsv
+```
+
+Then run `npm run dev:mounted` and open http://localhost:5173. Select the `tutorial` dataset in the Data panel.
+
+To mount external data in Docker:
+
+```bash
+docker run --platform linux/amd64 -p 8080:8080 \
+  -v /path/to/your/data:/data \
+  metapro-viz
 ```
 
 ### Git LFS
