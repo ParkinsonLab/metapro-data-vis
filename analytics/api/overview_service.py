@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
 
+from api.config import db_path
 from api.filters import sample_id_from_names
 from api.query_enriched import canonical_pathway_label_sql, resolve_tax_label_sql
 from api.schemas import OverviewResponse, OverviewVector
-
-ANALYTICS_DIR = Path(__file__).resolve().parents[1]
-TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 
 _MAPPED_PATHWAY_PREDICATE = (
     "ec_normalized != '0.0.0.0' AND pathway_id IS NOT NULL"
@@ -21,10 +17,6 @@ def _overview_row_predicate() -> str:
     return f"{_MAPPED_PATHWAY_PREDICATE} AND {phylum_label} != 'Unclassified'"
 
 
-def _db_path(sample_id: str) -> Path:
-    return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
-
-
 def build_overview_from_duckdb(*, names: list[str]) -> OverviewResponse:
     if len(names) == 0:
         raise ValueError("names must contain at least one sample")
@@ -32,7 +24,7 @@ def build_overview_from_duckdb(*, names: list[str]) -> OverviewResponse:
         raise ValueError("comparison mode not supported on duckdb backend")
 
     sample_id = sample_id_from_names(names)
-    db_file = _db_path(sample_id)
+    db_file = db_path(sample_id)
     if not db_file.exists():
         raise FileNotFoundError(f"sample not found: {sample_id}")
 

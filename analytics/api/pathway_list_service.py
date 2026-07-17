@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
 
+from api.config import db_path
 from api.filters import (
     normalise_ann_filter,
     normalise_taxon_filter,
@@ -18,13 +17,6 @@ from api.query_enriched import (
 )
 from api.schemas import OverviewVector, PathwayListResponse
 from api.tax_lineage_order import tax_cat_order_for_ids_table
-
-ANALYTICS_DIR = Path(__file__).resolve().parents[1]
-TRANSFORM_DIR = ANALYTICS_DIR / "transform"
-
-
-def _db_path(sample_id: str) -> Path:
-    return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
 def build_pathway_list_from_duckdb(
@@ -46,7 +38,7 @@ def build_pathway_list_from_duckdb(
     taxon_filter = normalise_taxon_filter(selected_taxon)
 
     sample_id = sample_id_from_names(names)
-    db_file = _db_path(sample_id)
+    db_file = db_path(sample_id)
     if not db_file.exists():
         raise FileNotFoundError(f"sample not found: {sample_id}")
 

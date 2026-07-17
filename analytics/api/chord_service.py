@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
 
 from api.ann_order import ann_labels_ordered
+from api.config import db_path
 from api.chord_matrix import build_chord_matrix
 from api.filters import validate_ann_level, validate_tax_level
 from api.query_enriched import (
@@ -15,13 +14,6 @@ from api.query_enriched import (
     taxon_filter_where_sql,
 )
 from api.tax_lineage_order import tax_cat_order_for_ids_table
-
-ANALYTICS_DIR = Path(__file__).resolve().parents[1]
-TRANSFORM_DIR = ANALYTICS_DIR / "transform"
-
-
-def _db_path(sample_id: str) -> Path:
-    return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
 def _enriched_where(
@@ -52,7 +44,7 @@ def build_chord_from_duckdb(
     if ann_level == "pathway_node":
         raise ValueError("pathway_node ann_level not supported on chord")
 
-    db_file = _db_path(sample_id)
+    db_file = db_path(sample_id)
     if not db_file.exists():
         raise FileNotFoundError(f"sample not found: {sample_id}")
 

@@ -1,13 +1,12 @@
-from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from api.config import db_path
 from api.main import app
-from api.chord_service import TRANSFORM_DIR
 from testing.fake_rpkm_fixture import bridges_available, skip_reason
 
 client = TestClient(app)
-FIXTURE_DB = TRANSFORM_DIR / "runs/test_rpkm_1/sample.duckdb"
+FIXTURE_DB = db_path("test_rpkm_1")
 
 
 @pytest.mark.skipif(not FIXTURE_DB.exists(), reason="fixture not built")

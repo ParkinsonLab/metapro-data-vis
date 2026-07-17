@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
 
+from api.config import db_path
 from api.filters import (
     normalise_taxon_filter,
     require_graph_pathway_filter,
@@ -17,14 +16,8 @@ from api.tax_lineage_order import (
     read_tax_metadata_rows,
 )
 
-ANALYTICS_DIR = Path(__file__).resolve().parents[1]
-TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 FILTERED_IDS_TABLE = "graph_tax_ids"
 TAX_METADATA_TABLE = "graph_tax_metadata"
-
-
-def _db_path(sample_id: str) -> Path:
-    return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
 def _enriched_where(
@@ -112,7 +105,7 @@ def build_graph_from_duckdb(
     taxon_filter = normalise_taxon_filter(selected_taxon)
     pathway_name = pathway_filter["name"]
     sample_id = sample_id_from_names(names)
-    db_file = _db_path(sample_id)
+    db_file = db_path(sample_id)
     if not db_file.exists():
         raise FileNotFoundError(f"sample not found: {sample_id}")
 
