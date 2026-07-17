@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.chord_service import build_chord_from_duckdb
+from api.datasets.routes import router as datasets_router
 from api.envelope import wrap_handler
 from api.filters import (
     normalise_ann_filter,
@@ -32,6 +33,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(datasets_router, prefix="/api/datasets", tags=["datasets"])
 
 
 @app.post("/api/viz/chord")
