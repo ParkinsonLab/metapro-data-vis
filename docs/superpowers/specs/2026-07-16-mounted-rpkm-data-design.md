@@ -398,7 +398,7 @@ Only one pipeline at a time in v1. The in-progress row shows the SSE progress ba
 | `run_pipeline.py` | `--runs-dir`, `--data-root`; write checksum fields; subprocess JSON logs |
 | `analytics/api/filters.py` | `_db_path` → `{RUNS_DIR}/{id}/sample.duckdb` |
 | Viz request bodies | **Keep `names`** — `names[0]` is `sample_id` in mounted mode (see §9.1) |
-| Renderer `AppStore` | `selected_file_list` unchanged; mounted mode sets `[sample_id]`; optional `active_dataset_path` for display |
+| Renderer `AppStore` | `selected_file_list` unchanged; mounted mode sets `[sample_id]` |
 | `vizBackend.ts` / `dataMode` | Viz toggle + data-mode toggle; auto-force sidecar when mounted (see §3.2) |
 | Dockerfile | Multi-stage: build frontend; install Python/uv/dbt; `uvicorn api.main:app`; `DATA_ROOT=/data`; no Node server |
 | README | Document volume mounts, `local-data` dev setup, dev toggles |

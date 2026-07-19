@@ -150,12 +150,9 @@ const LoadingLayer = () => {
 }
 
 const DataInfoBar = () => {
-  const active_dataset_path = useAppStore((state) => state.active_dataset_path)
   const selected_file_list = useAppStore((state) => state.selected_file_list)
   let text
-  if (active_dataset_path) {
-    text = active_dataset_path
-  } else if (selected_file_list.length === 0) {
+  if (selected_file_list.length === 0) {
     text = 'no data selected'
   } else {
     text = selected_file_list.join(' vs ')

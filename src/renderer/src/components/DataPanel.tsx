@@ -11,8 +11,7 @@ import { useAppStore } from '../store/AppStore'
 
 const applySelection = (entry: DatasetEntry): void => {
   useAppStore.setState({
-    selected_file_list: [entry.sample_id],
-    active_dataset_path: entry.path
+    selected_file_list: [entry.sample_id]
   })
 }
 
