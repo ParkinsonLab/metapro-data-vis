@@ -215,7 +215,6 @@ def test_catalog_store_active_sample_id(tmp_path):
     store.set_active("proj")
     assert store.active_sample_id == "proj"
 
-
 def test_catalog_store_thread_safe_refresh(tmp_path):
     data_root = tmp_path / "data"
     _write_rpkm(data_root / "proj" / "RPKM_table.tsv")

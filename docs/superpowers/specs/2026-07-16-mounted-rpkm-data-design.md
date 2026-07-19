@@ -32,7 +32,7 @@ Comparison mode (two datasets) is **deferred**.
 | `test_rpkm_1` | 51 MB | 0.7 s | 3.8 s | ~22 MB |
 | `stress_rpkm_1` | 388 MB | 2.8 s | 6.3 s | 20 MB |
 
-SHA-256 of `stress_rpkm_1` (388 MB): ~230 ms. Pipeline duration dominates.
+SHA-256 of `stress_rpkm_1` (388 MB): ~230 ms. Pipeline duration dominates. Select hashes only when mtime/size match (see §5.6).
 
 **SSE rationale:** Stress data completes in ~6 s on a dev Mac, but user machines vary (CPU, disk, Docker overhead, concurrent load). SSE provides live step progress so the UI remains responsive and informative for runs that take minutes. Polling-only would work for happy-path latency but is weaker UX under load.
 
@@ -44,7 +44,7 @@ SHA-256 of `stress_rpkm_1` (388 MB): ~230 ms. Pipeline duration dominates.
 | Upload UI | **Remove** — no browser file upload |
 | `sample_id` (mounted) | Path relative to `DATA_ROOT`, `/` → `__` (e.g. `/data/proj1/run2/RPKM_table.tsv` → `proj1__run2`) |
 | `sample_id` (dev fixtures) | Filename stem (e.g. `test_rpkm_1.tsv` → `test_rpkm_1`) |
-| Selection semantics | Select = checksum check → pipeline if stale → activate for viz (no separate Update button) |
+| Selection semantics | Select = mtime/size check → pipeline if stale → activate for viz (no separate Update button) |
 | Comparison mode | Out of scope (single select only) |
 | Container | Single image; **FastAPI only** (no Express in image) |
 | Express code (repo) | **Keep during migration**; full delete deferred to a later retire PR |
@@ -53,7 +53,7 @@ SHA-256 of `stress_rpkm_1` (388 MB): ~230 ms. Pipeline duration dominates.
 | Default `RUNS_DIR` | `{DATA_ROOT}/vis/runs` |
 | Reference bridges | Baked in image at fixed app path; **never** under data root |
 | Discovery | Recursive scan excluding `{DATA_ROOT}/vis/`; **watchdog** + **Refresh** button (no polling in v1) |
-| Catalog scan cost | mtime + size only; checksum on select or when mtime/size changed |
+| Catalog scan cost | mtime + size only (catalog scan and select use the same rule) |
 | Dev data root | `./local-data` (mirrors container layout) |
 | Dev fixtures | `ENABLE_DEV_DATASETS=1` lists bundled paths outside data root |
 | Pipeline orchestration | Async background job; **SSE** streams dbt progress in v1 |
@@ -240,14 +240,16 @@ Mark `is_dev_fixture: true` in catalog entries.
 | Status | Meaning |
 |---|---|
 | `discovered` | File found; no successful pipeline run (no DB or no `run_context.json`) |
-| `ready` | `sample.duckdb` exists; checksum matches current file |
-| `stale` | File mtime/size or SHA-256 differs from `run_context.json` |
+| `ready` | `sample.duckdb` exists; file mtime/size match `run_context.json` |
+| `stale` | File mtime/size differs from `run_context.json` |
 | `running` | Pipeline in progress for this `sample_id` |
 | `failed` | Last pipeline run failed; `last_error` set |
 
-Checksum (`rpkm_sha256`) is computed on select (or when mtime/size changed vs catalog), not on every scan.
+`rpkm_sha256` is written to `run_context.json` on each pipeline run. Catalog scan uses mtime + size only; select also verifies SHA-256 when mtime/size match (see §5.6, §7.1).
 
-### 5.6 Catalog `stale` vs select-time verification
+### 5.6 Catalog and select staleness
+
+Catalog scan uses mtime + size only. **Select** is stricter: fresh only when mtime, size, **and** `rpkm_sha256` all match `run_context.json`. Any mtime/size drift triggers a rebuild; when mtime/size match, select hashes the file to catch in-place content changes that left metadata unchanged.
 
 **When catalog shows `stale`:**
 
@@ -255,14 +257,16 @@ Checksum (`rpkm_sha256`) is computed on select (or when mtime/size changed vs ca
 |---|---|
 | User replaced or edited the TSV | MetaPro re-run wrote new `RPKM_table.tsv` |
 | User deleted `vis/runs/{sample_id}/` | DB gone; mtime/size may still match old context if partial delete |
-| Scan saw mtime/size ≠ `run_context.json` | Catalog flags `stale` without computing SHA-256 yet |
+| File mtime/size ≠ `run_context.json` | Includes touch/undo where content is unchanged but metadata drifted |
 | Race | File changed after last scan but before select |
 
-**Impact of a stale catalog badge alone:** cosmetic — user sees "needs rebuild". Viz still serves the **last successful** `sample.duckdb` until they select the dataset (select will rebuild if truly stale).
+**Trade-off:** A touch or editor undo that changes mtime without changing content still triggers a pipeline rerun on select (~seconds). This keeps catalog and select aligned on metadata drift without a separate promotion step.
 
-**False `ready` in catalog** (file changed after scan): possible until next scan/refresh. Mitigated because **select always re-verifies** (see §7.1) — catalog status is a hint, not the gate for pipeline execution.
+**Catalog `ready` with changed content (same mtime/size):** possible until select — select computes SHA-256 when mtime/size match and reruns if the hash differs.
 
-**On select:** always `stat` the file fresh, compare mtime/size to `run_context.json`, and compute SHA-256 when mtime/size differ. Do not skip pipeline based on catalog status alone.
+**False `ready` in catalog** (file changed after scan): possible until next scan/refresh. Mitigated because **select always re-verifies** with a fresh `stat` and checksum when metadata matches (see §7.1).
+
+**On select:** always `stat` the file fresh; compare mtime/size to `run_context.json`; when they match, compare SHA-256. Do not skip pipeline based on catalog status alone.
 
 ## 6. Pipeline staleness and `run_context.json`
 
@@ -286,7 +290,9 @@ Extend `run_context.json` written by `run_pipeline.py`:
 
 - `run_context.json` or `sample.duckdb` missing
 - `rpkm_mtime` / `rpkm_size` differ from current file
-- `rpkm_sha256` differs (computed when mtime/size changed)
+- `rpkm_sha256` differs from current file (computed on select when mtime/size match)
+
+**On select, fresh only when** mtime, size, and `rpkm_sha256` all match. Legacy runs missing `rpkm_sha256` in context rerun on next select.
 
 **On stale/missing select:** delete `{RUNS_DIR}/{sample_id}/` (clean rebuild per existing `_prepare_sample_db` behavior), rerun dbt, replace tables.
 
@@ -300,7 +306,7 @@ POST /api/datasets/select
 ```
 
 1. Resolve `rpkm_path` from catalog.
-2. **Re-verify staleness** — fresh `stat` + mtime/size compare to `run_context.json`; SHA-256 when mtime/size differ (do not trust catalog status alone).
+2. **Re-verify staleness** — fresh `stat` + mtime/size compare to `run_context.json`; when mtime/size match, compare SHA-256 (do not trust catalog status alone).
 3. If verified `ready` → set `active_sample_id`, return `{ "status": "ready" }`.
 4. If `running` for **same** `sample_id` → return `{ "status": "running" }` (idempotent; client may reconnect SSE).
 5. If **another** `sample_id` is `running` → **409 Conflict** (v1: single concurrent pipeline).
@@ -436,7 +442,7 @@ No Pydantic or renderer field rename required for mounted mode.
 |---|---|
 | `sample_id_from_path` | Unit: nested paths, `__` joining, `_root` for data-root file |
 | Catalog scan | Temp `DATA_ROOT` tree; assert `vis/` excluded; dev fixtures merged when flag on |
-| Staleness | mtime/size/sha256 mismatch detection |
+| Staleness | mtime/size on catalog scan; mtime/size + sha256 on select |
 | SSE | Integration: mock subprocess JSON lines → SSE events |
 | Select flow | End-to-end with `fake_rpkm`; assert `sample.duckdb` created under `RUNS_DIR` |
 | Viz | Existing golden tests updated to `sample_id` param |

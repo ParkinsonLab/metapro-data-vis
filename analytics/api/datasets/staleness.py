@@ -59,21 +59,23 @@ def verify_staleness(
 
     ctx_mtime = context.get("rpkm_mtime")
     ctx_size = context.get("rpkm_size")
-    if mtime == ctx_mtime and size == ctx_size:
-        return StalenessResult(needs_pipeline=False, reason=StalenessReason.FRESH)
-
-    ctx_sha256 = context.get("rpkm_sha256")
-    if ctx_sha256 is None:
+    if mtime != ctx_mtime or size != ctx_size:
         return StalenessResult(
             needs_pipeline=True,
             reason=StalenessReason.MTIME_SIZE_MISMATCH,
         )
 
-    current_sha256 = _sha256_file(resolved)
-    if current_sha256 == ctx_sha256:
-        return StalenessResult(needs_pipeline=False, reason=StalenessReason.FRESH)
+    ctx_sha256 = context.get("rpkm_sha256")
+    if ctx_sha256 is None:
+        return StalenessResult(
+            needs_pipeline=True,
+            reason=StalenessReason.SHA256_MISMATCH,
+        )
 
-    return StalenessResult(
-        needs_pipeline=True,
-        reason=StalenessReason.SHA256_MISMATCH,
-    )
+    if _sha256_file(resolved) != ctx_sha256:
+        return StalenessResult(
+            needs_pipeline=True,
+            reason=StalenessReason.SHA256_MISMATCH,
+        )
+
+    return StalenessResult(needs_pipeline=False, reason=StalenessReason.FRESH)

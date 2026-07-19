@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from io import StringIO
 from pathlib import Path
@@ -74,6 +75,7 @@ def _write_run_context(
     mtime: int,
     size: int,
     overall_status: str = "success",
+    rpkm_sha256: str | None = None,
 ) -> None:
     run_dir = runs_dir / sample_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -86,6 +88,8 @@ def _write_run_context(
         "overall_status": overall_status,
         "run_at": "2026-07-16T12:00:00+00:00",
     }
+    if rpkm_sha256 is not None:
+        context["rpkm_sha256"] = rpkm_sha256
     (run_dir / "run_context.json").write_text(json.dumps(context))
 
 
@@ -151,6 +155,7 @@ def test_select_ready_when_fresh(dataset_env):
         rpkm_path=rpkm,
         mtime=int(stat.st_mtime),
         size=stat.st_size,
+        rpkm_sha256=hashlib.sha256(rpkm.read_bytes()).hexdigest(),
     )
     store.refresh(settings)
 
@@ -159,6 +164,29 @@ def test_select_ready_when_fresh(dataset_env):
     assert res.status_code == 200
     assert res.json() == {"status": "ready"}
     assert store.active_sample_id == "proj"
+    assert store.get_entry("proj").status == "ready"
+
+
+def test_select_stale_when_mtime_differs_even_if_sha_matches(dataset_env):
+    client, store, _runner, settings, data_root, runs_dir = dataset_env
+    rpkm = _write_rpkm(data_root / "proj" / "RPKM_table.tsv")
+    stat = rpkm.stat()
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=1,
+        size=stat.st_size,
+        rpkm_sha256=hashlib.sha256(rpkm.read_bytes()).hexdigest(),
+    )
+    store.refresh(settings)
+    assert store.get_entry("proj").status == "stale"
+
+    res = client.post("/api/datasets/select", json={"sample_id": "proj"})
+
+    assert res.status_code == 200
+    assert res.json() == {"status": "running", "sample_id": "proj"}
+    assert store.running_sample_id == "proj"
 
 
 def test_select_unknown_sample_returns_404(dataset_env):

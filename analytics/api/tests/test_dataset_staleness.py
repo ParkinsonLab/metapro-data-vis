@@ -86,12 +86,52 @@ def test_verify_staleness_fresh_when_mtime_and_size_match(tmp_path):
         rpkm_path=rpkm,
         mtime=int(stat.st_mtime),
         size=stat.st_size,
+        rpkm_sha256=_sha256(rpkm),
     )
 
     result = verify_staleness(rpkm, runs_dir, "proj")
 
     assert result.needs_pipeline is False
     assert result.reason == StalenessReason.FRESH
+
+
+def test_verify_staleness_stale_when_mtime_size_match_but_sha_missing(tmp_path):
+    runs_dir = tmp_path / "runs"
+    rpkm = tmp_path / "proj" / "RPKM_table.tsv"
+    _write_rpkm(rpkm)
+    stat = rpkm.stat()
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=int(stat.st_mtime),
+        size=stat.st_size,
+    )
+
+    result = verify_staleness(rpkm, runs_dir, "proj")
+
+    assert result.needs_pipeline is True
+    assert result.reason == StalenessReason.SHA256_MISMATCH
+
+
+def test_verify_staleness_sha256_mismatch_when_mtime_size_match(tmp_path):
+    runs_dir = tmp_path / "runs"
+    rpkm = tmp_path / "proj" / "RPKM_table.tsv"
+    _write_rpkm(rpkm)
+    stat = rpkm.stat()
+    _write_run_context(
+        runs_dir,
+        "proj",
+        rpkm_path=rpkm,
+        mtime=int(stat.st_mtime),
+        size=stat.st_size,
+        rpkm_sha256="0" * 64,
+    )
+
+    result = verify_staleness(rpkm, runs_dir, "proj")
+
+    assert result.needs_pipeline is True
+    assert result.reason == StalenessReason.SHA256_MISMATCH
 
 
 def test_verify_staleness_mtime_size_mismatch_without_sha256(tmp_path):
@@ -113,7 +153,7 @@ def test_verify_staleness_mtime_size_mismatch_without_sha256(tmp_path):
     assert result.reason == StalenessReason.MTIME_SIZE_MISMATCH
 
 
-def test_verify_staleness_fresh_when_mtime_differs_but_sha256_matches(tmp_path):
+def test_verify_staleness_stale_when_mtime_differs_even_if_sha256_matches(tmp_path):
     runs_dir = tmp_path / "runs"
     rpkm = tmp_path / "proj" / "RPKM_table.tsv"
     _write_rpkm(rpkm)
@@ -129,8 +169,8 @@ def test_verify_staleness_fresh_when_mtime_differs_but_sha256_matches(tmp_path):
 
     result = verify_staleness(rpkm, runs_dir, "proj")
 
-    assert result.needs_pipeline is False
-    assert result.reason == StalenessReason.FRESH
+    assert result.needs_pipeline is True
+    assert result.reason == StalenessReason.MTIME_SIZE_MISMATCH
 
 
 def test_verify_staleness_failed_run_when_overall_status_not_success(tmp_path):
@@ -164,6 +204,7 @@ def test_verify_staleness_fresh_when_success_with_warnings(tmp_path):
         rpkm_path=rpkm,
         mtime=int(stat.st_mtime),
         size=stat.st_size,
+        rpkm_sha256=_sha256(rpkm),
         overall_status="success_with_warnings",
     )
 
@@ -173,7 +214,7 @@ def test_verify_staleness_fresh_when_success_with_warnings(tmp_path):
     assert result.reason == StalenessReason.FRESH
 
 
-def test_verify_staleness_sha256_mismatch_when_mtime_size_changed(tmp_path):
+def test_verify_staleness_stale_when_mtime_size_changed(tmp_path):
     runs_dir = tmp_path / "runs"
     rpkm = tmp_path / "proj" / "RPKM_table.tsv"
     _write_rpkm(rpkm, "gene\trpkm\nversion-a\n")
@@ -190,4 +231,4 @@ def test_verify_staleness_sha256_mismatch_when_mtime_size_changed(tmp_path):
     result = verify_staleness(rpkm, runs_dir, "proj")
 
     assert result.needs_pipeline is True
-    assert result.reason == StalenessReason.SHA256_MISMATCH
+    assert result.reason == StalenessReason.MTIME_SIZE_MISMATCH
