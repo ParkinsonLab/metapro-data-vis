@@ -163,6 +163,31 @@ def _run_dbt(
     return {"returncode": result.returncode, "db_path": str(db_path)}
 
 
+def _normalize_dbt_error_message(msg: str) -> str:
+    stripped = msg.strip()
+    for prefix in ("Invalid Input Error: ", "Binder Error: ", "Catalog Error: "):
+        if prefix in stripped:
+            return stripped.split(prefix, 1)[-1].strip()
+    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    return lines[-1] if lines else stripped
+
+
+def _parse_last_error(transform_dir: Path) -> str | None:
+    results_path = transform_dir / "target/run_results.json"
+    if not results_path.exists():
+        return None
+    try:
+        data = json.loads(results_path.read_text())
+        for result in data.get("results", []):
+            if result.get("status") == "error":
+                message = result.get("message")
+                if message:
+                    return _normalize_dbt_error_message(message)
+    except Exception:
+        return None
+    return None
+
+
 def _parse_overall_status(transform_dir: Path) -> str:
     results_path = transform_dir / "target/run_results.json"
     if not results_path.exists():
@@ -230,6 +255,7 @@ def main() -> None:
     )
 
     overall_status = _parse_overall_status(TRANSFORM_DIR)
+    last_error = _parse_last_error(TRANSFORM_DIR) if overall_status == "failed" else None
     info_metrics = _compute_info_metrics(dbt_result["db_path"], args.tax_rank)
 
     context = {
@@ -244,6 +270,8 @@ def main() -> None:
         "info_metrics": info_metrics,
         "run_at": datetime.now(timezone.utc).isoformat(),
     }
+    if last_error is not None:
+        context["last_error"] = last_error
 
     context_path = runs_dir / args.sample_id / "run_context.json"
     context_path.parent.mkdir(parents=True, exist_ok=True)

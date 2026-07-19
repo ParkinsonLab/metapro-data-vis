@@ -130,6 +130,29 @@ FIXTURE_LOG_TEST_RESULT = json.dumps(
     }
 )
 
+FIXTURE_RUN_RESULT_ERROR = json.dumps(
+    {
+        "data": {
+            "msg": (
+                "Runtime Error in model int_rpkm_by_ec_tax "
+                "(models/intermediate/int_rpkm_by_ec_tax.sql)\n"
+                "  Invalid Input Error: RPKM file is empty"
+            ),
+            "node_info": {"node_name": "int_rpkm_by_ec_tax", "resource_type": "model"},
+        },
+        "info": {
+            "name": "RunResultError",
+            "level": "error",
+            "code": "Z024",
+            "msg": (
+                "  Runtime Error in model int_rpkm_by_ec_tax "
+                "(models/intermediate/int_rpkm_by_ec_tax.sql)\n"
+                "  Invalid Input Error: RPKM file is empty"
+            ),
+        },
+    }
+)
+
 
 FIXTURE_RESULT_EVENTS = Path(__file__).parent / "fixtures" / "dbt_fake_rpkm_result_events.jsonl"
 FIXTURE_START_EVENTS = Path(__file__).parent / "fixtures" / "dbt_fake_rpkm_start_events.jsonl"
@@ -288,6 +311,14 @@ def test_parse_ignores_non_json_and_unrelated_events():
     assert parse_dbt_json_line("") is None
     unrelated = json.dumps({"info": {"name": "MainReportVersion"}, "data": {}})
     assert parse_dbt_json_line(unrelated) is None
+
+
+def test_parse_run_result_error_collects_message():
+    errors: list[str] = []
+    event = parse_dbt_json_line(FIXTURE_RUN_RESULT_ERROR, error_messages=errors)
+
+    assert event is None
+    assert errors == ["RPKM file is empty"]
 
 
 @pytest.mark.anyio
@@ -452,3 +483,34 @@ async def test_pipeline_runner_emits_error_on_nonzero_exit(tmp_path):
     assert "dbt build failed" in event.data["message"]
     assert store.active_sample_id is None
     assert store.get_entry("proj").status != "running"
+
+
+@pytest.mark.anyio
+async def test_pipeline_runner_prefers_run_result_error_over_stderr(tmp_path):
+    data_root = tmp_path / "data"
+    runs_dir = data_root / "vis" / "runs"
+    rpkm = data_root / "proj" / "RPKM_table.tsv"
+    rpkm.parent.mkdir(parents=True)
+    rpkm.write_text("gene\trpkm\n")
+
+    settings = _settings(data_root, runs_dir)
+    store = CatalogStore()
+    store.refresh(settings)
+    runner = PipelineRunner(store, settings)
+
+    mock_proc = MagicMock()
+    mock_proc.stdout = [FIXTURE_RUN_RESULT_ERROR + "\n"]
+    mock_proc.stderr = StringIO("run_context.json written to /tmp/run_context.json\n")
+    mock_proc.wait.return_value = 1
+    mock_proc.returncode = 1
+
+    runner._popen = lambda cmd, **kwargs: mock_proc  # type: ignore[method-assign]
+
+    await runner.run("proj", rpkm)
+
+    queue = runner.get_queue("proj")
+    events = []
+    while not queue.empty():
+        events.append(queue.get_nowait())
+    assert events[-1].kind == "error"
+    assert events[-1].data["message"] == "RPKM file is empty"

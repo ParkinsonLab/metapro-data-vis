@@ -1,6 +1,8 @@
 -- Wide RPKM TSV → EC × tax_id grain. Ingest via rpkm_ingest_long(); no materialized staging table.
 -- Gene aggregation: SUM(value) per (sample_id, ec_normalized, source_tax_id).
 
+{{ rpkm_ingest_validate() }}
+
 WITH long AS (
     {{ rpkm_ingest_long() }}
 )

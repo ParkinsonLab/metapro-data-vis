@@ -40,6 +40,15 @@ def _node_result_progress(
     return ProgressEvent(kind="progress", data=progress)
 
 
+def _normalize_dbt_error_message(msg: str) -> str:
+    stripped = msg.strip()
+    for prefix in ("Invalid Input Error: ", "Binder Error: ", "Catalog Error: "):
+        if prefix in stripped:
+            return stripped.split(prefix, 1)[-1].strip()
+    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    return lines[-1] if lines else stripped
+
+
 def _node_start_progress(data: dict[str, Any]) -> ProgressEvent:
     node_info = data.get("node_info") or {}
     return _node_result_progress(
@@ -54,6 +63,7 @@ def parse_dbt_json_line(
     line: str,
     *,
     step_counter: list[int] | None = None,
+    error_messages: list[str] | None = None,
 ) -> ProgressEvent | None:
     stripped = line.strip()
     if not stripped or not stripped.startswith("{"):
@@ -110,6 +120,12 @@ def parse_dbt_json_line(
             total=data.get("num_models"),
         )
 
+    if event_name == "RunResultError":
+        raw_msg = data.get("msg") or info.get("msg")
+        if raw_msg and error_messages is not None:
+            error_messages.append(_normalize_dbt_error_message(raw_msg))
+        return None
+
     return None
 
 
@@ -151,7 +167,7 @@ class PipelineRunner:
         self._catalog.set_running(sample_id)
         loop = asyncio.get_running_loop()
 
-        def _execute() -> tuple[int, str]:
+        def _execute() -> tuple[int, str, list[str]]:
             proc = self._popen(
                 self._pipeline_cmd(sample_id, rpkm_path),
                 cwd=str(_ANALYTICS_DIR),
@@ -163,8 +179,13 @@ class PipelineRunner:
             )
             assert proc.stdout is not None
             step_counter = [0]
+            error_messages: list[str] = []
             for line in proc.stdout:
-                event = parse_dbt_json_line(line, step_counter=step_counter)
+                event = parse_dbt_json_line(
+                    line,
+                    step_counter=step_counter,
+                    error_messages=error_messages,
+                )
                 if event is not None:
                     future = asyncio.run_coroutine_threadsafe(queue.put(event), loop)
                     future.result()
@@ -172,9 +193,9 @@ class PipelineRunner:
             if proc.stderr is not None:
                 stderr = proc.stderr.read()
             returncode = proc.wait()
-            return returncode, stderr
+            return returncode, stderr, error_messages
 
-        returncode, stderr = await asyncio.to_thread(_execute)
+        returncode, stderr, error_messages = await asyncio.to_thread(_execute)
 
         self._catalog.set_running(None)
         self._catalog.refresh(self._settings)
@@ -189,7 +210,10 @@ class PipelineRunner:
             )
             return
 
-        message = stderr.strip() or f"pipeline exited with code {returncode}"
+        if error_messages:
+            message = error_messages[-1]
+        else:
+            message = stderr.strip() or f"pipeline exited with code {returncode}"
         await queue.put(
             ProgressEvent(
                 kind="error",

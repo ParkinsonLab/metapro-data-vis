@@ -191,6 +191,7 @@ Explicit registry (not discovered by scan):
 | `/app/resources/example_data/test_rpkm_1.tsv` | `test_rpkm_1` |
 | `/app/resources/example_data/test_rpkm_2.tsv` | `test_rpkm_2` |
 | `/app/analytics/transform/tests/fixtures/fake_rpkm.tsv` | `fake_rpkm` |
+| `/app/analytics/transform/tests/fixtures/bad_rpkm_empty.tsv` | `bad_rpkm_empty` (invalid; pipeline should fail) |
 | `/app/resources/example_data/stress_rpkm_1.tsv` | `stress_rpkm_1` |
 | `/app/resources/example_data/stress_rpkm_2.tsv` | `stress_rpkm_2` |
 
