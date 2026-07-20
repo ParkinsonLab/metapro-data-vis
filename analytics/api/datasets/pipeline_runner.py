@@ -40,13 +40,7 @@ def _node_result_progress(
     return ProgressEvent(kind="progress", data=progress)
 
 
-def _normalize_dbt_error_message(msg: str) -> str:
-    stripped = msg.strip()
-    for prefix in ("Invalid Input Error: ", "Binder Error: ", "Catalog Error: "):
-        if prefix in stripped:
-            return stripped.split(prefix, 1)[-1].strip()
-    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
-    return lines[-1] if lines else stripped
+from testing.dbt_failure_messages import format_dbt_failure_message
 
 
 def _node_start_progress(data: dict[str, Any]) -> ProgressEvent:
@@ -123,7 +117,13 @@ def parse_dbt_json_line(
     if event_name == "RunResultError":
         raw_msg = data.get("msg") or info.get("msg")
         if raw_msg and error_messages is not None:
-            error_messages.append(_normalize_dbt_error_message(raw_msg))
+            node_info = data.get("node_info") or {}
+            message = format_dbt_failure_message(
+                unique_id=node_info.get("unique_id", ""),
+                node_name=node_info.get("node_name"),
+                message=raw_msg,
+            )
+            error_messages.append(message)
         return None
 
     return None

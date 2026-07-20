@@ -27,6 +27,11 @@ TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 DEFAULT_REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
 DEFAULT_RUNS_DIR = TRANSFORM_DIR / "runs"
 
+if str(ANALYTICS_DIR) not in sys.path:
+    sys.path.insert(0, str(ANALYTICS_DIR))
+
+from testing.dbt_failure_messages import format_dbt_run_result
+
 REQUIRED_BRIDGES = ["bridge_ec_pathway.parquet", "bridge_tax_lineage.parquet"]
 
 _LINEAGE_RANKS = ("kingdom", "phylum", "class", "order", "family", "genus", "species")
@@ -163,15 +168,6 @@ def _run_dbt(
     return {"returncode": result.returncode, "db_path": str(db_path)}
 
 
-def _normalize_dbt_error_message(msg: str) -> str:
-    stripped = msg.strip()
-    for prefix in ("Invalid Input Error: ", "Binder Error: ", "Catalog Error: "):
-        if prefix in stripped:
-            return stripped.split(prefix, 1)[-1].strip()
-    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
-    return lines[-1] if lines else stripped
-
-
 def _parse_last_error(transform_dir: Path) -> str | None:
     results_path = transform_dir / "target/run_results.json"
     if not results_path.exists():
@@ -179,10 +175,10 @@ def _parse_last_error(transform_dir: Path) -> str | None:
     try:
         data = json.loads(results_path.read_text())
         for result in data.get("results", []):
-            if result.get("status") == "error":
-                message = result.get("message")
-                if message:
-                    return _normalize_dbt_error_message(message)
+            if result.get("status") in ("error", "fail"):
+                formatted = format_dbt_run_result(result)
+                if formatted:
+                    return formatted
     except Exception:
         return None
     return None
@@ -195,7 +191,7 @@ def _parse_overall_status(transform_dir: Path) -> str:
     try:
         data = json.loads(results_path.read_text())
         statuses = [r.get("status", "") for r in data.get("results", [])]
-        if any("error" in s for s in statuses):
+        if any(s in ("error", "fail") for s in statuses):
             return "failed"
         if any("warn" in s for s in statuses):
             return "success_with_warnings"

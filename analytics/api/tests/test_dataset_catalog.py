@@ -174,6 +174,7 @@ def test_scan_merges_dev_fixtures_when_enabled(tmp_path):
     fixture_ids = {e.sample_id for e in entries if e.is_dev_fixture}
     assert "fake_rpkm" in fixture_ids
     assert "bad_rpkm_empty" in fixture_ids
+    assert "bad_rpkm_empty_mart" in fixture_ids
     assert "test_rpkm_1" in fixture_ids
     assert "test_rpkm_2" in fixture_ids
     fake = next(e for e in entries if e.sample_id == "fake_rpkm")

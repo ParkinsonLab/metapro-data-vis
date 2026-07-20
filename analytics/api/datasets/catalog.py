@@ -16,6 +16,7 @@ _DEV_FIXTURE_PATHS: tuple[tuple[str, str], ...] = (
     ("resources/example_data/test_rpkm_2.tsv", "test_rpkm_2"),
     ("analytics/transform/tests/fixtures/fake_rpkm.tsv", "fake_rpkm"),
     ("analytics/transform/tests/fixtures/bad_rpkm_empty.tsv", "bad_rpkm_empty"),
+    ("analytics/transform/tests/fixtures/bad_rpkm_empty_mart.tsv", "bad_rpkm_empty_mart"),
     ("resources/example_data/stress_rpkm_1.tsv", "stress_rpkm_1"),
     ("resources/example_data/stress_rpkm_2.tsv", "stress_rpkm_2"),
 )

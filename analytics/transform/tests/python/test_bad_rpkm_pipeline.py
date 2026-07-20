@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from testing.bad_rpkm_fixtures import BAD_RPKM_EMPTY
+from testing.bad_rpkm_fixtures import BAD_RPKM_EMPTY, BAD_RPKM_EMPTY_MART
 from testing.fake_rpkm_fixture import ANALYTICS_DIR, bridges_available, skip_reason
 
 pytestmark = pytest.mark.skipif(not bridges_available(), reason=skip_reason())
@@ -60,3 +60,22 @@ def test_run_pipeline_empty_rpkm_fails(tmp_path: Path) -> None:
     assert context["overall_status"] == "failed"
     assert context["rpkm_size"] == 0
     assert context.get("last_error") == "RPKM file is empty"
+
+
+def test_run_pipeline_empty_mart_rpkm_fails_assertion(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    sample_id = "bad_empty_mart"
+
+    result = _run_pipeline(
+        sample_id=sample_id,
+        rpkm_path=BAD_RPKM_EMPTY_MART,
+        runs_dir=runs_dir,
+    )
+
+    assert result.returncode != 0
+
+    context_path = runs_dir / sample_id / "run_context.json"
+    assert context_path.is_file()
+    context = json.loads(context_path.read_text())
+    assert context["overall_status"] == "failed"
+    assert context.get("last_error") == "Assertion failed: assert_mart_nonempty"

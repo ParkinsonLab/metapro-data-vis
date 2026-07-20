@@ -9,6 +9,8 @@ import pytest
 
 from transform.scripts.run_pipeline import (
     _default_runs_dir,
+    _parse_last_error,
+    _parse_overall_status,
     _prepare_sample_db,
     _rpkm_identity,
     _run_dbt,
@@ -72,6 +74,42 @@ def test_rpkm_identity_includes_mtime_size_sha256(tmp_path):
     assert identity["rpkm_mtime"] == int(stat.st_mtime)
     assert identity["rpkm_size"] == stat.st_size
     assert len(identity["rpkm_sha256"]) == 64
+
+
+def test_parse_overall_status_marks_dbt_test_fail_as_failed(tmp_path):
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "run_results.json").write_text(
+        json.dumps(
+            {
+                "results": [
+                    {"status": "success"},
+                    {"status": "fail"},
+                    {"status": "warn"},
+                ]
+            }
+        )
+    )
+    assert _parse_overall_status(tmp_path) == "failed"
+
+
+def test_parse_last_error_includes_failed_test_name(tmp_path):
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "run_results.json").write_text(
+        json.dumps(
+            {
+                "results": [
+                    {
+                        "status": "fail",
+                        "unique_id": "test.rpkm_transform.assert_mart_nonempty",
+                        "message": "Got 1 result, configured to fail if != 0",
+                    }
+                ]
+            }
+        )
+    )
+    assert _parse_last_error(tmp_path) == "Assertion failed: assert_mart_nonempty"
 
 
 def test_run_dbt_adds_json_log_format_when_requested(tmp_path):
