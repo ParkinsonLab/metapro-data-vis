@@ -1,16 +1,12 @@
 """Distribution-time reference bridge builder (pure DuckDB SQL — no dbt)."""
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 
 import duckdb
 
-REPO_ROOT = Path(subprocess.check_output(
-    ['git', 'rev-parse', '--show-toplevel'],
-    cwd=Path(__file__).parent
-).decode().strip())
+REPO_ROOT = Path(__file__).resolve().parents[3]
 RAW_PARQUET_DIR = REPO_ROOT / "resources/db/parquet"
 REFERENCE_PARQUET_DIR = Path(__file__).resolve().parents[1] / "reference/parquet"
 

@@ -12,6 +12,7 @@ build
 
 # Mounted-data dev root (DATA_ROOT=./local-data); user datasets + vis/runs output
 local-data/
+local-data-docker-test/
 
 # Python
 __pycache__/

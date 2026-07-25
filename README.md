@@ -109,7 +109,15 @@ docker run -p 8080:8080 \
   metapro-viz
 ```
 
-Reference taxonomy and pathway data are baked into the image at build time from `resources/db/parquet/`. They are not read from the mounted MetaPro output.
+Reference taxonomy bridges and pathway layout files are baked into the image at build time from `resources/db/parquet/` (build inputs; only derived bridges and three pathway layout files are kept in the final image). They are not read from the mounted MetaPro output.
+
+For a local smoke test after building, mount `local-data/` (gitignored; see [Mounted data (local)](#mounted-data-local)):
+
+```bash
+docker run --platform linux/amd64 -p 8080:8080 \
+  -v "$(pwd)/local-data:/data" \
+  metapro-viz
+```
 
 **Apple Silicon (M1/M2/M3):** the image build uses TensorFlow native bindings that are x86_64-only in Linux containers. Before building:
 
