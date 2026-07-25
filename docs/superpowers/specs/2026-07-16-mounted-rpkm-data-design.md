@@ -96,13 +96,13 @@ docker run -p 8080:8080 \
   metapro-viz
 ```
 
-If MetaPro output is directly in that folder:
+MetaPro mouse tutorial layout (see `README.md` Usage section):
 
 | Host path | Container path | `sample_id` |
 |---|---|---|
-| `tutorial_files/RPKM_table.tsv` | `/data/RPKM_table.tsv` | `_root` |
+| `tutorial_files/mouse1_run/outputs/final_results/RPKM_table.tsv` | `/data/mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` |
 
-Nested output is also supported, e.g. `tutorial_files/run1/RPKM_table.tsv` → `/data/run1/RPKM_table.tsv` → `run1`.
+Other nested `RPKM_table.tsv` paths are supported; `sample_id` is the parent path under `/data` with `/` → `__`.
 
 ## 3. Architecture
 

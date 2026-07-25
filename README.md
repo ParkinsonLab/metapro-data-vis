@@ -8,14 +8,21 @@ Metapro Viz is a downstream data visualization tool for [MetaPro](https://github
 
 ## Usage
 
-Metapro Viz runs as a web application. Build and start with Docker:
+Metapro Viz runs as a web application served from a single container (FastAPI + static UI). The app discovers MetaPro `RPKM_table.tsv` files on disk, runs the analytics pipeline when you select a dataset, then serves visualizations from the resulting DuckDB.
+
+### Build and run
 
 ```bash
+git lfs pull   # required once: resources/db/parquet for the image build
 docker build -t metapro-viz .
-docker run -p 8080:8080 metapro-viz
+docker run -p 8080:8080 \
+  -v ~/Downloads/tutorial_files:/data \
+  metapro-viz
 ```
 
-**Apple Silicon (M1/M2/M3):** the backend depends on TensorFlow native bindings that are x86_64-only in Linux containers. Before building:
+Open http://localhost:8080 and use the **Data** panel to select the dataset (e.g. `mouse1_run__outputs__final_results` for the MetaPro mouse tutorial).
+
+**Apple Silicon (M1/M2/M3):** the frontend build step uses TensorFlow native bindings that are x86_64-only in Linux containers. Before building:
 
 1. Install Rosetta 2 if prompted: `softwareupdate --install-rosetta`
 2. In **Docker Desktop → Settings → General**, enable:
@@ -26,10 +33,45 @@ Then build and run with the `amd64` platform:
 
 ```bash
 docker build --platform linux/amd64 -t metapro-viz .
-docker run --platform linux/amd64 -p 8080:8080 metapro-viz
+docker run --platform linux/amd64 -p 8080:8080 \
+  -v ~/Downloads/tutorial_files:/data \
+  metapro-viz
 ```
 
-Open http://localhost:8080
+### Data layout
+
+Mount the MetaPro tutorial folder (or your own MetaPro output tree) at `/data` (`DATA_ROOT`). The app recursively discovers files named `RPKM_table.tsv` anywhere under `/data`, except under `/data/vis/` (pipeline output). Other files and folders in the mount are ignored.
+
+Example — [MetaPro mouse tutorial](https://github.com/ParkinsonLab/MetaPro) unpacked as `~/Downloads/tutorial_files`:
+
+```
+tutorial_files/
+  mouse1_run/
+    outputs/final_results/RPKM_table.tsv   ← discovered
+    assemble_contigs/…
+    taxonomic_annotation/…
+    …
+  databases/                               ← no RPKM_table.tsv; ignored
+  mouse1.fastq, config_mouse_tutorial.ini, …
+```
+
+| Host path | Container path | Dataset id |
+|---|---|---|
+| `tutorial_files/mouse1_run/outputs/final_results/RPKM_table.tsv` | `/data/mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` |
+
+Dataset ids are the path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A `RPKM_table.tsv` sitting directly in the mount root would have dataset id `_root`.
+
+On first select, the app runs the dbt pipeline and writes artifacts under `/data/vis/runs/{dataset_id}/` (e.g. `vis/runs/mouse1_run__outputs__final_results/sample.duckdb`). Deleting that folder is safe; the pipeline reruns on the next select.
+
+Reference taxonomy/pathway bridges are baked into the image at build time (`resources/db/parquet/` → `analytics/transform/reference/parquet/`). They are not read from the mounted volume.
+
+Optional environment overrides (defaults shown):
+
+| Variable | Default in container |
+|---|---|
+| `DATA_ROOT` | `/data` |
+| `RUNS_DIR` | `/data/vis/runs` |
+| `REFERENCE_PARQUET_DIR` | `/app/analytics/transform/reference/parquet` |
 
 ## Development
 
@@ -37,8 +79,10 @@ Open http://localhost:8080
 npm install   # Node 22, see .nvmrc
 npm test
 npm run build
-npm start     # production on :8080
+npm start     # legacy Express production server on :8080 (not used by Docker)
 ```
+
+Local dev mirrors the container layout under `local-data/` (see **Mounted data** below). Use `npm run dev:mounted` for the same FastAPI + Data panel flow as the container, with Vite hot reload on :5173.
 
 ### Dev modes
 
@@ -47,7 +91,7 @@ npm start     # production on :8080
 | `npm run dev` | Upload (legacy) | Express `:3001` | `localhost:3001` |
 | `npm run dev:mounted` | Data panel (mounted) | FastAPI `:8080` | `localhost:8080` |
 
-`npm run dev` starts Express + Vite (today's default). `npm run dev:mounted` starts FastAPI + Vite with `VITE_DATA_MODE=mounted`, which shows the Data panel and proxies all `/api` traffic to FastAPI.
+`npm run dev` starts Express + Vite (legacy upload flow). `npm run dev:mounted` starts FastAPI + Vite with `VITE_DATA_MODE=mounted`, which shows the Data panel and proxies all `/api` traffic to FastAPI — closest match to the Docker image.
 
 You can also run the backends separately:
 
@@ -61,33 +105,36 @@ Set `VITE_DATA_MODE=mounted` (or `upload`) when starting `dev:web` to pick the d
 
 ### Mounted data (local)
 
-FastAPI discovers `RPKM_table.tsv` files under `DATA_ROOT`. For local dev, `dev:fastapi` sets `DATA_ROOT=../local-data` relative to `analytics/`.
+FastAPI discovers `RPKM_table.tsv` files under `DATA_ROOT`. `dev:fastapi` sets `DATA_ROOT=../local-data` relative to `analytics/`.
 
-Create a fixture dataset:
+**Quick fixture** (small synthetic file):
 
 ```bash
 mkdir -p local-data/tutorial
 cp analytics/transform/tests/fixtures/fake_rpkm.tsv local-data/tutorial/RPKM_table.tsv
 ```
 
-Then run `npm run dev:mounted` and open http://localhost:5173. Select the `tutorial` dataset in the Data panel.
+Select dataset `tutorial` in the Data panel.
 
-To mount external data in Docker:
+**MetaPro tutorial tree** (same layout as mounting `~/Downloads/tutorial_files` in Docker):
 
 ```bash
-docker run --platform linux/amd64 -p 8080:8080 \
-  -v /path/to/your/data:/data \
-  metapro-viz
+mkdir -p local-data
+cp -R ~/Downloads/tutorial_files/mouse1_run local-data/
 ```
+
+Select dataset `mouse1_run__outputs__final_results`. Pipeline output goes to `local-data/vis/runs/{dataset_id}/`, analogous to `/data/vis/runs/` in the container.
+
+Then run `npm run dev:mounted` and open http://localhost:5173.
 
 ### Git LFS
 
 Large data files are tracked with [Git LFS](https://git-lfs.com/) (see `.gitattributes`):
 
-- `resources/db/parquet/*.parquet` — reference table dumps for analytics
-- `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs
+- `resources/db/parquet/*.parquet` — reference table dumps for analytics (required for `docker build`)
+- `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs for local dev and tests
 
-`taxonomy.db` is **not** in LFS (local/gitignored). To regenerate Parquet without LFS blobs, see [analytics/exploration/README.md](analytics/exploration/README.md).
+`taxonomy.db` is **not** in LFS (local/gitignored). The Docker image builds reference bridges from the Parquet files at image build time; you do not mount `taxonomy.db` into the container. To regenerate Parquet without LFS blobs, see [analytics/exploration/README.md](analytics/exploration/README.md).
 
 **One-time setup** (per machine):
 
@@ -112,6 +159,8 @@ git lfs pull
 ```
 
 ### Database
+
+`taxonomy.db` is used for **local development** (legacy Express path and regenerating reference Parquet). It is **not** copied into the Docker image.
 
 When released, the installer will fetch the supporting databases from our server.
 It is also possible to create the database from scratch by running the following notebooks in order, under `resources/scripts`

@@ -6,7 +6,8 @@ COPY package.json package-lock.json ./
 # Enable Rosetta in Docker Desktop (Settings → General) for best performance.
 RUN npm ci
 COPY . .
-RUN npm run build
+# FastAPI-only image: baked-in mounted data UI (no Express upload flow).
+RUN VITE_DATA_MODE=mounted npm run build
 
 FROM python:3.14-slim AS runtime
 WORKDIR /app
@@ -28,6 +29,8 @@ COPY resources/db/parquet/ ./resources/db/parquet/
 RUN git init /app
 
 WORKDIR /app/analytics
+RUN rm -rf transform/reference/parquet \
+    && mkdir -p transform/reference/parquet
 RUN uv run python transform/scripts/build_reference.py
 
 COPY --from=frontend-build /app/dist /app/dist
