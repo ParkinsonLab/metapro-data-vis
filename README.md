@@ -42,7 +42,7 @@ docker run --platform linux/amd64 -p 8080:8080 \
 
 Mount the MetaPro tutorial folder (or your own MetaPro output tree) at `/data` (`DATA_ROOT`). The app recursively discovers files named `RPKM_table.tsv` anywhere under `/data`, except under `/data/vis/` (pipeline output). Other files and folders in the mount are ignored.
 
-Example — [MetaPro mouse tutorial](https://github.com/ParkinsonLab/MetaPro) unpacked as `~/Downloads/tutorial_files`:
+Example — [MetaPro mouse tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) unpacked as `~/Downloads/tutorial_files`:
 
 ```
 tutorial_files/
@@ -60,6 +60,8 @@ tutorial_files/
 | `tutorial_files/mouse1_run/outputs/final_results/RPKM_table.tsv` | `/data/mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` |
 
 Dataset ids are the path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A `RPKM_table.tsv` sitting directly in the mount root would have dataset id `_root`.
+
+The release 1.0 tutorial `RPKM_table.tsv` uses legacy scientific-name column headers; replace its header row before ingest (see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md)).
 
 On first select, the app runs the dbt pipeline and writes artifacts under `/data/vis/runs/{dataset_id}/` (e.g. `vis/runs/mouse1_run__outputs__final_results/sample.duckdb`). Deleting that folder is safe; the pipeline reruns on the next select.
 
@@ -122,6 +124,8 @@ Select dataset `tutorial` in the Data panel.
 mkdir -p local-data
 cp -R ~/Downloads/tutorial_files/mouse1_run local-data/
 ```
+
+If you use the [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) `RPKM_table.tsv`, replace its header row first — see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md).
 
 Select dataset `mouse1_run__outputs__final_results`. Pipeline output goes to `local-data/vis/runs/{dataset_id}/`, analogous to `/data/vis/runs/` in the container.
 
