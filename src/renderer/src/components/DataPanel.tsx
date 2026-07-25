@@ -16,17 +16,18 @@ const applySelection = (entry: DatasetEntry): void => {
 }
 
 const ProgressBar = ({ progress }: { progress: DatasetProgress | null }) => {
-  if (!progress) return null
-
-  const detail = [progress.name, progress.state].filter(Boolean).join(' — ')
+  const detail = progress
+    ? [progress.name, progress.state].filter(Boolean).join(' — ')
+    : ''
   const label = detail
     ? `Processing for visualization — ${detail}`
     : 'Processing for visualization…'
   const hasRatio =
+    progress !== null &&
     typeof progress.step === 'number' &&
     typeof progress.total === 'number' &&
     progress.total > 0
-  const pct = hasRatio ? Math.min(100, Math.round((progress.step! / progress.total!) * 100)) : null
+  const pct = hasRatio ? Math.min(100, Math.round((progress!.step! / progress!.total!) * 100)) : null
 
   return (
     <div style={{ margin: '12px 0', maxWidth: 480 }}>
@@ -42,7 +43,7 @@ const ProgressBar = ({ progress }: { progress: DatasetProgress | null }) => {
         <div
           style={{
             height: '100%',
-            width: pct !== null ? `${pct}%` : '40%',
+            width: `${pct ?? 0}%`,
             background: '#2c6e9b',
             borderRadius: 4,
             transition: 'width 0.2s ease'
@@ -51,7 +52,7 @@ const ProgressBar = ({ progress }: { progress: DatasetProgress | null }) => {
       </div>
       {hasRatio && (
         <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
-          Step {progress.step} of {progress.total}
+          Step {progress!.step} of {progress!.total}
         </div>
       )}
     </div>
@@ -213,7 +214,7 @@ const DataPanel = (): React.JSX.Element => {
                     {entry.is_dev_fixture ? ' (example)' : ''}
                   </td>
                   <td style={tdStyle}>{entry.path}</td>
-                  <td style={tdStyle}>{entry.status}</td>
+                  <td style={tdStyle}>{isRunning ? 'Processing' : entry.status}</td>
                   <td style={tdStyle}>{entry.last_run_at ?? '—'}</td>
                 </tr>
               )
