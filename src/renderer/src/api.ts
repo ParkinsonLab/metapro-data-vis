@@ -76,7 +76,7 @@ export interface DatasetsResponse {
 }
 
 export interface SelectDatasetResponse {
-  status: 'ready' | 'running'
+  status: 'Ready' | 'Processing'
   sample_id?: string
 }
 
@@ -147,7 +147,7 @@ export const subscribeDatasetEvents = (
       es.close()
       return
     }
-    handlers.onConnectionError?.('Lost connection to dataset pipeline')
+    handlers.onConnectionError?.('Lost connection while processing dataset')
     es.close()
   })
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from api.config import Settings
 from api.datasets.identity import sample_id_from_path
+from api.datasets import status as dataset_status
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 _RPKM_FILENAME = "RPKM_table.tsv"
@@ -68,23 +69,23 @@ def _derive_status(
     db_path = runs_dir / sample_id / "sample.duckdb"
     context = _read_run_context(runs_dir, sample_id)
     if context is None or not db_path.is_file():
-        return "discovered", None, None
+        return dataset_status.NOT_PROCESSED, None, None
 
     last_run_at = context.get("run_at")
     overall_status = context.get("overall_status")
     if overall_status not in ("success", "success_with_warnings"):
-        last_error = context.get("last_error") or f"pipeline status: {overall_status}"
-        return "failed", last_run_at, last_error
+        last_error = context.get("last_error") or f"processing status: {overall_status}"
+        return dataset_status.FAILED, last_run_at, last_error
 
     ctx_mtime = context.get("rpkm_mtime")
     ctx_size = context.get("rpkm_size")
     if ctx_mtime is None or ctx_size is None:
-        return "stale", last_run_at, None
+        return dataset_status.NEEDS_REPROCESSING, last_run_at, None
 
     if mtime != ctx_mtime or size != ctx_size:
-        return "stale", last_run_at, None
+        return dataset_status.NEEDS_REPROCESSING, last_run_at, None
 
-    return "ready", last_run_at, None
+    return dataset_status.READY, last_run_at, None
 
 
 def _entry_from_rpkm(
@@ -148,7 +149,7 @@ class CatalogStore:
 
     def _with_running_overlay(self, entry: DatasetEntry) -> DatasetEntry:
         if entry.sample_id == self._running_sample_id:
-            return replace(entry, status="running")
+            return replace(entry, status=dataset_status.PROCESSING)
         return entry
 
     @property

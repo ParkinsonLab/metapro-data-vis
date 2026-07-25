@@ -127,7 +127,7 @@ def test_list_datasets_returns_catalog_and_active_sample_id(dataset_env):
     entry = body["datasets"][0]
     assert entry["sample_id"] == "proj"
     assert entry["path"] == str(rpkm.resolve())
-    assert entry["status"] == "discovered"
+    assert entry["status"] == "Not processed"
     assert entry["is_dev_fixture"] is False
 
 
@@ -162,9 +162,9 @@ def test_select_ready_when_fresh(dataset_env):
     res = client.post("/api/datasets/select", json={"sample_id": "proj"})
 
     assert res.status_code == 200
-    assert res.json() == {"status": "ready"}
+    assert res.json() == {"status": "Ready"}
     assert store.active_sample_id == "proj"
-    assert store.get_entry("proj").status == "ready"
+    assert store.get_entry("proj").status == "Ready"
 
 
 def test_select_stale_when_mtime_differs_even_if_sha_matches(dataset_env):
@@ -180,12 +180,12 @@ def test_select_stale_when_mtime_differs_even_if_sha_matches(dataset_env):
         rpkm_sha256=hashlib.sha256(rpkm.read_bytes()).hexdigest(),
     )
     store.refresh(settings)
-    assert store.get_entry("proj").status == "stale"
+    assert store.get_entry("proj").status == "Needs reprocessing"
 
     res = client.post("/api/datasets/select", json={"sample_id": "proj"})
 
     assert res.status_code == 200
-    assert res.json() == {"status": "running", "sample_id": "proj"}
+    assert res.json() == {"status": "Processing", "sample_id": "proj"}
     assert store.running_sample_id == "proj"
 
 
@@ -218,7 +218,7 @@ def test_select_idempotent_when_same_running(dataset_env):
     res = client.post("/api/datasets/select", json={"sample_id": "proj"})
 
     assert res.status_code == 200
-    assert res.json() == {"status": "running"}
+    assert res.json() == {"status": "Processing"}
 
 
 def test_select_stale_starts_pipeline(dataset_env):
@@ -242,7 +242,7 @@ def test_select_stale_starts_pipeline(dataset_env):
     res = client.post("/api/datasets/select", json={"sample_id": "proj"})
 
     assert res.status_code == 200
-    assert res.json() == {"status": "running", "sample_id": "proj"}
+    assert res.json() == {"status": "Processing", "sample_id": "proj"}
     assert store.running_sample_id == "proj"
 
 
@@ -361,6 +361,6 @@ def test_sse_streams_progress_and_complete(dataset_env):
     assert events[1][1]["state"] == "OK"
     assert events[-1] == (
         "complete",
-        {"status": "ready", "sample_id": "proj"},
+        {"status": "Ready", "sample_id": "proj"},
     )
     assert store.active_sample_id == "proj"

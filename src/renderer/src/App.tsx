@@ -150,10 +150,13 @@ const LoadingLayer = () => {
 }
 
 const DataInfoBar = () => {
+  const dataMode = getDataMode()
   const selected_file_list = useAppStore((state) => state.selected_file_list)
   let text
   if (selected_file_list.length === 0) {
-    text = 'no data selected'
+    text = dataMode === 'mounted' ? 'No dataset selected' : 'no data selected'
+  } else if (dataMode === 'mounted') {
+    text = selected_file_list[0]
   } else {
     text = selected_file_list.join(' vs ')
   }

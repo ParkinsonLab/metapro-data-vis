@@ -18,7 +18,10 @@ const applySelection = (entry: DatasetEntry): void => {
 const ProgressBar = ({ progress }: { progress: DatasetProgress | null }) => {
   if (!progress) return null
 
-  const label = [progress.name, progress.state].filter(Boolean).join(' — ')
+  const detail = [progress.name, progress.state].filter(Boolean).join(' — ')
+  const label = detail
+    ? `Processing for visualization — ${detail}`
+    : 'Processing for visualization…'
   const hasRatio =
     typeof progress.step === 'number' &&
     typeof progress.total === 'number' &&
@@ -27,7 +30,7 @@ const ProgressBar = ({ progress }: { progress: DatasetProgress | null }) => {
 
   return (
     <div style={{ margin: '12px 0', maxWidth: 480 }}>
-      <div style={{ fontSize: 13, marginBottom: 4 }}>{label || 'Running pipeline…'}</div>
+      <div style={{ fontSize: 13, marginBottom: 4 }}>{label}</div>
       <div
         style={{
           height: 8,
@@ -77,7 +80,7 @@ const DataPanel = (): React.JSX.Element => {
       .catch((err) => {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : String(err)
-          useAppStore.setState({ last_error: `datasets: ${msg}` })
+          useAppStore.setState({ last_error: `Data: ${msg}` })
         }
       })
       .finally(() => {
@@ -103,7 +106,7 @@ const DataPanel = (): React.JSX.Element => {
             await loadCatalog()
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err)
-            useAppStore.setState({ last_error: `datasets: ${msg}` })
+            useAppStore.setState({ last_error: `Data: ${msg}` })
           }
         },
         onError: (data) => {
@@ -129,7 +132,7 @@ const DataPanel = (): React.JSX.Element => {
       setActiveSampleId(data.active_sample_id)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      useAppStore.setState({ last_error: `datasets: ${msg}` })
+      useAppStore.setState({ last_error: `Data: ${msg}` })
     } finally {
       setRefreshing(false)
     }
@@ -141,7 +144,7 @@ const DataPanel = (): React.JSX.Element => {
     setRunningSampleId(entry.sample_id)
     try {
       const result = await selectDataset(entry.sample_id)
-      if (result.status === 'ready') {
+      if (result.status === 'Ready') {
         applySelection(entry)
         setActiveSampleId(entry.sample_id)
         setRunningSampleId(null)
@@ -150,7 +153,7 @@ const DataPanel = (): React.JSX.Element => {
       startEventStream(entry)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      useAppStore.setState({ last_error: `datasets: ${msg}` })
+      useAppStore.setState({ last_error: `Data: ${msg}` })
       setRunningSampleId(null)
     }
   }
@@ -162,24 +165,31 @@ const DataPanel = (): React.JSX.Element => {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <h3 style={{ margin: 0 }}>Mounted datasets</h3>
+        <h3 style={{ margin: 0 }}>Datasets</h3>
         <button onClick={handleRefresh} disabled={refreshing || runningSampleId !== null}>
           {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: '#444', maxWidth: 720 }}>
+        Each row is an RPKM_table.tsv in your mounted MetaPro output — click one to process it for
+        visualization.
+      </p>
 
       {runningSampleId && <ProgressBar progress={progress} />}
 
       {datasets.length === 0 ? (
-        <p>No RPKM_table.tsv files found under DATA_ROOT.</p>
+        <p>
+          No datasets found. Mount your MetaPro output folder and look for RPKM_table.tsv files there
+          (files under <code>vis/</code> are ignored).
+        </p>
       ) : (
         <table style={{ borderCollapse: 'collapse', width: '100%', maxWidth: 900 }}>
           <thead>
             <tr>
-              <th style={thStyle}>Sample</th>
+              <th style={thStyle}>Dataset</th>
               <th style={thStyle}>Path</th>
               <th style={thStyle}>Status</th>
-              <th style={thStyle}>Last run</th>
+              <th style={thStyle}>Last processed</th>
             </tr>
           </thead>
           <tbody>
@@ -200,10 +210,10 @@ const DataPanel = (): React.JSX.Element => {
                 >
                   <td style={tdStyle}>
                     {entry.sample_id}
-                    {entry.is_dev_fixture ? ' (dev)' : ''}
+                    {entry.is_dev_fixture ? ' (example)' : ''}
                   </td>
                   <td style={tdStyle}>{entry.path}</td>
-                  <td style={tdStyle}>{isRunning ? 'running' : entry.status}</td>
+                  <td style={tdStyle}>{entry.status}</td>
                   <td style={tdStyle}>{entry.last_run_at ?? '—'}</td>
                 </tr>
               )

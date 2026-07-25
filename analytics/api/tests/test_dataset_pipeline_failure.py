@@ -59,12 +59,12 @@ async def test_pipeline_runner_empty_rpkm_emits_error_and_catalog_failed(
         events.append(queue.get_nowait())
     assert events
     assert events[-1].kind == "error"
-    assert events[-1].data["status"] == "failed"
+    assert events[-1].data["status"] == "Failed"
     assert "RPKM file is empty" in events[-1].data["message"]
 
     entry = store.get_entry("proj")
     assert entry is not None
-    assert entry.status == "failed"
+    assert entry.status == "Failed"
     assert entry.last_error is not None
     assert "RPKM file is empty" in entry.last_error
     assert store.active_sample_id is None
@@ -98,5 +98,5 @@ async def test_pipeline_runner_empty_mart_rpkm_fails_assertion(
 
     entry = store.get_entry("proj")
     assert entry is not None
-    assert entry.status == "failed"
+    assert entry.status == "Failed"
     assert entry.last_error == "Assertion failed: assert_mart_nonempty"

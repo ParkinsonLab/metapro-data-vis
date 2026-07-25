@@ -61,7 +61,7 @@ def test_scan_discovers_rpkm_under_data_root(tmp_path):
     entry = entries[0]
     assert entry.sample_id == "proj"
     assert entry.path == rpkm.resolve()
-    assert entry.status == "discovered"
+    assert entry.status == "Not processed"
     assert entry.is_dev_fixture is False
     assert entry.last_run_at is None
     assert entry.last_error is None
@@ -98,7 +98,7 @@ def test_scan_ready_when_run_context_matches_mtime_size(tmp_path):
 
     entries = scan_datasets(_settings(data_root, runs_dir))
 
-    assert entries[0].status == "ready"
+    assert entries[0].status == "Ready"
     assert entries[0].last_run_at == "2026-07-16T12:00:00+00:00"
     assert entries[0].last_error is None
 
@@ -118,7 +118,7 @@ def test_scan_stale_when_mtime_or_size_differs(tmp_path):
 
     entries = scan_datasets(_settings(data_root, runs_dir))
 
-    assert entries[0].status == "stale"
+    assert entries[0].status == "Needs reprocessing"
 
 
 def test_scan_ready_when_overall_status_success_with_warnings(tmp_path):
@@ -138,7 +138,7 @@ def test_scan_ready_when_overall_status_success_with_warnings(tmp_path):
 
     entries = scan_datasets(_settings(data_root, runs_dir))
 
-    assert entries[0].status == "ready"
+    assert entries[0].status == "Ready"
     assert entries[0].last_error is None
 
 
@@ -159,7 +159,7 @@ def test_scan_failed_when_overall_status_not_success(tmp_path):
 
     entries = scan_datasets(_settings(data_root, runs_dir))
 
-    assert entries[0].status == "failed"
+    assert entries[0].status == "Failed"
 
 
 def test_scan_merges_dev_fixtures_when_enabled(tmp_path):
@@ -198,13 +198,13 @@ def test_catalog_store_refresh_and_running_override(tmp_path):
     store = CatalogStore()
 
     store.refresh(settings)
-    assert store.get_entry("proj").status == "discovered"
+    assert store.get_entry("proj").status == "Not processed"
 
     store.set_running("proj")
-    assert store.get_entry("proj").status == "running"
+    assert store.get_entry("proj").status == "Processing"
 
     store.set_running(None)
-    assert store.get_entry("proj").status == "discovered"
+    assert store.get_entry("proj").status == "Not processed"
 
 
 def test_catalog_store_active_sample_id(tmp_path):
@@ -246,7 +246,7 @@ def test_dataset_entry_is_dataclass():
     entry = DatasetEntry(
         sample_id="proj",
         path=Path("/data/proj/RPKM_table.tsv"),
-        status="discovered",
+        status="Not processed",
         last_run_at=None,
         last_error=None,
         is_dev_fixture=False,

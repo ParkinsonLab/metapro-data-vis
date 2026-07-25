@@ -12,6 +12,7 @@ from api.config import Settings, get_settings
 from api.datasets.catalog import CatalogStore, DatasetEntry
 from api.datasets.pipeline_runner import PipelineRunner
 from api.datasets.staleness import verify_staleness
+from api.datasets import status as dataset_status
 
 router = APIRouter()
 
@@ -92,13 +93,15 @@ async def select_dataset(body: SelectRequest) -> dict[str, Any]:
     running = store.running_sample_id
     if running is not None:
         if running == body.sample_id:
-            return {"status": "running"}
-        raise HTTPException(status_code=409, detail="pipeline already running")
+            return {"status": dataset_status.PROCESSING}
+        raise HTTPException(
+            status_code=409, detail="Another dataset is already processing"
+        )
 
     staleness = verify_staleness(entry.path, settings.runs_dir, body.sample_id)
     if not staleness.needs_pipeline:
         store.set_active(body.sample_id)
-        return {"status": "ready"}
+        return {"status": dataset_status.READY}
 
     store.set_running(body.sample_id)
     try:
@@ -106,7 +109,7 @@ async def select_dataset(body: SelectRequest) -> dict[str, Any]:
     except Exception:
         store.set_running(None)
         raise
-    return {"status": "running", "sample_id": body.sample_id}
+    return {"status": dataset_status.PROCESSING, "sample_id": body.sample_id}
 
 
 async def event_stream(sample_id: str) -> Any:

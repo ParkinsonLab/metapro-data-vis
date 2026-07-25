@@ -366,11 +366,11 @@ async def test_pipeline_runner_streams_fixture_lines_and_completes(tmp_path):
     assert events[2].data["state"] == "pass"
     assert events[-1] == ProgressEvent(
         kind="complete",
-        data={"status": "ready", "sample_id": "proj"},
+        data={"status": "Ready", "sample_id": "proj"},
     )
     assert store.active_sample_id == "proj"
     assert store.get_entry("proj") is not None
-    assert store.get_entry("proj").status != "running"
+    assert store.get_entry("proj").status != "Processing"
 
 
 @pytest.mark.anyio
@@ -479,10 +479,10 @@ async def test_pipeline_runner_emits_error_on_nonzero_exit(tmp_path):
     queue = runner.get_queue("proj")
     event = queue.get_nowait()
     assert event.kind == "error"
-    assert event.data["status"] == "failed"
+    assert event.data["status"] == "Failed"
     assert "dbt build failed" in event.data["message"]
     assert store.active_sample_id is None
-    assert store.get_entry("proj").status != "running"
+    assert store.get_entry("proj").status != "Processing"
 
 
 @pytest.mark.anyio

@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from api.config import Settings
 from api.datasets.catalog import CatalogStore
+from api.datasets import status as dataset_status
 
 _ANALYTICS_DIR = Path(__file__).resolve().parent.parent.parent
 _RUN_PIPELINE_SCRIPT = _ANALYTICS_DIR / "transform" / "scripts" / "run_pipeline.py"
@@ -205,7 +206,7 @@ class PipelineRunner:
             await queue.put(
                 ProgressEvent(
                     kind="complete",
-                    data={"status": "ready", "sample_id": sample_id},
+                    data={"status": dataset_status.READY, "sample_id": sample_id},
                 )
             )
             return
@@ -213,10 +214,10 @@ class PipelineRunner:
         if error_messages:
             message = error_messages[-1]
         else:
-            message = stderr.strip() or f"pipeline exited with code {returncode}"
+            message = stderr.strip() or f"Processing failed (exit code {returncode})"
         await queue.put(
             ProgressEvent(
                 kind="error",
-                data={"status": "failed", "message": message},
+                data={"status": dataset_status.FAILED, "message": message},
             )
         )

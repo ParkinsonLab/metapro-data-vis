@@ -47,11 +47,11 @@ Example layout — [MetaPro mouse tutorial release 1.0](https://github.com/Parki
   databases/                               ← no RPKM_table.tsv; ignored
 ```
 
-| `RPKM_table.tsv` location (under mount) | Name in Data tab |
-|---|---|
-| `mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` |
+| `RPKM_table.tsv` location (under mount) | Name in Data tab | Path column |
+|---|---|---|
+| `mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` | Full path to the file (e.g. `/data/mouse1_run/outputs/final_results/RPKM_table.tsv` in Docker) |
 
-The name in the **Data** tab is the path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`.
+The name in the **Data** tab is the path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`. Status values: **Not processed**, **Ready**, **Needs reprocessing** (when the `RPKM_table.tsv` changed since last processing), **Processing**, **Failed**.
 
 **RPKM format:** tax columns must be numeric NCBI tax ids (after the fixed columns `GeneID`, `Length`, `Reads`, `EC#`, `RPKM`). Current MetaPro output uses this format. The [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) file uses older scientific-name headers — see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md) for the one-time header fix.
 
@@ -79,7 +79,7 @@ Optional environment variables (container defaults):
 
 | Problem | Things to check |
 |---|---|
-| No datasets in **Data** | Mount path includes your analysis folders; `RPKM_table.tsv` exists under the mount; path is not only inside `vis/` |
+| No datasets in **Data** | Mount path includes your analysis folders; `RPKM_table.tsv` exists under the mount; the file is not under `vis/` (processed results only) |
 | Error when selecting a dataset | Empty or invalid TSV; tutorial file still has scientific-name headers ([fix](docs/metapro-mouse-tutorial-rpkm.md)) |
 | **Upload** tab instead of **Data** | Pre-release image built without mounted mode, or stale browser data for `localhost:8080` |
 | Docker cannot read files on macOS | Add the host folder under Docker Desktop file sharing |
