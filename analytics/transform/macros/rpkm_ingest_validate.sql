@@ -16,7 +16,7 @@
             FROM (DESCRIBE SELECT * FROM wide)
         ),
         required AS (
-            SELECT unnest(['GeneID', 'Length', 'Reads', 'EC#', 'RPKM', 'Unclassified']) AS col
+            SELECT unnest(['GeneID', 'Length', 'Reads', 'EC#', 'RPKM']) AS col
         ),
         missing AS (
             SELECT r.col

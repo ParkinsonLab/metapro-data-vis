@@ -162,3 +162,30 @@ def test_missing_required_columns_rejected(db_path, tmp_path):
     message = _query_int_raises(tsv, db_path)
     assert "missing required columns" in message
     assert "GeneID" in message
+
+
+def test_rpkm_without_unclassified_column(db_path, tmp_path):
+    tsv = _write_tsv(
+        tmp_path,
+        """\
+        GeneID\tLength\tReads\tEC#\tRPKM\t9606
+        gene1\t100\t5\tEC:1.2.3.4\t1.0\t1.0
+        """,
+    )
+    df = _query_int(db_path, tsv)
+    assert len(df) == 1
+    assert df["source_tax_id"].iloc[0] == 9606
+
+
+def test_unclassified_column_values_excluded(db_path, tmp_path):
+    tsv = _write_tsv(
+        tmp_path,
+        """\
+        GeneID\tLength\tReads\tEC#\tRPKM\tUnclassified\t9606
+        gene1\t100\t5\tEC:1.2.3.4\t1.0\t99.0\t2.0
+        """,
+    )
+    df = _query_int(db_path, tsv)
+    assert len(df) == 1
+    assert df["source_tax_id"].iloc[0] == 9606
+    assert df["value"].iloc[0] == 2.0
