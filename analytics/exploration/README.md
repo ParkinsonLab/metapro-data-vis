@@ -15,7 +15,7 @@ Prerequisites include Git LFS — see the root [README.md](../../README.md#git-l
 
 ```bash
 cd analytics
-uv sync
+uv sync --all-groups   # includes dev: pytest, Jupyter, jupysql
 ```
 
 ## Two-step workflow

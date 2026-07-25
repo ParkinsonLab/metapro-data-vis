@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -144,9 +145,7 @@ class PipelineRunner:
 
     def _pipeline_cmd(self, sample_id: str, rpkm_path: Path) -> list[str]:
         return [
-            "uv",
-            "run",
-            "python",
+            sys.executable,
             str(_RUN_PIPELINE_SCRIPT),
             "--sample-id",
             sample_id,

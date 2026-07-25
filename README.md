@@ -109,7 +109,7 @@ docker run -p 8080:8080 \
   metapro-viz
 ```
 
-Reference taxonomy bridges and pathway layout files are baked into the image at build time from `resources/db/parquet/` (build inputs; only derived bridges and three pathway layout files are kept in the final image). They are not read from the mounted MetaPro output.
+Reference taxonomy bridges and pathway layout files are baked into the image at build time from `resources/db/parquet/` (build inputs; only derived bridges and three pathway layout files are kept in the final image). They are not read from the mounted MetaPro output. The runtime image uses the build-stage virtualenv directly (no `uv` binary). `.dockerignore` excludes `local-data/`, dbt artifacts (`transform/logs`, `target`, `runs`), and other dev-only paths from the build context.
 
 For a local smoke test after building, mount `local-data/` (gitignored; see [Mounted data (local)](#mounted-data-local)):
 

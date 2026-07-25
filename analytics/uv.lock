@@ -1187,9 +1187,6 @@ dependencies = [
     { name = "duckdb" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "ipykernel" },
-    { name = "jupysql" },
-    { name = "jupyter" },
     { name = "mashumaro" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "watchdog" },
@@ -1197,6 +1194,9 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ipykernel" },
+    { name = "jupysql" },
+    { name = "jupyter" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pytest" },
@@ -1210,9 +1210,6 @@ requires-dist = [
     { name = "duckdb", specifier = ">=1.5" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.28" },
-    { name = "ipykernel", specifier = ">=6.29" },
-    { name = "jupysql", specifier = ">=0.11" },
-    { name = "jupyter", specifier = ">=1.1" },
     { name = "mashumaro", specifier = ">=3.17,<3.18" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
     { name = "watchdog", specifier = ">=6.0" },
@@ -1220,6 +1217,9 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ipykernel", specifier = ">=6.29" },
+    { name = "jupysql", specifier = ">=0.11" },
+    { name = "jupyter", specifier = ">=1.1" },
     { name = "numpy", specifier = ">=2.5.0" },
     { name = "pandas", specifier = ">=3.0.3" },
     { name = "pytest", specifier = ">=8.0" },

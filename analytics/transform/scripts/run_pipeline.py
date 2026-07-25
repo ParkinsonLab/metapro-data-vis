@@ -149,8 +149,12 @@ def _run_dbt(
 
     env = {**os.environ, "DBT_DUCKDB_PATH": str(db_path)}
 
+    dbt = Path(sys.executable).resolve().parent / "dbt"
+    dbt_cmd = str(dbt) if dbt.is_file() else "dbt"
+
     cmd = [
-        "uv", "run", "dbt", "build",
+        dbt_cmd,
+        "build",
         "--select", "int_rpkm_by_ec_tax+",
         "--project-dir", str(TRANSFORM_DIR),
         "--profiles-dir", str(TRANSFORM_DIR),
