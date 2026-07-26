@@ -1,4 +1,4 @@
-from testing.dbt_failure_messages import format_dbt_failure_message
+from transform.lib.dbt_failure_messages import format_dbt_failure_message
 
 
 def test_format_dbt_failure_message_derives_assertion_name_from_generic_row_count():

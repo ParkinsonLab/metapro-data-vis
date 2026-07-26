@@ -7,7 +7,7 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
-from api.config import DEFAULT_DATA_ROOT
+from transform.lib.paths import DEFAULT_DATA_ROOT
 from transform.scripts.run_pipeline import (
     _default_runs_dir,
     _parse_last_error,

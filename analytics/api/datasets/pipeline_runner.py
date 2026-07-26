@@ -42,7 +42,7 @@ def _node_result_progress(
     return ProgressEvent(kind="progress", data=progress)
 
 
-from testing.dbt_failure_messages import format_dbt_failure_message
+from transform.lib.dbt_failure_messages import format_dbt_failure_message
 
 
 def _node_start_progress(data: dict[str, Any]) -> ProgressEvent:

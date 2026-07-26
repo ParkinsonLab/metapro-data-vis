@@ -3,18 +3,10 @@ from functools import lru_cache
 from pathlib import Path
 import os
 
+from transform.lib.paths import default_data_root, default_runs_dir
+
 _ANALYTICS_DIR = Path(__file__).resolve().parent.parent
 _DEFAULT_REFERENCE_PARQUET_DIR = _ANALYTICS_DIR / "transform" / "reference" / "parquet"
-# Repo-root local-data (same target as dev:fastapi DATA_ROOT=../local-data from analytics/).
-DEFAULT_DATA_ROOT = _ANALYTICS_DIR.parent / "local-data"
-
-
-def default_data_root() -> Path:
-    return Path(os.environ.get("DATA_ROOT", str(DEFAULT_DATA_ROOT))).resolve()
-
-
-def default_runs_dir() -> Path:
-    return Path(os.environ.get("RUNS_DIR", str(default_data_root() / "vis" / "runs"))).resolve()
 
 
 @dataclass(frozen=True)

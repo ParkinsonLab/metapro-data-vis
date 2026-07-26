@@ -29,8 +29,8 @@ DEFAULT_REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
 if str(ANALYTICS_DIR) not in sys.path:
     sys.path.insert(0, str(ANALYTICS_DIR))
 
-from api.config import default_runs_dir
-from testing.dbt_failure_messages import format_dbt_run_result
+from transform.lib.dbt_failure_messages import format_dbt_run_result
+from transform.lib.paths import default_runs_dir
 
 REQUIRED_BRIDGES = ["bridge_ec_pathway.parquet", "bridge_tax_lineage.parquet"]
 

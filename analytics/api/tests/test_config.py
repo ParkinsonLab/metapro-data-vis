@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
 
-from api.config import DEFAULT_DATA_ROOT, db_path, get_settings
+from api.config import db_path, get_settings
+from transform.lib.paths import DEFAULT_DATA_ROOT
 
 
 def _clear_settings_cache() -> None:
