@@ -25,11 +25,11 @@ import duckdb
 ANALYTICS_DIR = Path(__file__).resolve().parents[2]
 TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 DEFAULT_REFERENCE_PARQUET_DIR = TRANSFORM_DIR / "reference/parquet"
-DEFAULT_RUNS_DIR = TRANSFORM_DIR / "runs"
 
 if str(ANALYTICS_DIR) not in sys.path:
     sys.path.insert(0, str(ANALYTICS_DIR))
 
+from api.config import default_runs_dir
 from testing.dbt_failure_messages import format_dbt_run_result
 
 REQUIRED_BRIDGES = ["bridge_ec_pathway.parquet", "bridge_tax_lineage.parquet"]
@@ -73,7 +73,7 @@ INFO_METRICS_SQL = {
 
 
 def _default_runs_dir() -> Path:
-    return Path(os.environ.get("RUNS_DIR", str(DEFAULT_RUNS_DIR))).resolve()
+    return default_runs_dir()
 
 
 def _default_reference_parquet_dir() -> Path:
@@ -229,7 +229,7 @@ def main() -> None:
     parser.add_argument(
         "--runs-dir",
         default=str(_default_runs_dir()),
-        help="Output directory for per-sample run artifacts (default: RUNS_DIR env or transform/runs)",
+        help="Output directory for per-sample run artifacts (default: RUNS_DIR or DATA_ROOT/vis/runs)",
     )
     parser.add_argument(
         "--json-logs",

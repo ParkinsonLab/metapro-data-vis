@@ -15,7 +15,12 @@ REPO_ROOT = ANALYTICS_DIR.parent
 
 SAMPLE_ID = "fake_rpkm"
 TSV_PATH = FIXTURES_DIR / "fake_rpkm.tsv"
-DB_PATH = TRANSFORM_DIR / f"runs/{SAMPLE_ID}/sample.duckdb"
+
+
+def sample_db_path() -> Path:
+    from api.config import db_path
+
+    return db_path(SAMPLE_ID)
 PIPELINE_YAML = FIXTURES_DIR / "fake_rpkm_pipeline_expectations.yaml"
 CHORD_YAML = ANALYTICS_DIR / "api/tests/fixtures/chord_expectations.yaml"
 OVERVIEW_YAML = ANALYTICS_DIR / "api/tests/fixtures/overview_expectations.yaml"
@@ -90,15 +95,19 @@ def load_network_expectations() -> dict[str, Any]:
 
 
 def ensure_pipeline_built() -> Path:
+    from api.config import get_settings
+
     if not bridges_available():
         raise RuntimeError(skip_reason())
-    if DB_PATH.exists() and TSV_PATH.exists():
-        if TSV_PATH.stat().st_mtime > DB_PATH.stat().st_mtime:
-            DB_PATH.unlink()
-    if DB_PATH.exists():
-        return DB_PATH
+    db_file = sample_db_path()
+    if db_file.exists() and TSV_PATH.exists():
+        if TSV_PATH.stat().st_mtime > db_file.stat().st_mtime:
+            db_file.unlink()
+    if db_file.exists():
+        return db_file
     if not TSV_PATH.exists():
         raise FileNotFoundError(f"Missing fixture TSV: {TSV_PATH}")
+    runs_dir = get_settings().runs_dir
     cmd = [
         "uv",
         "run",
@@ -108,6 +117,8 @@ def ensure_pipeline_built() -> Path:
         SAMPLE_ID,
         "--rpkm-path",
         str(TSV_PATH.resolve()),
+        "--runs-dir",
+        str(runs_dir),
         "--tax-rank",
         "phylum",
         "--pathway-level",
@@ -123,9 +134,9 @@ def ensure_pipeline_built() -> Path:
         raise RuntimeError(
             f"run_pipeline.py failed (exit {result.returncode}):\n{result.stderr}"
         )
-    if not DB_PATH.exists():
-        raise RuntimeError(f"Pipeline succeeded but DB missing: {DB_PATH}")
-    return DB_PATH
+    if not db_file.exists():
+        raise RuntimeError(f"Pipeline succeeded but DB missing: {db_file}")
+    return db_file
 
 
 def extract_chord_index(chord_result: dict) -> list[str]:

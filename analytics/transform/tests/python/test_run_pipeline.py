@@ -7,6 +7,7 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
+from api.config import DEFAULT_DATA_ROOT
 from transform.scripts.run_pipeline import (
     _default_runs_dir,
     _parse_last_error,
@@ -57,11 +58,11 @@ def test_default_runs_dir_prefers_env(monkeypatch, tmp_path):
     assert _default_runs_dir() == custom.resolve()
 
 
-def test_default_runs_dir_falls_back_to_transform_runs(monkeypatch):
+def test_default_runs_dir_falls_back_to_local_data_vis_runs(monkeypatch):
     monkeypatch.delenv("RUNS_DIR", raising=False)
+    monkeypatch.delenv("DATA_ROOT", raising=False)
     runs_dir = _default_runs_dir()
-    assert runs_dir.name == "runs"
-    assert runs_dir.parent.name == "transform"
+    assert runs_dir == (DEFAULT_DATA_ROOT / "vis" / "runs").resolve()
 
 
 def test_rpkm_identity_includes_mtime_size_sha256(tmp_path):

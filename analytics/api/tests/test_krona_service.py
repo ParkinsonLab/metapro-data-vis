@@ -12,11 +12,11 @@ from api.krona_service import (
 )
 from api.query_enriched import lineage_order_by_sql
 from testing.fake_rpkm_fixture import (
-    DB_PATH,
     SAMPLE_ID,
     krona_fixtures_available,
     krona_skip_reason,
     load_krona_expectations,
+    sample_db_path,
 )
 
 
@@ -124,7 +124,7 @@ def test_krona_rejects_comparison():
 
 
 def test_fetch_taxa_orders_by_full_lineage(fake_rpkm_db):
-    conn = duckdb.connect(str(DB_PATH), read_only=True)
+    conn = duckdb.connect(str(sample_db_path()), read_only=True)
     try:
         levels = ("phylum", "genus", "species")
         rows = _fetch_taxa(conn, levels=levels)

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from api.config import db_path, get_settings
+from api.config import DEFAULT_DATA_ROOT, db_path, get_settings
 
 
 def _clear_settings_cache() -> None:
@@ -13,7 +13,7 @@ def test_defaults(monkeypatch):
     monkeypatch.delenv("RUNS_DIR", raising=False)
     _clear_settings_cache()
     s = get_settings()
-    assert s.data_root.name  # Path exists conceptually
+    assert s.data_root == DEFAULT_DATA_ROOT.resolve()
     assert s.runs_dir == s.data_root / "vis" / "runs"
 
 
