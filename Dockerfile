@@ -5,7 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY src ./src
 COPY tsconfig.json tsconfig.web.json tsconfig.server.json vite.config.ts ./
-RUN VITE_DATA_MODE=mounted npm run build
+RUN VITE_DATA_MODE=mounted npm run build:web
 
 FROM python:3.14-slim AS reference-build
 WORKDIR /app
