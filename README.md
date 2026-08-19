@@ -74,13 +74,11 @@ In the **Data** tab you should see one row per discovered `RPKM_table.tsv`:
 
 In the **Data** tab, choose which `RPKM_table.tsv` to work with. The view tabs (**Overview**, **Chord**, **Network**, **Graph**, **Krona**) show results for the active dataset.
 
-1. Click a dataset. The app **processes it for visualization** (first time can take several minutes on large tables) and shows progress. When processing finishes, that dataset becomes active.
+1. Click a dataset. The app **processes it for visualization** (first time can take several minutes on large tables) and shows progress. When processing finishes, that dataset becomes active. If the source file changed, status shows **Needs reprocessing** — click again to re-run automatically.
 2. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
 3. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
 
-Processed results are written next to your data under `vis/` (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them on later visits unless the source `RPKM_table.tsv` changed.
-
-**To process again** after updating a source file: delete that dataset’s folder under `vis/` (or the whole `vis/` tree), then select the dataset in **Data** again.
+Processed results are written next to your data under `vis/` (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them when the source `RPKM_table.tsv` is unchanged.
 
 ### Configuration
 
