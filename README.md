@@ -95,13 +95,9 @@ Optional environment variables (container defaults):
 
 ## Contributing
 
-For **contributors and maintainers** — not required to run a published container image against your MetaPro output ([Usage](#usage)).
-
 Sections below share a common [Prerequisites](#prerequisites) setup. Typical day-to-day work is [Development](#development); [Building the container image](#building-the-container-image) and [Refreshing reference data](#refreshing-reference-data) are less frequent maintainer tasks.
 
 ### Prerequisites
-
-Follow in order on a new machine. Install Git LFS **before** cloning so LFS files smudge correctly on first checkout.
 
 **1. System tools**
 
@@ -109,8 +105,8 @@ Follow in order on a new machine. Install Git LFS **before** cloning so LFS file
 | --- | --- | --- |
 | [Git](https://git-scm.com/) | recent | clone, worktrees |
 | [Git LFS](https://git-lfs.com/) | recent | raw reference Parquet, test fixtures |
-| [Node.js](https://nodejs.org/) | 22 (see `.nvmrc`) | frontend, Express legacy, `npm` scripts |
-| [Python](https://www.python.org/) | 3.14 (see `.python-version`) | FastAPI, dbt, pytest, reference scripts |
+| [Node.js](https://nodejs.org/) | see [`.nvmrc`](.nvmrc) | frontend, Express legacy, `npm` scripts |
+| [Python](https://www.python.org/) | see [`.python-version`](.python-version) | FastAPI, dbt, pytest, reference scripts |
 | [uv](https://docs.astral.sh/uv/) | recent | Python env (`analytics/`) |
 | [Docker](https://www.docker.com/) | recent | [container builds](#building-the-container-image) only |
 
@@ -129,7 +125,7 @@ cd metapro-data-vis
 git lfs pull
 ```
 
-After pulling repo changes that touch LFS-tracked files:
+When you `git pull` and the update includes changes to LFS-tracked paths (see below), run `git lfs pull` too — otherwise files such as `resources/db/parquet/*.parquet` may be small pointer stubs instead of real data.
 
 ```bash
 git pull
@@ -152,16 +148,15 @@ npm install                 # Node packages
 cd analytics && uv sync     # Python packages (FastAPI, dbt, pytest, reference scripts)
 ```
 
-For reference refresh and exploratory notebooks, also run `uv sync --all-groups` in `analytics/` (Jupyter, jupysql) — see [analytics/exploration/README.md](analytics/exploration/README.md).
+For [refreshing reference data](#refreshing-reference-data) or exploratory notebooks, install the extra Python groups as well:
 
-**What each workflow needs**
+```bash
+cd analytics && uv sync --all-groups   # adds Jupyter, jupysql
+```
 
-| Step / artifact | Development | Container build | Refresh reference |
-| --- | --- | --- | --- |
-| Prerequisites §1–3 above | ✓ | §1–2 only | ✓ |
-| Docker (Prerequisites §1) | — | ✓ | — |
-| `build_reference.py` | ✓ (once per clone; see [Development](#development)) | automatic in Dockerfile | ✓ (after export; see [workflow](#workflow)) |
-| `taxonomy.db` | — | — | ✓ (to export; see [workflow](#workflow)) |
+- **Development** — steps 1–3 above, then [Development](#development) (includes `build_reference.py`)
+- **Container build** — steps 1–2 and Docker; the Dockerfile runs `build_reference.py`
+- **Refresh reference** — steps 1–3 with `--all-groups`; see [Refreshing reference data](#refreshing-reference-data)
 
 ### Development
 
