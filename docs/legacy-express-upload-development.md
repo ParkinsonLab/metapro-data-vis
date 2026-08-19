@@ -1,12 +1,12 @@
 # Legacy Express + upload development
 
-The original Metapro Viz stack: Express backend, browser file upload, and direct queries against `taxonomy.db`. Kept for **comparison and migration** while the product path ([FastAPI + dbt](../README.md#development)) ships.
+The original Metapro Viz stack: Express backend, browser file upload, and direct queries against `taxonomy.db`. Kept for **comparison and migration** while the product path ([Development](../README.md#development)) ships.
 
 This stack does **not** match mounted-data processing, dbt, or `sample.duckdb` artifacts.
 
 ## Prerequisites
 
-Same as the main [Contributing prerequisites](../README.md#contributing-prerequisites), plus:
+Same as the main [Prerequisites](../README.md#prerequisites), plus:
 
 - `resources/db/taxonomy.db` — **required**; not in git (see below)
 

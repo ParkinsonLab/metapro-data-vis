@@ -12,7 +12,7 @@ Metapro Viz is a web application. Mount your MetaPro output folder, open the app
 
 ### Run the application
 
-A hosted container image is planned as the primary distribution. **Not published yet** — until then, build and run from source; see [Building the container image](#building-the-container-image) (maintainer procedure; same steps work for early adopters).
+A hosted container image is planned as the primary distribution. **Not published yet** — until then, build and run from source; see [Building the container image](#building-the-container-image) under [Contributing](#contributing) (same steps work for early adopters).
 
 When the image is available:
 
@@ -93,19 +93,35 @@ Optional environment variables (container defaults):
 | Docker cannot read files on macOS  | Add the host folder under Docker Desktop file sharing                                                                                     |
 
 
-## Development
-
-For **contributors** working on the app locally. The product stack is **FastAPI + dbt** (**Data** tab, mounted `RPKM_table.tsv` on disk).
-
-The legacy Express + browser-upload stack is kept for comparison and migration only — see [docs/legacy-express-upload-development.md](docs/legacy-express-upload-development.md).
-
-### Contributing prerequisites
+## Contributing
 
 For **contributors and maintainers** — not required to run a published container image against your MetaPro output ([Usage](#usage)).
 
-Shared by [local setup](#local-setup-fastapi--dbt), [building the container image](#building-the-container-image), and [refreshing reference data](#refreshing-reference-data):
+Sections below share a common [Prerequisites](#prerequisites) setup. Typical day-to-day work is [Development](#development); [Building the container image](#building-the-container-image) and [Refreshing reference data](#refreshing-reference-data) are less frequent maintainer tasks.
 
-**Clone** (once per machine or worktree):
+### Prerequisites
+
+Follow in order on a new machine. Install Git LFS **before** cloning so LFS files smudge correctly on first checkout.
+
+**1. System tools**
+
+| Tool | Version | Used for |
+| --- | --- | --- |
+| [Git](https://git-scm.com/) | recent | clone, worktrees |
+| [Git LFS](https://git-lfs.com/) | recent | raw reference Parquet, test fixtures |
+| [Node.js](https://nodejs.org/) | 22 (see `.nvmrc`) | frontend, Express legacy, `npm` scripts |
+| [Python](https://www.python.org/) | 3.14 (see `.python-version`) | FastAPI, dbt, pytest, reference scripts |
+| [uv](https://docs.astral.sh/uv/) | recent | Python env (`analytics/`) |
+| [Docker](https://www.docker.com/) | recent | [container builds](#building-the-container-image) only |
+
+One-time Git LFS setup:
+
+```bash
+brew install git-lfs   # or your package manager
+git lfs install
+```
+
+**2. Clone and fetch LFS data**
 
 ```bash
 git clone git@github.com:ParkinsonLab/metapro-data-vis.git
@@ -113,12 +129,7 @@ cd metapro-data-vis
 git lfs pull
 ```
 
-**Git LFS** — one-time per machine, then after pulls when LFS-tracked files change:
-
-```bash
-brew install git-lfs   # or your package manager
-git lfs install
-```
+After pulling repo changes that touch LFS-tracked files:
 
 ```bash
 git pull
@@ -130,27 +141,37 @@ LFS-tracked paths (see `.gitattributes`):
 - `resources/db/parquet/*.parquet` — raw reference table dumps
 - `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs for tests
 
-`taxonomy.db` is **not** in LFS or git. Normal dev uses committed raw Parquet plus a local `build_reference.py` run.
+`taxonomy.db` is **not** in git or LFS. Normal dev uses committed raw Parquet plus a local `build_reference.py` run.
 
-**Dependencies** (local dev and reference refresh — not needed to build the container image):
+**3. Project dependencies**
+
+From the repo root:
 
 ```bash
-npm install                 # Node 22, see .nvmrc
-cd analytics && uv sync     # Python 3.14, for FastAPI, pytest, and reference scripts
+npm install                 # Node packages
+cd analytics && uv sync     # Python packages (FastAPI, dbt, pytest, reference scripts)
 ```
 
-| Prerequisite | Local dev | Container build | Refresh reference |
+For reference refresh and exploratory notebooks, also run `uv sync --all-groups` in `analytics/` (Jupyter, jupysql) — see [analytics/exploration/README.md](analytics/exploration/README.md).
+
+**What each workflow needs**
+
+| Step / artifact | Development | Container build | Refresh reference |
 | --- | --- | --- | --- |
-| Clone + `git lfs pull` | ✓ | ✓ | ✓ |
-| `npm install` | ✓ | — | — |
-| `uv sync` | ✓ | — | ✓ |
-| Docker | — | ✓ | — |
-| `build_reference.py` | ✓ (once per clone; see [local setup](#local-setup-fastapi--dbt)) | automatic in Dockerfile | ✓ (after export; see [workflow](#workflow)) |
+| Prerequisites §1–3 above | ✓ | §1–2 only | ✓ |
+| Docker (Prerequisites §1) | — | ✓ | — |
+| `build_reference.py` | ✓ (once per clone; see [Development](#development)) | automatic in Dockerfile | ✓ (after export; see [workflow](#workflow)) |
 | `taxonomy.db` | — | — | ✓ (to export; see [workflow](#workflow)) |
 
-### Local setup (FastAPI + dbt)
+### Development
 
-Assumes [Contributing prerequisites](#contributing-prerequisites).
+Product stack: **FastAPI + dbt** (**Data** tab, mounted `RPKM_table.tsv` on disk).
+
+The legacy Express + browser-upload stack is kept for comparison and migration only — see [docs/legacy-express-upload-development.md](docs/legacy-express-upload-development.md).
+
+Assumes [Prerequisites](#prerequisites).
+
+**Local setup (FastAPI + dbt)**
 
 1. **Build bridge Parquet** (once per clone, or after raw Parquet refresh)
 
@@ -198,7 +219,7 @@ Dataset discovery and processing follow the same rules as [Mount your MetaPro ou
 
 *`{DATA_ROOT}`* defaults to `local-data/` in dev (`dev:fastapi` sets it relative to `analytics/`).
 
-### Tests
+**Tests**
 
 ```bash
 cd analytics && uv run pytest
@@ -206,9 +227,9 @@ cd analytics && uv run pytest
 
 Pipeline and dbt details: [analytics/transform/README.md](analytics/transform/README.md).
 
-## Building the container image
+### Building the container image
 
-Routine step when **releasing application code**. Assumes [Contributing prerequisites](#contributing-prerequisites) (clone + LFS) and Docker installed. Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
+Routine step when **releasing application code**. Assumes [Prerequisites](#prerequisites) §1–2 (clone + LFS) and Docker. Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
 
 The Dockerfile runs `build_reference.py` during the build — you do not run it on the host first.
 
@@ -224,7 +245,7 @@ docker run -p 8080:8080 \
   -v /path/to/metapro/output:/data \
   metapro-viz
 
-# Or local-data/ after [local setup](#local-setup-fastapi--dbt)
+# Or local-data/ after [Development](#development) local setup
 docker run -p 8080:8080 \
   -v "$(pwd)/local-data:/data" \
   metapro-viz
@@ -257,13 +278,13 @@ docker run --platform linux/amd64 -p 8080:8080 \
 
 **Publishing:** tag and push to the registry when cutting a release (`docker pull` in Usage will point at that image).
 
-## Refreshing reference data
+### Refreshing reference data
 
-Infrequent maintainer workflow — **not** part of routine app development or container releases. Reference tables come from external providers (NCBI taxonomy, pathway databases, etc.) that can change schema, coverage, or semantics without notice.
+Infrequent maintainer workflow — **not** part of routine [Development](#development) or [container builds](#building-the-container-image). Reference tables come from external providers (NCBI taxonomy, pathway databases, etc.) that can change schema, coverage, or semantics without notice.
 
-Assumes [Contributing prerequisites](#contributing-prerequisites).
+Assumes [Prerequisites](#prerequisites).
 
-### Reference data
+#### Reference data
 
 Viz needs reference taxonomy and pathway tables that are **not** part of your MetaPro mount. The FastAPI + dbt stack also writes per-sample DuckDB on the mount when you process a dataset:
 
@@ -296,7 +317,7 @@ flowchart LR
 | Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | No | dbt pipeline; baked into container |
 | Per-sample DuckDB | Enriched mart from RPKM + bridges | `{DATA_ROOT}/vis/runs/{id}/` | No | Viz queries at runtime |
 
-### Workflow
+#### Workflow
 
 **Before committing updated Parquet:**
 
