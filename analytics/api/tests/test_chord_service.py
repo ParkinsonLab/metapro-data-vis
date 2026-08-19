@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import duckdb
 import pytest
 
 from api.ann_order import ann_labels_ordered
@@ -107,9 +104,10 @@ def _all_chord_cases():
             yield pytest.param(case, id=case["case_id"])
 
 
-def _db_conn():
-    db = Path(__file__).resolve().parents[2] / f"transform/runs/{SAMPLE_ID}/sample.duckdb"
-    return duckdb.connect(str(db), read_only=True)
+def _db_conn(fake_rpkm_db):
+    import duckdb
+
+    return duckdb.connect(fake_rpkm_db, read_only=True)
 
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
@@ -163,7 +161,7 @@ def test_chord_pairs_unchanged_after_prefix_refactor(case, fake_rpkm_db):
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
 def test_phylum_rank_tax_order_lineage_alphabetical(fake_rpkm_db):
-    conn = _db_conn()
+    conn = _db_conn(fake_rpkm_db)
     try:
         conn.execute(
             """
@@ -194,7 +192,7 @@ def test_phylum_rank_tax_order_lineage_alphabetical(fake_rpkm_db):
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
 def test_pathway_level_ann_order_hierarchical_alphabetical(fake_rpkm_db):
-    conn = _db_conn()
+    conn = _db_conn(fake_rpkm_db)
     try:
         expected = ann_labels_ordered(
             conn, ann_level="pathway", where_sql="TRUE", params=[]
@@ -216,7 +214,7 @@ def test_pathway_level_ann_order_hierarchical_alphabetical(fake_rpkm_db):
 
 @pytest.mark.skipif(not bridges_available(), reason=skip_reason())
 def test_class_rank_tax_labels_colocate_by_phylum_prefix(fake_rpkm_db):
-    conn = _db_conn()
+    conn = _db_conn(fake_rpkm_db)
     try:
         conn.execute(
             """
@@ -244,7 +242,7 @@ def test_class_rank_tax_labels_colocate_by_phylum_prefix(fake_rpkm_db):
     assert class_tax == list(reversed(expected))
 
     # Classes from the same phylum appear in contiguous blocks under lineage order.
-    conn = _db_conn()
+    conn = _db_conn(fake_rpkm_db)
     try:
         phyla_by_class = {
             row[0]: row[1]

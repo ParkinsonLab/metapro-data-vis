@@ -3,6 +3,7 @@ rpkm_transform:
   outputs:
     dev:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', 'transform/runs/default/sample.duckdb') }}"
+      # Fallback only; run_pipeline.py always sets DBT_DUCKDB_PATH.
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../local-data/vis/runs/default/sample.duckdb') }}"
       module_paths:
         - "transform"

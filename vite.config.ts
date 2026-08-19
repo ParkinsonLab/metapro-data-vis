@@ -2,6 +2,11 @@ import { resolve } from 'path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const apiTarget =
+  process.env.VITE_DATA_MODE === 'mounted'
+    ? 'http://localhost:8080'
+    : 'http://localhost:3001'
+
 export default defineConfig({
   root: resolve(__dirname, 'src/renderer'),
   publicDir: resolve(__dirname, 'src/renderer/public'),
@@ -19,7 +24,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: apiTarget,
         changeOrigin: true
       }
     }

@@ -10,6 +10,10 @@ build
 
 .worktrees
 
+# Mounted-data dev root (DATA_ROOT=./local-data); user datasets + vis/runs output
+local-data/
+local-data-docker-test/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -31,7 +35,7 @@ resources/scripts/*
 !resources/scripts/*.ipynb
 
 # analytics/transform — dbt + DuckDB runtime outputs
-analytics/transform/runs/
+analytics/transform/runs/  # legacy; new runs use local-data/vis/runs
 analytics/transform/data/
 analytics/transform/target/
 analytics/transform/dbt_packages/

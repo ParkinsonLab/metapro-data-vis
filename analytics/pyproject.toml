@@ -5,15 +5,13 @@ description = "Analytics for Metapro Viz (exploration and future transform)"
 requires-python = ">=3.14"
 dependencies = [
     "duckdb>=1.5",
-    "jupysql>=0.11",
-    "jupyter>=1.1",
-    "ipykernel>=6.29",
     "dbt-core==1.12.0b1",
     "dbt-duckdb>=1.10.1",
     "mashumaro>=3.17,<3.18",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "httpx>=0.28",
+    "watchdog>=6.0",
 ]
 
 [dependency-groups]
@@ -22,11 +20,14 @@ dev = [
     "numpy>=2.5.0",
     "pandas>=3.0.3",
     "pyyaml>=6.0",
+    "jupysql>=0.11",
+    "jupyter>=1.1",
+    "ipykernel>=6.29",
 ]
 
 [tool.uv]
 prerelease = "allow"
 
 [tool.pytest.ini_options]
-testpaths = ["exploration/scripts", "transform/tests/python", "api/tests"]
+testpaths = ["exploration/scripts", "transform/tests/python", "api"]
 pythonpath = [".."]

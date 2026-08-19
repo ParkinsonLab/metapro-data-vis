@@ -53,12 +53,18 @@ uv run python transform/scripts/run_pipeline.py \
   --pathway-level pathway
 ```
 
-Output in `transform/runs/my_sample/`:
+By default, run artifacts land under **`local-data/vis/runs/{sample_id}/`** at
+the repo root (override with `DATA_ROOT` / `RUNS_DIR` or `--runs-dir`):
+
 - `sample.duckdb` — all materialised tables (including `mart_rpkm_enriched`)
 - `run_context.json` — vars, overall status, info metrics
 
 Each run **replaces** `sample.duckdb` from scratch (any prior tables from retired
 models are removed). Do not rely on incremental merges inside the DuckDB file.
+
+Golden-test fixture `fake_rpkm` uses the same layout:
+`local-data/vis/runs/fake_rpkm/sample.duckdb` (built automatically on first
+`pytest` run).
 
 ## Rebuild triggers
 
@@ -74,27 +80,33 @@ models are removed). Do not rely on incremental merges inside the DuckDB file.
 
 `docs/superpowers/specs/2026-07-08-api-aligned-dbt-model-design.md`
 
-## Analytics API (FastAPI sidecar)
+## Analytics API (FastAPI)
 
-Requires `runs/{sample_id}/sample.duckdb` with `mart_rpkm_enriched`. All six viz
-endpoints query `sample.duckdb` only (no reference Parquet reads except network
-layout).
+Requires `vis/runs/{sample_id}/sample.duckdb` with `mart_rpkm_enriched`. The API
+resolves paths via `api.config` (`DATA_ROOT`, `RUNS_DIR`). All six viz endpoints
+query `sample.duckdb` only (no reference Parquet reads except network layout).
 
-Express proxies migrated viz routes to the FastAPI sidecar when the request
-includes `?backend=duckdb`. Set `ANALYTICS_API_URL` (default
-`http://localhost:8001`) to point Express at the sidecar.
+**Mounted mode** (`npm run dev`): FastAPI serves the UI and datasets API.
+Point `local-data/` at the parent of your MetaPro run folders, select an
+`RPKM_table.tsv` in the Data tab, and processing writes to
+`local-data/vis/runs/`.
 
-Run the analytics API in a third terminal alongside `npm run dev` (Express + Vite):
+**Express + upload** (`npm run dev:legacy`): Express + Vite; viz routes can
+proxy to the FastAPI sidecar with `?backend=duckdb`. Set `ANALYTICS_API_URL`
+(default `http://localhost:8001`).
 
 ```bash
-# Terminal A — FastAPI sidecar (or: npm run dev:chord-api)
-cd analytics && uv run uvicorn api.main:app --port 8001
-
-# Terminal B — Express + Vite
+# Mounted mode (FastAPI + static UI)
 npm run dev
+
+# Legacy: FastAPI sidecar only
+cd analytics && DATA_ROOT=../local-data uv run uvicorn api.main:app --port 8001
+
+# Legacy: Express + Vite
+npm run dev:legacy
 ```
 
-Endpoints served by the sidecar:
+Endpoints:
 
 - `POST /api/viz/chord` — chord matrix
 - `POST /api/viz/overview` — overview pie-chart vectors
@@ -102,6 +114,7 @@ Endpoints served by the sidecar:
 - `POST /api/viz/krona` — Krona hierarchy
 - `POST /api/viz/graph` — graph adjacency matrix
 - `POST /api/viz/network` — network layout (reads static pathway layout Parquet)
+- `GET/POST /api/datasets/*` — catalog, select, SSE progress (mounted mode)
 
 Via Express proxy (`?backend=duckdb`):
 
@@ -109,10 +122,6 @@ Via Express proxy (`?backend=duckdb`):
 curl -X POST 'http://localhost:3001/api/viz/chord?backend=duckdb' \
   -H 'Content-Type: application/json' \
   -d '{"names": ["fake_rpkm.tsv"], "tax_level": "phylum", "ann_level": "superpathway"}'
-
-curl -X POST 'http://localhost:3001/api/viz/overview?backend=duckdb' \
-  -H 'Content-Type: application/json' \
-  -d '{"names": ["fake_rpkm.tsv"]}'
 ```
 
 **Renderer backend toggle:** the UI defaults to the sidecar for migrated channels

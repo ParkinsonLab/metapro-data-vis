@@ -22,7 +22,7 @@
         ),
         unpivoted AS (
             UNPIVOT wide
-            ON COLUMNS(* EXCLUDE ("GeneID", "Length", "Reads", "EC#", "RPKM", "Unclassified"))
+            ON COLUMNS(* EXCLUDE ("GeneID", "Length", "Reads", "EC#", "RPKM"))
             INTO NAME source_tax_id_col VALUE value_str
         ),
         normalized AS (

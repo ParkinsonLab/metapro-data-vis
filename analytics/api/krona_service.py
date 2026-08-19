@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from types import SimpleNamespace
 
 import duckdb
 
+from api.config import db_path
 from api.filters import TAX_RANK_ORDER, krona_levels, sample_id_from_names
 from api.query_enriched import lineage_order_by_sql
 from api.schemas import KronaNode
-
-ANALYTICS_DIR = Path(__file__).resolve().parents[1]
-TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 
 
 @dataclass
@@ -103,10 +100,6 @@ def build_tree_from_taxa(taxa, levels: tuple[str, ...]) -> KronaNode:
     return root
 
 
-def _db_path(sample_id: str) -> Path:
-    return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
-
-
 def _fetch_taxa(conn, *, levels: tuple[str, ...]) -> list:
     inner_lineage = ", ".join(f"{rank}_label AS {rank}" for rank in TAX_RANK_ORDER)
     group_lineage = ", ".join(f"{rank}_label" for rank in TAX_RANK_ORDER)
@@ -151,7 +144,7 @@ def build_krona_from_duckdb(
 
     levels = krona_levels(tax_rank)
     sample_id = sample_id_from_names(names)
-    db_file = _db_path(sample_id)
+    db_file = db_path(sample_id)
     if not db_file.exists():
         raise FileNotFoundError(f"sample not found: {sample_id}")
 

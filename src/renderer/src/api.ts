@@ -59,6 +59,101 @@ const handleEnvelope = (channel: Channel, payload: ApiEnvelope): void => {
   channelHandlers[channel]?.(payload.value)
 }
 
+export interface DatasetEntry {
+  sample_id: string
+  path: string
+  status: string
+  last_run_at: string | null
+  last_error: string | null
+  is_dev_fixture: boolean
+  mtime: number
+  size: number
+}
+
+export interface DatasetsResponse {
+  datasets: DatasetEntry[]
+  active_sample_id: string | null
+}
+
+export interface SelectDatasetResponse {
+  status: 'Ready' | 'Processing'
+  sample_id?: string
+}
+
+export interface DatasetProgress {
+  name?: string
+  state?: string
+  step?: number
+  total?: number
+  elapsed_s?: number
+}
+
+const parseJson = async <T>(res: Response): Promise<T> => {
+  const body = await res.json()
+  if (!res.ok) {
+    const detail =
+      typeof body?.detail === 'string'
+        ? body.detail
+        : typeof body?.error === 'string'
+          ? body.error
+          : res.statusText
+    throw new Error(detail || `HTTP ${res.status}`)
+  }
+  return body as T
+}
+
+export const fetchDatasets = async (): Promise<DatasetsResponse> => {
+  const res = await fetch('/api/datasets')
+  return parseJson<DatasetsResponse>(res)
+}
+
+export const refreshDatasets = async (): Promise<DatasetsResponse> => {
+  const res = await fetch('/api/datasets/refresh', { method: 'POST' })
+  return parseJson<DatasetsResponse>(res)
+}
+
+export const selectDataset = async (sample_id: string): Promise<SelectDatasetResponse> => {
+  const res = await fetch('/api/datasets/select', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sample_id })
+  })
+  return parseJson<SelectDatasetResponse>(res)
+}
+
+export interface DatasetEventHandlers {
+  onProgress?: (data: DatasetProgress) => void
+  onComplete?: (data: { status: string; sample_id: string }) => void
+  onError?: (data: { status: string; message: string }) => void
+  onConnectionError?: (message: string) => void
+}
+
+export const subscribeDatasetEvents = (
+  sample_id: string,
+  handlers: DatasetEventHandlers
+): EventSource => {
+  const es = new EventSource(`/api/datasets/${encodeURIComponent(sample_id)}/events`)
+
+  es.addEventListener('progress', (event) => {
+    handlers.onProgress?.(JSON.parse(event.data) as DatasetProgress)
+  })
+  es.addEventListener('complete', (event) => {
+    handlers.onComplete?.(JSON.parse(event.data) as { status: string; sample_id: string })
+    es.close()
+  })
+  es.addEventListener('error', (event) => {
+    if (event instanceof MessageEvent) {
+      handlers.onError?.(JSON.parse(event.data) as { status: string; message: string })
+      es.close()
+      return
+    }
+    handlers.onConnectionError?.('Lost connection while processing dataset')
+    es.close()
+  })
+
+  return es
+}
+
 export const request = async (
   channel: Channel,
   params?: unknown,

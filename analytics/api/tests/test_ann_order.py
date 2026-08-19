@@ -10,10 +10,8 @@ pytestmark = pytest.mark.skipif(not bridges_available(), reason=skip_reason())
 
 def _db_conn(fake_rpkm_db):
     import duckdb
-    from pathlib import Path
 
-    db = Path(__file__).resolve().parents[2] / f"transform/runs/{SAMPLE_ID}/sample.duckdb"
-    return duckdb.connect(str(db), read_only=True)
+    return duckdb.connect(fake_rpkm_db, read_only=True)
 
 
 def test_ann_labels_ordered_superpathway_alphabetical(fake_rpkm_db):

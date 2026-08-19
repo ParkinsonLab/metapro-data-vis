@@ -4,6 +4,7 @@ from pathlib import Path
 
 import duckdb
 
+from api.config import db_path
 from api.filters import (
     normalise_taxon_filter,
     sample_id_from_names,
@@ -23,7 +24,6 @@ from api.tax_lineage_order import (
 )
 
 ANALYTICS_DIR = Path(__file__).resolve().parents[1]
-TRANSFORM_DIR = ANALYTICS_DIR / "transform"
 REPO_ROOT = ANALYTICS_DIR.parent
 RAW_PARQUET_DIR = REPO_ROOT / "resources/db/parquet"
 PATHWAY_SUPERPATHWAYS = RAW_PARQUET_DIR / "pathway_superpathways.parquet"
@@ -31,10 +31,6 @@ PATHWAY_NODES = RAW_PARQUET_DIR / "pathway_nodes.parquet"
 PATHWAY_EDGES = RAW_PARQUET_DIR / "pathway_edges.parquet"
 FILTERED_IDS_TABLE = "network_tax_ids"
 TAX_METADATA_TABLE = "network_tax_metadata"
-
-
-def _db_path(sample_id: str) -> Path:
-    return TRANSFORM_DIR / f"runs/{sample_id}/sample.duckdb"
 
 
 def _enriched_where(
@@ -177,7 +173,7 @@ def build_network_from_duckdb(
         return {"nodes": [], "edges": [], "colors": {}}
 
     sample_id = sample_id_from_names(names)
-    db_file = _db_path(sample_id)
+    db_file = db_path(sample_id)
     if not db_file.exists():
         raise FileNotFoundError(f"sample not found: {sample_id}")
 
