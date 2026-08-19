@@ -113,6 +113,8 @@ Sections below share a common [Prerequisites](#prerequisites) setup. Typical day
 | [uv](https://docs.astral.sh/uv/) | recent | Python env (`analytics/`) |
 | [Docker](https://www.docker.com/) | recent | [container builds](#building-the-container-image) only |
 
+Use **Node** from [`.nvmrc`](.nvmrc) (e.g. `nvm use`) and **Python** from [`.python-version`](.python-version) via `uv` (`uv python install` if `uv sync` cannot find 3.14).
+
 One-time Git LFS setup:
 
 ```bash
@@ -200,7 +202,7 @@ Assumes [Prerequisites](#prerequisites).
    npm run dev          # FastAPI (:8080) + Vite (:5173)
    ```
 
-   Open [http://localhost:5173](http://localhost:5173). Processed results go under `local-data/vis/runs/`.
+   Open the UI at [http://localhost:5173](http://localhost:5173) (**Data** tab and views). FastAPI serves the API on port **8080** (OpenAPI docs at [http://localhost:8080/docs](http://localhost:8080/docs)). Processed results go under `local-data/vis/runs/`.
 
    **Or** run frontend and backend separately (not together with `npm run dev`):
 
@@ -224,6 +226,8 @@ Pipeline and dbt details: [analytics/transform/README.md](analytics/transform/RE
 ### Building the container image
 
 Routine step when **releasing application code**. Assumes [Prerequisites](#prerequisites). Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
+
+The Dockerfile runs `build_reference.py` during the build — you do not need a local bridge build first. Local [Development](#development) still requires `build_reference.py` before `npm run dev`.
 
 ```bash
 docker build -t metapro-viz .
