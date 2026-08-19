@@ -7,11 +7,11 @@ SQL-first validation of MetaPro RPKM sample data against taxonomy/pathway refere
 - Python 3.14 (see repo-root `.python-version`)
 - [uv](https://docs.astral.sh/uv/)
 - [Git LFS](https://git-lfs.com/)
-- `resources/db/taxonomy.db` (local, gitignored — needed only to refresh Parquet dumps)
+- `resources/db/taxonomy.db` (local, gitignored — needed only to refresh Parquet dumps; see root [Refreshing reference data](../../README.md#refreshing-reference-data))
 
 ## Setup
 
-Prerequisites include Git LFS — see the root [README.md](../../README.md#git-lfs) for one-time install, clone, and pull commands.
+Prerequisites include Git LFS — see the root [Prerequisites](../../README.md#prerequisites) for install, clone, and pull commands.
 
 ```bash
 cd analytics

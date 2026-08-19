@@ -8,13 +8,39 @@ Metapro Viz is a downstream data visualization tool for [MetaPro](https://github
 
 ## Usage
 
-Metapro Viz is a web application. Mount your MetaPro output folder, open the app, and use the **Data** tab to choose which `RPKM_table.tsv` to work with. The app **processes** that file for visualization (first time can take several minutes on large tables), then serves the interactive views.
+Typical flow:
+
+1. [Locate your MetaPro output](#locate-your-metapro-output)
+2. [Run the application](#run-the-application)
+3. [Select a dataset and explore](#select-a-dataset-and-explore)
+
+### Locate your MetaPro output
+
+Choose the folder on your machine that **contains** your MetaPro analysis directories — not a single run folder (for example, not `mouse1_run` itself).
+
+Example layout — [MetaPro mouse tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0):
+
+```
+/path/to/metapro/output/
+  mouse1_run/
+    outputs/final_results/RPKM_table.tsv   ← dataset input
+    assemble_contigs/…
+    …
+  mouse2_run/
+    outputs/final_results/RPKM_table.tsv   ← another dataset
+  databases/                               ← no RPKM_table.tsv
+```
+
+- Each analysis (for example `mouse1_run/`) normally has one `RPKM_table.tsv`, usually at `outputs/final_results/RPKM_table.tsv`.
+- You will mount this parent folder when [running the app](#run-the-application).
+
+**RPKM format:** tax columns must be numeric NCBI tax ids (after `GeneID`, `Length`, `Reads`, `EC#`, `RPKM`). Current MetaPro output uses this format. The [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) file uses older scientific-name headers — see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md) for the one-time header fix.
 
 ### Run the application
 
-A hosted container image is planned as the primary distribution. **Not published yet** — until then, build and run from source; see [Building the container image](#building-the-container-image) (maintainer procedure; same steps work for early adopters).
+A hosted container image is planned as the primary distribution. **Not published yet** — until then, build and run from source; see [Building the container image](#building-the-container-image) under [Contributing](#contributing).
 
-When the image is available:
+When the image is available, mount your [MetaPro output folder](#locate-your-metapro-output) at `/data` inside the container:
 
 ```bash
 docker pull <registry>/metapro-viz:<tag>   # coming soon
@@ -23,50 +49,30 @@ docker run -p 8080:8080 \
   <registry>/metapro-viz:<tag>
 ```
 
-Open [http://localhost:8080](http://localhost:8080).
+Replace `/path/to/metapro/output` with the folder from step 1. Inside the container it appears as `/data`.
 
-On macOS, if Docker cannot access your data folder, add it under **Docker Desktop → Settings → Resources → File sharing**.
+- Open [http://localhost:8080](http://localhost:8080) in your browser.
+- On macOS, if Docker cannot access your data folder, add it under **Docker Desktop → Settings → Resources → File sharing** (also [Troubleshooting](#troubleshooting)).
 
-### Mount your MetaPro output
+In the **Data** tab you should see one row per discovered `RPKM_table.tsv`:
 
-Mount the folder that **contains** your MetaPro analysis directories at `/data` inside the container. The app scans that tree for files named `RPKM_table.tsv` and lists each one as a separate dataset in the **Data** tab. Folders under `vis/` are ignored (that is where the app stores its own processed results).
+| `RPKM_table.tsv` path in container                             | Name in Data tab                     |
+| -------------------------------------------------------------- | ------------------------------------ |
+| `/data/mouse1_run/outputs/final_results/RPKM_table.tsv`        | `mouse1_run__outputs__final_results` |
 
-Each MetaPro analysis (for example `mouse1_run/`) normally produces one `RPKM_table.tsv`, usually at `outputs/final_results/RPKM_table.tsv`. If you mount several analyses, you will see several datasets. Other files in the tree (configs, assemblies, annotation tables, etc.) are not used for visualization.
-
-Example layout — [MetaPro mouse tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) matches a typical MetaPro output tree:
-
-```
-/path/to/metapro/output/
-  mouse1_run/
-    outputs/final_results/RPKM_table.tsv   ← one dataset
-    assemble_contigs/…
-    taxonomic_annotation/…
-    …
-  mouse2_run/
-    outputs/final_results/RPKM_table.tsv   ← another dataset
-  databases/                               ← no RPKM_table.tsv; ignored
-```
-
-
-| `RPKM_table.tsv` location (under mount)           | Name in Data tab                     | Path column                                                                                    |
-| ------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` | Full path to the file (e.g. `/data/mouse1_run/outputs/final_results/RPKM_table.tsv` in Docker) |
-
-
-The name in the **Data** tab is the path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`. Status values: **Not processed**, **Ready**, **Needs reprocessing** (when the `RPKM_table.tsv` changed since last processing), **Processing**, **Failed**.
-
-**RPKM format:** tax columns must be numeric NCBI tax ids (after the fixed columns `GeneID`, `Length`, `Reads`, `EC#`, `RPKM`). Current MetaPro output uses this format. The [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) file uses older scientific-name headers — see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md) for the one-time header fix.
+- **Data tab name:** path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`.
+- **Status values:** **Not processed**, **Ready**, **Needs reprocessing** (source file changed), **Processing**, **Failed**.
+- **Discovery:** scans `/data` for `RPKM_table.tsv` files; skips `vis/` and paths that do not contain that filename.
 
 ### Select a dataset and explore
 
-1. Open the **Data** tab. Each row is one discovered `RPKM_table.tsv`.
-2. Click a dataset. The app **processes it for visualization** and shows progress. When processing finishes, that dataset becomes active for the views.
-3. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
-4. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
+In the **Data** tab, choose which `RPKM_table.tsv` to work with. The view tabs (**Overview**, **Chord**, **Network**, **Graph**, **Krona**) show results for the active dataset.
 
-Processed results are written next to your data under `vis/` (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them on later visits so you do not need to process again unless the source `RPKM_table.tsv` changed.
+1. Click a dataset. The app **processes it for visualization** (first time can take several minutes on large tables) and shows progress. When processing finishes, that dataset becomes active. If the source file changed, status shows **Needs reprocessing** — click again to re-run automatically.
+2. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
+3. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
 
-**To process again** after you update a source file, delete that dataset’s folder under `vis/` (or the whole `vis/` tree), then select the dataset in **Data** again.
+Processing writes results under `vis/runs/{sample_id}/` on the mount (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them when the source `RPKM_table.tsv` is unchanged.
 
 ### Configuration
 
@@ -77,8 +83,6 @@ Optional environment variables (container defaults):
 | ----------- | ---------------- | ----------------------------------------- |
 | `DATA_ROOT` | `/data`          | MetaPro output mount inside the container |
 | `RUNS_DIR`  | `/data/vis/runs` | Where processed results are stored        |
-
-
 
 
 ### Troubleshooting
@@ -92,103 +96,128 @@ Optional environment variables (container defaults):
 | Docker cannot read files on macOS  | Add the host folder under Docker Desktop file sharing                                                                                     |
 
 
+## Contributing
 
-
-## Development
-
-For **contributors** working on the app locally:
-
-
-| | **FastAPI + dbt** | **Express + upload** |
-| --- | --- | --- |
-| Role | Product path | Legacy — comparison and migration |
-| UI | **Data** tab — discover `RPKM_table.tsv` on disk | **Upload** tab — browser file upload |
-| Backend | FastAPI + dbt pipeline | Express |
-| Sample output | `vis/runs/{id}/sample.duckdb` on disk | In-memory / uploaded TSV |
+Sections below share a common [Prerequisites](#prerequisites) setup. Typical day-to-day work is [Development](#development); [Building the container image](#building-the-container-image) and [Refreshing reference data](#refreshing-reference-data) are less frequent maintainer tasks.
 
 ### Prerequisites
 
-```bash
-npm install          # Node 22, see .nvmrc
-cd analytics && uv sync   # Python 3.14, for FastAPI and pytest
-```
+**1. System tools**
 
-Run `git lfs pull` after clone or pull when LFS-tracked files change — see [Git LFS](#git-lfs). Required for reference Parquet and some analytics tests.
+| Tool | Version | Used for |
+| --- | --- | --- |
+| [Git](https://git-scm.com/) | recent | clone |
+| [Git LFS](https://git-lfs.com/) | recent | raw reference Parquet, test fixtures |
+| [Node.js](https://nodejs.org/) | see [`.nvmrc`](.nvmrc) | frontend, Express legacy, `npm` scripts |
+| [Python](https://www.python.org/) | see [`.python-version`](.python-version) | FastAPI, dbt, pytest, reference scripts |
+| [uv](https://docs.astral.sh/uv/) | recent | Python env (`analytics/`) |
+| [Docker](https://www.docker.com/) | recent | [container builds](#building-the-container-image) only |
 
-### Reference data (`taxonomy.db` and Parquet)
+Use **Node** from [`.nvmrc`](.nvmrc) (e.g. `nvm use`) and **Python** from [`.python-version`](.python-version) via `uv` (`uv python install` if `uv sync` cannot find 3.14).
 
-Viz needs reference taxonomy and pathway tables that are **not** part of your MetaPro mount. They form three layers; the FastAPI + dbt stack also writes per-sample DuckDB on the mount when you process a dataset:
-
-```mermaid
-flowchart LR
-  subgraph source["1. Source"]
-    NB["notebooks<br/>resources/scripts/"]
-    TDB[("taxonomy.db<br/>gitignored")]
-    NB --> TDB
-  end
-
-  subgraph raw["2. Raw dumps (Git LFS)"]
-  TDB -->|"export_parquet.py"| RAW["resources/db/parquet/<br/>7 table dumps"]
-  end
-
-  subgraph derived["3. Derived (local build)"]
-  RAW -->|"build_reference.py"| BR["transform/reference/parquet/<br/>bridge_*.parquet"]
-  end
-
-  subgraph sample["Per-sample (FastAPI + dbt only)"]
-  RPKM["RPKM_table.tsv<br/>on mount"] -->|"run_pipeline / dbt"| DUCK[("vis/runs/.../sample.duckdb")]
-  BR --> DUCK
-  end
-```
-
-| Layer | Description | Runtime location | FastAPI + dbt | Express + upload |
-| --- | --- | --- | --- | --- |
-| 1 — `taxonomy.db` | SQLite built from notebooks; source of truth | `resources/db/` | Build chain only | Queried directly |
-| 2 — raw Parquet | Table dumps (Git LFS) | `resources/db/parquet/` | Bridge build; Network layout (`pathway_*`) | — |
-| 3 — bridge Parquet | Denormalized joins for dbt (built locally, not committed) | `transform/reference/parquet/` | dbt pipeline | — |
-| Per-sample — `sample.duckdb` | Enriched mart from `RPKM_table.tsv` + bridges | `{DATA_ROOT}/vis/runs/{id}/` | Viz queries | — |
-
-*`{DATA_ROOT}`* defaults to `local-data/` in dev (`dev:fastapi` sets it relative to `analytics/`).
-
-### FastAPI + dbt
-
-**Data** tab, FastAPI on port 8080, Vite hot reload on 5173. Use `local-data/` as the data root.
-
-**Start the app** — pick one workflow:
+One-time Git LFS setup:
 
 ```bash
-npm run dev          # FastAPI + Vite together
+brew install git-lfs   # or your package manager
+git lfs install
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Processed results go under `local-data/vis/runs/` (`dev:fastapi` sets `DATA_ROOT=../local-data` relative to `analytics/`).
-
-**Or** run frontend and backend separately (not together with `npm run dev`):
+**2. Clone and fetch LFS data**
 
 ```bash
-npm run dev:fastapi                              # FastAPI only (:8080)
-VITE_DATA_MODE=mounted npm run dev:web           # Vite only (:5173)
+git clone git@github.com:ParkinsonLab/metapro-data-vis.git
+cd metapro-data-vis
+git lfs pull
 ```
 
-Dataset discovery and processing follow the same rules as [Mount your MetaPro output](#mount-your-metapro-output).
-
-**Quick fixture** (small synthetic file):
+When you `git pull` and the update includes changes to LFS-tracked paths (see below), run `git lfs pull` too — otherwise files such as `resources/db/parquet/*.parquet` may be small pointer stubs instead of real data.
 
 ```bash
-mkdir -p local-data/tutorial
-cp analytics/transform/tests/fixtures/fake_rpkm.tsv local-data/tutorial/RPKM_table.tsv
+git pull
+git lfs pull
 ```
 
-Select dataset `tutorial` in the **Data** tab.
+LFS-tracked paths (see `.gitattributes`):
 
-**MetaPro tutorial tree** — point `local-data/` at the **unzipped tutorial folder** (the parent of `mouse1_run/`, not `mouse1_run` itself). Same layout as [Mount your MetaPro output](#mount-your-metapro-output):
+- `resources/db/parquet/*.parquet` — raw reference table dumps
+- `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs for tests
+
+`taxonomy.db` is **not** in git or LFS. Normal dev uses committed raw Parquet plus a local `build_reference.py` run.
+
+**3. Project dependencies**
+
+From the repo root:
 
 ```bash
-ln -sf /path/to/MetaPro_tutorial_unzipped local-data
+npm install                 # Node packages
+cd analytics && uv sync     # Python packages (FastAPI, dbt, pytest, reference scripts)
 ```
 
-If you use the [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) `RPKM_table.tsv`, fix the header row first — see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md). Select dataset `mouse1_run__outputs__final_results` in **Data**.
+For [refreshing reference data](#refreshing-reference-data) or exploratory notebooks, install the extra Python groups as well:
 
-**Analytics / transform:**
+```bash
+cd analytics && uv sync --all-groups   # adds Jupyter, jupysql
+```
+
+Continue to [Development](#development) to start the app, or [Building the container image](#building-the-container-image) to build and run Docker.
+
+### Development
+
+Product stack: **FastAPI + dbt** (**Data** tab, mounted `RPKM_table.tsv` on disk).
+
+The legacy Express + browser-upload stack is kept for comparison and migration only — see [docs/legacy-express-upload-development.md](docs/legacy-express-upload-development.md).
+
+Assumes [Prerequisites](#prerequisites).
+
+**Local setup (FastAPI + dbt)**
+
+1. **Build bridge Parquet** (once per clone, or after raw Parquet refresh)
+
+   ```bash
+   cd analytics && uv run python transform/scripts/build_reference.py
+   ```
+
+   Writes `analytics/transform/reference/parquet/bridge_ec_pathway.parquet` and `bridge_tax_lineage.parquet`. FastAPI fails at startup if these are missing.
+
+2. **Provide sample data** — pick one:
+
+   - **Quick fixture** (synthetic):
+
+     ```bash
+     mkdir -p local-data/tutorial
+     cp analytics/transform/tests/fixtures/fake_rpkm.tsv local-data/tutorial/RPKM_table.tsv
+     ```
+
+     Select dataset `tutorial` in the **Data** tab.
+
+   - **MetaPro tutorial tree** — symlink the **unzipped tutorial folder** (parent of `mouse1_run/`, not `mouse1_run` itself):
+
+     ```bash
+     ln -sf /path/to/MetaPro_tutorial_unzipped local-data
+     ```
+
+     Same layout rules as [Locate your MetaPro output](#locate-your-metapro-output). If you use [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) `RPKM_table.tsv`, fix the header row first — [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md). Select dataset `mouse1_run__outputs__final_results`.
+
+3. **Start the app**
+
+   ```bash
+   npm run dev          # FastAPI (:8080) + Vite (:5173)
+   ```
+
+   Open the UI at [http://localhost:5173](http://localhost:5173) (**Data** tab and views). FastAPI serves the API on port **8080** (OpenAPI docs at [http://localhost:8080/docs](http://localhost:8080/docs)). Processed results go under `local-data/vis/runs/`.
+
+   **Or** run frontend and backend separately (not together with `npm run dev`):
+
+   ```bash
+   npm run dev:fastapi                              # FastAPI only (:8080)
+   VITE_DATA_MODE=mounted npm run dev:web           # Vite only (:5173)
+   ```
+
+Dataset discovery and processing follow the same rules as [Run the application](#run-the-application) and [Select a dataset and explore](#select-a-dataset-and-explore).
+
+*`{DATA_ROOT}`* defaults to `local-data/` at the repo root (`npm run dev` sets this via `dev:fastapi`).
+
+**Tests**
 
 ```bash
 cd analytics && uv run pytest
@@ -196,85 +225,25 @@ cd analytics && uv run pytest
 
 Pipeline and dbt details: [analytics/transform/README.md](analytics/transform/README.md).
 
-### Express + upload (legacy)
+### Building the container image
 
-Original Express + browser upload stack. Does **not** match the FastAPI + dbt path.
+Routine step when **releasing application code**. Assumes [Prerequisites](#prerequisites). Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
 
-**Start the app** — pick one workflow:
-
-```bash
-npm run dev:legacy    # Express + Vite together, Upload tab
-```
-
-**Or** run frontend and backend separately (not together with `npm run dev:legacy`):
+The Dockerfile runs `build_reference.py` during the build — you do not need a local bridge build first. Local [Development](#development) still requires `build_reference.py` before `npm run dev`.
 
 ```bash
-npm run dev:api       # Express only
-npm run dev:web       # Vite only; default upload mode unless VITE_DATA_MODE=upload
-```
-
-```bash
-npm test              # vitest (Node handlers)
-npm run build && npm start   # legacy Express production build on :8080
-```
-
-Set `VITE_DATA_MODE=upload` when starting `dev:web` to default to the Upload tab. The in-app toggle persists the choice in `localStorage`.
-
-Express reads `taxonomy.db` directly for taxonomy and pathway layout — see [Reference data](#reference-data-taxonomydb-and-parquet). Build it locally with the notebooks under `resources/scripts/` ([analytics/exploration/README.md](analytics/exploration/README.md)).
-
-### Git LFS
-
-Large data files are tracked with [Git LFS](https://git-lfs.com/) (see `.gitattributes`):
-
-- `resources/db/parquet/*.parquet` — raw reference table dumps (see [Reference data](#reference-data-taxonomydb-and-parquet))
-- `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs for tests
-
-`taxonomy.db` is **not** in LFS (build it locally or use committed Parquet). See [Reference data](#reference-data-taxonomydb-and-parquet).
-
-**One-time setup** (per machine):
-
-```bash
-brew install git-lfs   # or your package manager
-git lfs install
-```
-
-**New clone:**
-
-```bash
-git clone git@github.com:ParkinsonLab/metapro-data-vis.git
-cd metapro-data-vis
-git lfs pull
-```
-
-**Existing clone** (e.g. after pulling LFS-tracked changes):
-
-```bash
-git pull
-git lfs pull
-```
-
-## Building the container image
-
-Build, smoke-test, and publish the distribution image. Until an image is on Docker Hub, early adopters can follow the same steps (linked from [Run the application](#run-the-application) in Usage).
-
-**Prerequisites:** clone this repo and run `git lfs pull` so `resources/db/parquet/` is present — see [Git LFS](#git-lfs).
-
-```bash
-git clone git@github.com:ParkinsonLab/metapro-data-vis.git
-cd metapro-data-vis
-git lfs pull
 docker build -t metapro-viz .
 ```
 
-Run the image (mount layout and **Data** tab as in [Usage](#usage)):
+**Smoke test** (mount layout and **Data** tab as in [Usage](#usage)):
 
 ```bash
-# Your MetaPro output (parent folder that contains run directories)
+# MetaPro output (parent folder that contains run directories)
 docker run -p 8080:8080 \
   -v /path/to/metapro/output:/data \
   metapro-viz
 
-# Or smoke test with local-data/ after preparing it in [FastAPI + dbt](#fastapi--dbt)
+# Or local-data/ after [Development](#development) local setup
 docker run -p 8080:8080 \
   -v "$(pwd)/local-data:/data" \
   metapro-viz
@@ -282,7 +251,7 @@ docker run -p 8080:8080 \
 
 Open [http://localhost:8080](http://localhost:8080).
 
-`.dockerignore` excludes `local-data/`, dbt artifacts (`transform/logs`, `target`, `runs`), and other dev-only paths from the build context. The build runs `build_reference.py` on `resources/db/parquet/` and bakes reference data into the image:
+**What the image bakes in** (`.dockerignore` excludes dev-only paths; build runs `build_reference.py` on raw Parquet):
 
 | Layer | Baked into image |
 | --- | --- |
@@ -291,23 +260,76 @@ Open [http://localhost:8080](http://localhost:8080).
 | Bridge Parquet | Yes |
 | `sample.duckdb` | No (created on mount at runtime) |
 
-To ship updated reference tables, rebuild `taxonomy.db`, run `export_parquet.py`, commit LFS Parquet, then rebuild the image. Layer descriptions and stack usage: [Reference data](#reference-data-taxonomydb-and-parquet); export workflow: [analytics/exploration/README.md](analytics/exploration/README.md).
-
-**Apple Silicon (M1/M2/M3):** the image build uses TensorFlow native bindings that are x86_64-only in Linux containers. Before building:
-
-1. Install Rosetta 2 if prompted: `softwareupdate --install-rosetta`
-2. In **Docker Desktop → Settings → General**, enable:
-  - **Use Virtualization framework**
-  - **Use Rosetta for x86_64/amd64 emulation on Apple Silicon** (on macOS 14.1+ this may already be on)
-
-Then build and run with the `amd64` platform:
-
-```bash
-docker build --platform linux/amd64 -t metapro-viz .
-docker run --platform linux/amd64 -p 8080:8080 \
-  -v /path/to/metapro/output:/data \
-  metapro-viz
-```
-
 **Publishing:** tag and push to the registry when cutting a release (`docker pull` in Usage will point at that image).
 
+### Refreshing reference data
+
+Infrequent maintainer workflow — **not** part of routine [Development](#development) or [container builds](#building-the-container-image). Reference tables come from external providers (NCBI taxonomy, pathway databases, etc.) that can change schema, coverage, or semantics without notice.
+
+Assumes [Prerequisites](#prerequisites).
+
+#### Reference data
+
+When a user provides sample data (`RPKM_table.tsv` on the mount), the pipeline **joins it with reference tables** to produce an enriched `sample.duckdb` for visualization. Reference data is shared across all datasets; sample data is per-user and per-run.
+
+This section covers **refreshing reference data only** — not sample mounts or processed `vis/runs/` output.
+
+```mermaid
+flowchart LR
+  subgraph source["1. Source (reference)"]
+    NB["notebooks<br/>resources/scripts/"]
+    TDB[("taxonomy.db<br/>gitignored")]
+    NB --> TDB
+  end
+
+  subgraph raw["2. Raw dumps (reference, Git LFS)"]
+  TDB -->|"export_parquet.py"| RAW["resources/db/parquet/<br/>7 table dumps"]
+  end
+
+  subgraph derived["3. Derived (reference, local build)"]
+  RAW -->|"build_reference.py"| BR["transform/reference/parquet/<br/>bridge_*.parquet"]
+  end
+
+  subgraph sample["4. Sample (user mount)"]
+  RPKM["RPKM_table.tsv"] -->|"run_pipeline / dbt"| DUCK[("sample.duckdb<br/>vis/runs/...")]
+  BR --> DUCK
+  end
+```
+
+| Kind | Layer | Description | Location | Committed? |
+| --- | --- | --- | --- | --- |
+| Reference | `taxonomy.db` | SQLite built from notebooks; source of truth | `resources/db/` | No |
+| Reference | Raw Parquet | Table dumps from taxonomy DB | `resources/db/parquet/` | Yes (Git LFS) |
+| Reference | Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | No |
+| Sample | `RPKM_table.tsv` | User MetaPro output on the mount | `{DATA_ROOT}/…` | No (user data) |
+| Sample | `sample.duckdb` | Enriched mart (sample + reference bridges) | `{DATA_ROOT}/vis/runs/{id}/` | No (processed output) |
+
+#### Workflow
+
+1. **Rebuild `taxonomy.db`** from notebooks under `resources/scripts/` (when upstream reference data changes).
+
+2. **Export raw Parquet** to `resources/db/parquet/`:
+
+   ```bash
+   cd analytics && uv run python exploration/scripts/export_parquet.py
+   ```
+
+3. **Validate** — run the exploratory analysis notebook and check results against expected behavior:
+   - [analytics/exploration/README.md](analytics/exploration/README.md) (notebook workflow)
+   - [analytics/exploration/docs/data-model.md](analytics/exploration/docs/data-model.md) (regression targets)
+
+   ```bash
+   cd analytics
+   uv run jupyter execute exploration/notebooks/exploratory_analysis.ipynb
+   ```
+
+4. **Rebuild bridge Parquet** and run tests:
+
+   ```bash
+   cd analytics && uv run python transform/scripts/build_reference.py
+   cd analytics && uv run pytest
+   ```
+
+5. **Commit** updated `resources/db/parquet/*.parquet` (Git LFS) and any notebook or code changes.
+
+6. **Release** — [build the container image](#building-the-container-image) when ready to ship the new reference data.
