@@ -35,7 +35,7 @@ $ npm run build:win
 
 When released, the installer will fetch the supporting databases from our server.
 This file is temporarily hosted [here](https://drive.google.com/file/d/1txsXhyx8Yp7ccP42fJyWWKf_zaRbqu2e/view?usp=sharing).
-
+Place it at the path `resources/db/taxonomy.db` under the project root.
 
 It is also possible to create the database from scratch by running the following notebooks in order, under `resources/scripts`
 ```
