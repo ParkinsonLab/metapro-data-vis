@@ -8,8 +8,6 @@ Metapro Viz is a downstream data visualization tool for [MetaPro](https://github
 
 ## Usage
 
-Metapro Viz is a web application for exploring MetaPro `RPKM_table.tsv` results in Chord, Network, Graph, Overview, and Krona views.
-
 Typical flow:
 
 1. [Prepare your MetaPro mount](#prepare-your-metapro-mount)
