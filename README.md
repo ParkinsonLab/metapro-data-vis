@@ -12,8 +12,7 @@ Typical flow:
 
 1. [Locate your MetaPro output](#locate-your-metapro-output)
 2. [Run the application](#run-the-application)
-3. [Open the application](#open-the-application)
-4. [Select a dataset and explore](#select-a-dataset-and-explore)
+3. [Select a dataset and explore](#select-a-dataset-and-explore)
 
 ### Locate your MetaPro output
 
@@ -61,13 +60,13 @@ Replace `/path/to/metapro/output` with the folder from step 1. Inside the contai
 
 On macOS, if Docker cannot access your data folder, add it under **Docker Desktop → Settings → Resources → File sharing** (also [Troubleshooting](#troubleshooting)).
 
-### Open the application
-
-Open [http://localhost:8080](http://localhost:8080) in your browser. Use the **Data** tab to choose which `RPKM_table.tsv` to work with; the view tabs (**Overview**, **Chord**, **Network**, **Graph**, **Krona**) show results for the active dataset.
+Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ### Select a dataset and explore
 
-1. Open the **Data** tab — each row is one discovered `RPKM_table.tsv`.
+In the **Data** tab, choose which `RPKM_table.tsv` to work with. The view tabs (**Overview**, **Chord**, **Network**, **Graph**, **Krona**) show results for the active dataset.
+
+1. Each row in **Data** is one discovered `RPKM_table.tsv`.
 2. Click a dataset. The app **processes it for visualization** (first time can take several minutes on large tables) and shows progress. When processing finishes, that dataset becomes active.
 3. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
 4. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
