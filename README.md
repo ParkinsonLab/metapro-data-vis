@@ -175,22 +175,7 @@ Assumes [Prerequisites](#prerequisites).
 
    Writes `analytics/transform/reference/parquet/bridge_ec_pathway.parquet` and `bridge_tax_lineage.parquet`. FastAPI fails at startup if these are missing.
 
-2. **Start the app**
-
-   ```bash
-   npm run dev          # FastAPI (:8080) + Vite (:5173)
-   ```
-
-   Open [http://localhost:5173](http://localhost:5173). Processed results go under `local-data/vis/runs/`.
-
-   **Or** run frontend and backend separately (not together with `npm run dev`):
-
-   ```bash
-   npm run dev:fastapi                              # FastAPI only (:8080)
-   VITE_DATA_MODE=mounted npm run dev:web           # Vite only (:5173)
-   ```
-
-3. **Provide sample data** — pick one:
+2. **Provide sample data** — pick one:
 
    - **Quick fixture** (synthetic):
 
@@ -208,6 +193,21 @@ Assumes [Prerequisites](#prerequisites).
      ```
 
      Same layout rules as [Locate your MetaPro output](#locate-your-metapro-output). If you use [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) `RPKM_table.tsv`, fix the header row first — [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md). Select dataset `mouse1_run__outputs__final_results`.
+
+3. **Start the app**
+
+   ```bash
+   npm run dev          # FastAPI (:8080) + Vite (:5173)
+   ```
+
+   Open [http://localhost:5173](http://localhost:5173). Processed results go under `local-data/vis/runs/`.
+
+   **Or** run frontend and backend separately (not together with `npm run dev`):
+
+   ```bash
+   npm run dev:fastapi                              # FastAPI only (:8080)
+   VITE_DATA_MODE=mounted npm run dev:web           # Vite only (:5173)
+   ```
 
 Dataset discovery and processing follow the same rules as [Run the application](#run-the-application) and [Select a dataset and explore](#select-a-dataset-and-explore).
 
