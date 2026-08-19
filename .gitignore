@@ -10,6 +10,7 @@ build
 
 # python scripts
 resources/*
+!resources/db
 !resources/scripts
 !resources/example_data
 !resources/demo_gif.gif
