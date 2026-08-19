@@ -208,6 +208,8 @@ Assumes [Prerequisites](#prerequisites).
 
 Dataset discovery and processing follow the same rules as [Mount your MetaPro output](#mount-your-metapro-output).
 
+*`{DATA_ROOT}`* defaults to `local-data/` at the repo root (`npm run dev` sets this via `dev:fastapi`).
+
 **Tests**
 
 ```bash
