@@ -86,23 +86,24 @@ Requires `vis/runs/{sample_id}/sample.duckdb` with `mart_rpkm_enriched`. The API
 resolves paths via `api.config` (`DATA_ROOT`, `RUNS_DIR`). All six viz endpoints
 query `sample.duckdb` only (no reference Parquet reads except network layout).
 
-**Mounted mode** (`npm run dev:mounted`): FastAPI serves the UI and datasets API.
-Mount a MetaPro output folder as `local-data/`, select an `RPKM_table.tsv` in
-the Data tab, and processing writes to `local-data/vis/runs/`.
+**Mounted mode** (`npm run dev`): FastAPI serves the UI and datasets API.
+Point `local-data/` at the parent of your MetaPro run folders, select an
+`RPKM_table.tsv` in the Data tab, and processing writes to
+`local-data/vis/runs/`.
 
-**Legacy upload mode** (`npm run dev`): Express + Vite; viz routes can proxy to
-the FastAPI sidecar with `?backend=duckdb`. Set `ANALYTICS_API_URL` (default
-`http://localhost:8001`).
+**Express + upload** (`npm run dev:legacy`): Express + Vite; viz routes can
+proxy to the FastAPI sidecar with `?backend=duckdb`. Set `ANALYTICS_API_URL`
+(default `http://localhost:8001`).
 
 ```bash
 # Mounted mode (FastAPI + static UI)
-npm run dev:mounted
+npm run dev
 
 # Legacy: FastAPI sidecar only
 cd analytics && DATA_ROOT=../local-data uv run uvicorn api.main:app --port 8001
 
 # Legacy: Express + Vite
-npm run dev
+npm run dev:legacy
 ```
 
 Endpoints:
