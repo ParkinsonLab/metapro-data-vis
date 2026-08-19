@@ -220,7 +220,7 @@ Pipeline and dbt details: [analytics/transform/README.md](analytics/transform/RE
 
 ### Building the container image
 
-Routine step when **releasing application code**. Assumes [Prerequisites](#prerequisites) and Docker. Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
+Routine step when **releasing application code**. Assumes [Prerequisites](#prerequisites). Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
 
 The Dockerfile runs `build_reference.py` during the build — you do not run it on the host first.
 
