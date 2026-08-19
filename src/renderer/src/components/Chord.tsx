@@ -3,9 +3,8 @@
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { parse_data } from './parse'
-import { stat } from 'fs'
 
 const ChordSVG = () => {
   // Function to create the SVG element for the chord diagram
@@ -32,7 +31,7 @@ const ChordSVG = () => {
     const gaps = ['gap_1', 'gap_2', 'gap_3']
     const outer_gap_idc = gaps.map((e) => outer_matrix_index.indexOf(e))
 
-    const handle_arc_click = (event, d) => {
+    const handle_arc_click = (_event, d) => {
       const new_idx = d.index - 1
       if (new_idx < outer_gap_idc[1] - 1 && new_idx !== selected_ann_cat) {
         console.log('set selected_ann_cat to ' + new_idx)

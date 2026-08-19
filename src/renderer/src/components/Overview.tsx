@@ -3,7 +3,7 @@
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { get_color } from './util'
 
 const label_map = {

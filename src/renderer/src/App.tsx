@@ -5,7 +5,6 @@ import Graph from './components/Graph'
 import Overview from './components/Overview'
 import Krona from './components/Krona'
 import { useAppStore } from './store/AppStore'
-import { useEffect, useState } from 'react'
 import { Oval } from 'react-loader-spinner'
 import './App.css'
 

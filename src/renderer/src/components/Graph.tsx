@@ -1,7 +1,7 @@
 import Plot from 'react-plotly.js'
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 type PlotTrace = {
   z: number[]
@@ -42,11 +42,9 @@ function Graph(): React.JSX.Element {
     const {
       inner_count_matrix,
       inner_matrix_index,
-      outer_count_matrix,
       outer_matrix_index,
       colors,
-      tax_map,
-      ann_map
+      tax_map
     } = parsed_data
 
     const selected_idx = selected_annotations.map((e) => inner_matrix_index.indexOf(e))

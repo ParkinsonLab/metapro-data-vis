@@ -3,7 +3,7 @@
 import _ from 'lodash'
 import { useAppStore } from '@renderer/store/AppStore'
 import * as d3 from 'd3'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 const Krona = () => {
   const ref = useRef(null)
@@ -115,16 +115,16 @@ const Krona = () => {
           const i = d3.interpolate(d.current, d.target)
           return (t) => (d.current = i(t))
         })
-        .filter(function (d) {
-          return +this.getAttribute('fill-opacity') || arcVisible(d.target)
+        .filter(function (this: Element, d) {
+          return +this.getAttribute('fill-opacity')! || arcVisible(d.target)
         })
         .attr('fill-opacity', (d) => (arcVisible(d.target) ? (d.children ? 0.9 : 0.7) : 0))
         .attr('pointer-events', (d) => (arcVisible(d.target) ? 'auto' : 'none'))
         .attrTween('d', (d) => () => arc(d.current))
 
       label
-        .filter(function (d) {
-          return +this.getAttribute('fill-opacity') || labelVisible(d.target)
+        .filter(function (this: Element, d) {
+          return +this.getAttribute('fill-opacity')! || labelVisible(d.target)
         })
         .transition(t)
         .attr('fill-opacity', (d) => +labelVisible(d.target))

@@ -25,9 +25,18 @@ $ npm install
 $ npm start
 ```
 
+### Make the installer (for windows)
+
+```bash
+$ npm run build:win
+```
+
 ### Database
 
 When released, the installer will fetch the supporting databases from our server.
+This file is temporarily hosted [here](https://drive.google.com/file/d/1txsXhyx8Yp7ccP42fJyWWKf_zaRbqu2e/view?usp=sharing).
+
+
 It is also possible to create the database from scratch by running the following notebooks in order, under `resources/scripts`
 ```
 make_tax_hierarchy_database_source.ipynb

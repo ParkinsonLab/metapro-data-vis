@@ -39,7 +39,12 @@ const sort_by_category = (a, b, get_cat_idx: Function) => {
 
 // makes a count matrix from precalculated parameters and name mappers
 // refactored out because we need to call it at least twice to make the inner and outer arcs
-const make_count_matrix = (data, matrix_index, tax_map = null, ann_map = null) => {
+const make_count_matrix = (
+  data,
+  matrix_index,
+  tax_map: Record<string, string> | null = null,
+  ann_map: Record<string, string> | null = null
+) => {
   const add_to_count_map = (acc: any, species: string, annotation: string, value: number) => {
     const species_index = matrix_index.indexOf(tax_map ? tax_map[species] : species)
     const annotation_index = matrix_index.indexOf(ann_map ? ann_map[annotation] : annotation)
@@ -127,8 +132,8 @@ const parse_data_callback = (
     ...tax_cats.map((e, i, arr) => [e, get_color(i, arr.length)])
   ])
   const sub_colors = Object.fromEntries([
-    ...all_annotations.map((e, i, arr) => [e, get_sub_color(cat_colors[ec_map[e]], e)]),
-    ...all_taxa.map((e, i, arr) => [e, get_sub_color(cat_colors[tax_map[e]], e)])
+    ...all_annotations.map((e) => [e, get_sub_color(cat_colors[ec_map[e]], e)]),
+    ...all_taxa.map((e) => [e, get_sub_color(cat_colors[tax_map[e]], e)])
   ])
   const colors = {
     ...sub_colors,

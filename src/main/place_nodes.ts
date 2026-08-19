@@ -10,6 +10,10 @@ interface Edge {
     target: string;
     pathway_number: string;
 }
+interface PathwayNameRow {
+    number: string;
+    name: string;
+}
 interface Coords {
     x: number;
     y: number;
@@ -165,8 +169,8 @@ const place_nodes = (pathway: string, nodes: string[]) => {
             columns: true,
             skip_empty_lines: true,
         }
-    )
-    const pathway_name_dict = Object.fromEntries(pathway_name_csv.map(e => ([e['number'], e['name']])))
+    ) as PathwayNameRow[]
+    const pathway_name_dict = Object.fromEntries(pathway_name_csv.map(e => ([e.number, e.name])))
     const f_path = join('../../resources/pathways', pathway.toLowerCase().replace(/ /g, '_') + '.csv')
 
     const csvData = readFileSync(join(__dirname, f_path), 'utf-8')
@@ -217,11 +221,10 @@ const ec_list = readFileSync(
     'utf-8'
 ).split('\n').filter(line => line.trim() !== '').map(d => d.slice(3))
 
-const res = place_nodes(
+place_nodes(
     'Global and overview maps',
     ec_list
 )
-// console.log(res)
 console.log('end!')
 
 export default place_nodes

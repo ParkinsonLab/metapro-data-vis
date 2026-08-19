@@ -234,7 +234,7 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
       .attr('style', 'max-width: 100%; height: auto')
 
     // links
-    const link_selection = svg
+    svg
       .append('g')
       .selectAll('line')
       .data(edges)
@@ -244,13 +244,13 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
       .attr('stroke', 'grey')
       .attr('stroke-width', 0.5)
 
-    const node_selection = svg
+    svg
       .append('g')
       .selectAll('g')
       .data(nodes)
       .join((enter) => {
         const g = enter.append('g')
-        g.each(function (d) {
+        g.each(function (this: SVGGElement, d) {
           // For each toy_data row, construct the arc pie pieces within this 'g'
           const base_radius = Math.sqrt(node_size) / 2
           const arc = d3
@@ -263,7 +263,7 @@ const Pathway = ({ base_width, base_height, pathway, ann_map }): React.JSX.Eleme
           pie_g.attr('transform', `translate(${d.x}, ${d.y})`)
 
           // First, append the symbol path (so it goes below the pie wedges)
-          const symbolPath = pie_g
+          pie_g
             .insert('path', null)
             .attr('d', get_symbol(d.type, node_size))
             .attr('fill', selected_annotations.includes(d.label) ? 'blue' : 'white')
@@ -343,7 +343,7 @@ const PathwayPreview = ({
   const parsed_data = useAppStore((state) => state.parsed_data)
   const ec_data = useAppStore((state) => state.ec)
   const { inner_count_matrix, inner_matrix_index, tax_map: tax_map, colors } = parsed_data
-  const { data, ann_idx, tax_idx } = subset_data(
+  const { data, tax_idx } = subset_data(
     inner_count_matrix,
     inner_matrix_index,
     (e) => ann_map[e] === pathway
@@ -354,7 +354,7 @@ const PathwayPreview = ({
     value: d3.sum(condensed_data.map((e2) => e2[i]))
   }))
 
-  const handle_click = (event) => {
+  const handle_click = () => {
     console.log('handle click on preview')
     const pathway_id = _.find(ec_data, (e) => e.pathway_name === pathway)['pathway_id']
     useAppStore.setState({ isLoading: true })
