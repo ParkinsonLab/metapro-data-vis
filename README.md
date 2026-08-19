@@ -8,11 +8,41 @@ Metapro Viz is a downstream data visualization tool for [MetaPro](https://github
 
 ## Usage
 
-Metapro Viz is a web application. Mount your MetaPro output folder, open the app, and use the **Data** tab to choose which `RPKM_table.tsv` to work with. The app **processes** that file for visualization (first time can take several minutes on large tables), then serves the interactive views.
+Metapro Viz is a web application for exploring MetaPro `RPKM_table.tsv` results in Chord, Network, Graph, Overview, and Krona views.
+
+Typical flow:
+
+1. [Prepare your MetaPro mount](#prepare-your-metapro-mount)
+2. [Run the application](#run-the-application)
+3. [Select a dataset and explore](#select-a-dataset-and-explore)
+
+### Prepare your MetaPro mount
+
+Mount the folder that **contains** your MetaPro analysis directories (not a single run folder). In Docker, this path becomes `/data`.
+
+- The app scans that tree for files named `RPKM_table.tsv` and lists each one as a dataset in the **Data** tab.
+- Folders under `vis/` are ignored — the app writes processed results there.
+- Each analysis (for example `mouse1_run/`) normally has one `RPKM_table.tsv`, usually at `outputs/final_results/RPKM_table.tsv`.
+- Other files (configs, assemblies, annotation tables, etc.) are not used.
+
+Example layout — [MetaPro mouse tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0):
+
+```
+/path/to/metapro/output/
+  mouse1_run/
+    outputs/final_results/RPKM_table.tsv   ← one dataset
+    assemble_contigs/…
+    …
+  mouse2_run/
+    outputs/final_results/RPKM_table.tsv   ← another dataset
+  databases/                               ← no RPKM_table.tsv; ignored
+```
+
+**RPKM format:** tax columns must be numeric NCBI tax ids (after `GeneID`, `Length`, `Reads`, `EC#`, `RPKM`). Current MetaPro output uses this format. The [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) file uses older scientific-name headers — see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md) for the one-time header fix.
 
 ### Run the application
 
-A hosted container image is planned as the primary distribution. **Not published yet** — until then, build and run from source; see [Building the container image](#building-the-container-image) under [Contributing](#contributing) (same steps work for early adopters).
+A hosted container image is planned as the primary distribution. **Not published yet** — until then, build and run from source; see [Building the container image](#building-the-container-image) under [Contributing](#contributing).
 
 When the image is available:
 
@@ -23,49 +53,23 @@ docker run -p 8080:8080 \
   <registry>/metapro-viz:<tag>
 ```
 
-Open [http://localhost:8080](http://localhost:8080).
+Replace `/path/to/metapro/output` with the [mount folder](#prepare-your-metapro-mount) described above. Open [http://localhost:8080](http://localhost:8080).
 
-On macOS, if Docker cannot access your data folder, add it under **Docker Desktop → Settings → Resources → File sharing**.
-
-### Mount your MetaPro output
-
-Mount the folder that **contains** your MetaPro analysis directories at `/data` inside the container.
-
-- The app scans that tree for files named `RPKM_table.tsv` and lists each one as a separate dataset in the **Data** tab.
-- Folders under `vis/` are ignored (processed results written by the app).
-- Each MetaPro analysis (for example `mouse1_run/`) normally produces one `RPKM_table.tsv`, usually at `outputs/final_results/RPKM_table.tsv`.
-- Other files in the tree (configs, assemblies, annotation tables, etc.) are not used for visualization.
-
-Example layout — [MetaPro mouse tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) matches a typical MetaPro output tree:
-
-```
-/path/to/metapro/output/
-  mouse1_run/
-    outputs/final_results/RPKM_table.tsv   ← one dataset
-    assemble_contigs/…
-    taxonomic_annotation/…
-    …
-  mouse2_run/
-    outputs/final_results/RPKM_table.tsv   ← another dataset
-  databases/                               ← no RPKM_table.tsv; ignored
-```
-
-
-| `RPKM_table.tsv` location (under mount)           | Name in Data tab                     | Path column                                                                                    |
-| ------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` | Full path to the file (e.g. `/data/mouse1_run/outputs/final_results/RPKM_table.tsv` in Docker) |
-
-
-- **Data tab name:** path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`.
-- **Status values:** **Not processed**, **Ready**, **Needs reprocessing** (source file changed), **Processing**, **Failed**.
-- **RPKM format:** tax columns must be numeric NCBI tax ids (after `GeneID`, `Length`, `Reads`, `EC#`, `RPKM`). Current MetaPro output uses this format. The [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) file uses older scientific-name headers — see [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md) for the one-time header fix.
+On macOS, if Docker cannot access your data folder, add it under **Docker Desktop → Settings → Resources → File sharing** (also [Troubleshooting](#troubleshooting)).
 
 ### Select a dataset and explore
 
-1. Open the **Data** tab. Each row is one discovered `RPKM_table.tsv`.
-2. Click a dataset. The app **processes it for visualization** and shows progress. When processing finishes, that dataset becomes active for the views.
+1. Open the **Data** tab — each row is one discovered `RPKM_table.tsv`.
+2. Click a dataset. The app **processes it for visualization** (first time can take several minutes on large tables) and shows progress. When processing finishes, that dataset becomes active.
 3. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
 4. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
+
+| `RPKM_table.tsv` location (under mount)           | Name in Data tab                     |
+| ------------------------------------------------- | ------------------------------------ |
+| `mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` |
+
+- **Data tab name:** path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`.
+- **Status values:** **Not processed**, **Ready**, **Needs reprocessing** (source file changed), **Processing**, **Failed**.
 
 Processed results are written next to your data under `vis/` (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them on later visits unless the source `RPKM_table.tsv` changed.
 
@@ -204,9 +208,9 @@ Assumes [Prerequisites](#prerequisites).
      ln -sf /path/to/MetaPro_tutorial_unzipped local-data
      ```
 
-     Same mount rules as [Mount your MetaPro output](#mount-your-metapro-output). If you use [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) `RPKM_table.tsv`, fix the header row first — [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md). Select dataset `mouse1_run__outputs__final_results`.
+     Same mount rules as [Prepare your MetaPro mount](#prepare-your-metapro-mount). If you use [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) `RPKM_table.tsv`, fix the header row first — [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md). Select dataset `mouse1_run__outputs__final_results`.
 
-Dataset discovery and processing follow the same rules as [Mount your MetaPro output](#mount-your-metapro-output).
+Dataset discovery and processing follow the same rules as [Prepare your MetaPro mount](#prepare-your-metapro-mount).
 
 *`{DATA_ROOT}`* defaults to `local-data/` at the repo root (`npm run dev` sets this via `dev:fastapi`).
 
