@@ -294,26 +294,30 @@ flowchart LR
 
 #### Workflow
 
-**Before committing updated Parquet:**
+1. **Rebuild `taxonomy.db`** from notebooks under `resources/scripts/` (when upstream reference data changes).
 
-- Re-run exploratory analysis and validate assumptions — [analytics/exploration/README.md](analytics/exploration/README.md)
-- Review [analytics/exploration/docs/data-model.md](analytics/exploration/docs/data-model.md) regression targets
-- Run `cd analytics && uv run pytest` after rebuilding bridges locally
-
-1. Rebuild `resources/db/taxonomy.db` from notebooks under `resources/scripts/` (when upstream data changes)
-2. Export raw Parquet:
+2. **Export raw Parquet** to `resources/db/parquet/`:
 
    ```bash
    cd analytics && uv run python exploration/scripts/export_parquet.py
    ```
 
-3. Run exploratory analysis notebook (step 2 in exploration README)
-4. Commit updated `resources/db/parquet/*.parquet` (Git LFS) and any code/notebook changes
-5. Rebuild bridge Parquet locally and re-test:
+3. **Validate** — run the exploratory analysis notebook and check results against expected behavior:
+   - [analytics/exploration/README.md](analytics/exploration/README.md) (notebook workflow)
+   - [analytics/exploration/docs/data-model.md](analytics/exploration/docs/data-model.md) (regression targets)
+
+   ```bash
+   cd analytics
+   uv run jupyter execute exploration/notebooks/exploratory_analysis.ipynb
+   ```
+
+4. **Rebuild bridge Parquet** and run tests:
 
    ```bash
    cd analytics && uv run python transform/scripts/build_reference.py
    cd analytics && uv run pytest
    ```
 
-6. When ready to ship reference data with a release, [build the container image](#building-the-container-image)
+5. **Commit** updated `resources/db/parquet/*.parquet` (Git LFS) and any notebook or code changes.
+
+6. **Release** — [build the container image](#building-the-container-image) when ready to ship the new reference data.
