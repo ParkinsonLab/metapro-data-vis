@@ -56,9 +56,9 @@ Replace `/path/to/metapro/output` with the folder from step 1. Inside the contai
 
 In the **Data** tab you should see one row per discovered `RPKM_table.tsv`:
 
-| `RPKM_table.tsv` location (under mount)           | Name in Data tab                     |
-| ------------------------------------------------- | ------------------------------------ |
-| `mouse1_run/outputs/final_results/RPKM_table.tsv` | `mouse1_run__outputs__final_results` |
+| `RPKM_table.tsv` path in container                             | Name in Data tab                     |
+| -------------------------------------------------------------- | ------------------------------------ |
+| `/data/mouse1_run/outputs/final_results/RPKM_table.tsv`        | `mouse1_run__outputs__final_results` |
 
 - **Data tab name:** path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`.
 - **Status values:** **Not processed**, **Ready**, **Needs reprocessing** (source file changed), **Processing**, **Failed**.
