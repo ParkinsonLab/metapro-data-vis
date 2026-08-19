@@ -1,9 +1,7 @@
 FROM node:22 AS frontend-build
 WORKDIR /app
 COPY package.json package-lock.json ./
-# danfojs-node → @tensorflow/tfjs-node ships prebuilt x86_64 Linux binaries.
-# On Apple Silicon, build with: docker build --platform linux/amd64 ...
-# Enable Rosetta in Docker Desktop (Settings → General) for best performance.
+# npm ci pulls danfojs-node (legacy Express) including @tensorflow/tfjs-node; not used at runtime (FastAPI only).
 RUN npm ci
 COPY src ./src
 COPY tsconfig.json tsconfig.web.json tsconfig.server.json vite.config.ts ./

@@ -251,20 +251,6 @@ Open [http://localhost:8080](http://localhost:8080).
 | Bridge Parquet | Yes |
 | `sample.duckdb` | No (created on mount at runtime) |
 
-**Apple Silicon (M1/M2/M3):** TensorFlow bindings in the image are x86_64-only in Linux containers.
-
-1. Install Rosetta 2 if prompted: `softwareupdate --install-rosetta`
-2. In **Docker Desktop → Settings → General**, enable:
-   - **Use Virtualization framework**
-   - **Use Rosetta for x86_64/amd64 emulation on Apple Silicon** (on macOS 14.1+ this may already be on)
-
-```bash
-docker build --platform linux/amd64 -t metapro-viz .
-docker run --platform linux/amd64 -p 8080:8080 \
-  -v /path/to/metapro/output:/data \
-  metapro-viz
-```
-
 **Publishing:** tag and push to the registry when cutting a release (`docker pull` in Usage will point at that image).
 
 ### Refreshing reference data
