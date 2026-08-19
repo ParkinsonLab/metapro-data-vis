@@ -62,13 +62,7 @@ In the **Data** tab you should see one row per discovered `RPKM_table.tsv`:
 
 - **Data tab name:** path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`.
 - **Status values:** **Not processed**, **Ready**, **Needs reprocessing** (source file changed), **Processing**, **Failed**.
-
-**How the mount is used:**
-
-- The app scans `/data` for files named `RPKM_table.tsv` and lists each one as a dataset in the **Data** tab.
-- Folders under `vis/` are ignored when scanning — the app writes processed results there.
-- Other files and subfolders (configs, assemblies, annotation tables, etc.) are not read for visualization.
-- Processed output is written next to your data (for example `/data/vis/runs/mouse1_run__outputs__final_results/` on the mount).
+- **Discovery:** scans `/data` for `RPKM_table.tsv` files; skips `vis/` and paths that do not contain that filename.
 
 ### Select a dataset and explore
 
@@ -78,7 +72,7 @@ In the **Data** tab, choose which `RPKM_table.tsv` to work with. The view tabs (
 2. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
 3. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
 
-Processed results are written next to your data under `vis/` (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them when the source `RPKM_table.tsv` is unchanged.
+Processing writes results under `vis/runs/{sample_id}/` on the mount (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them when the source `RPKM_table.tsv` is unchanged.
 
 ### Configuration
 
@@ -215,7 +209,7 @@ Assumes [Prerequisites](#prerequisites).
 
      Same layout rules as [Locate your MetaPro output](#locate-your-metapro-output). If you use [tutorial release 1.0](https://github.com/ParkinsonLab/MetaPro_tutorial/releases/tag/1.0) `RPKM_table.tsv`, fix the header row first — [docs/metapro-mouse-tutorial-rpkm.md](docs/metapro-mouse-tutorial-rpkm.md). Select dataset `mouse1_run__outputs__final_results`.
 
-Dataset discovery and processing follow the same rules as [Run the application](#run-the-application) (**How the mount is used**).
+Dataset discovery and processing follow the same rules as [Run the application](#run-the-application) and [Select a dataset and explore](#select-a-dataset-and-explore).
 
 *`{DATA_ROOT}`* defaults to `local-data/` at the repo root (`npm run dev` sets this via `dev:fastapi`).
 
