@@ -51,25 +51,10 @@ docker run -p 8080:8080 \
 
 Replace `/path/to/metapro/output` with the folder from step 1. Inside the container it appears as `/data`.
 
-**How the mount is used:**
+- Open [http://localhost:8080](http://localhost:8080) in your browser.
+- On macOS, if Docker cannot access your data folder, add it under **Docker Desktop → Settings → Resources → File sharing** (also [Troubleshooting](#troubleshooting)).
 
-- The app scans `/data` for files named `RPKM_table.tsv` and lists each one as a dataset in the **Data** tab.
-- Folders under `vis/` are ignored when scanning — the app writes processed results there.
-- Other files and subfolders (configs, assemblies, annotation tables, etc.) are not read for visualization.
-- Processed output is written next to your data (for example `/data/vis/runs/mouse1_run__outputs__final_results/` on the mount).
-
-On macOS, if Docker cannot access your data folder, add it under **Docker Desktop → Settings → Resources → File sharing** (also [Troubleshooting](#troubleshooting)).
-
-Open [http://localhost:8080](http://localhost:8080) in your browser.
-
-### Select a dataset and explore
-
-In the **Data** tab, choose which `RPKM_table.tsv` to work with. The view tabs (**Overview**, **Chord**, **Network**, **Graph**, **Krona**) show results for the active dataset.
-
-1. Each row in **Data** is one discovered `RPKM_table.tsv`.
-2. Click a dataset. The app **processes it for visualization** (first time can take several minutes on large tables) and shows progress. When processing finishes, that dataset becomes active.
-3. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
-4. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
+In the **Data** tab you should see one row per discovered `RPKM_table.tsv`:
 
 | `RPKM_table.tsv` location (under mount)           | Name in Data tab                     |
 | ------------------------------------------------- | ------------------------------------ |
@@ -77,6 +62,21 @@ In the **Data** tab, choose which `RPKM_table.tsv` to work with. The view tabs (
 
 - **Data tab name:** path to the TSV’s parent folder, relative to `/data`, with `/` replaced by `__`. A file at the mount root would appear as `_root`.
 - **Status values:** **Not processed**, **Ready**, **Needs reprocessing** (source file changed), **Processing**, **Failed**.
+
+**How the mount is used:**
+
+- The app scans `/data` for files named `RPKM_table.tsv` and lists each one as a dataset in the **Data** tab.
+- Folders under `vis/` are ignored when scanning — the app writes processed results there.
+- Other files and subfolders (configs, assemblies, annotation tables, etc.) are not read for visualization.
+- Processed output is written next to your data (for example `/data/vis/runs/mouse1_run__outputs__final_results/` on the mount).
+
+### Select a dataset and explore
+
+In the **Data** tab, choose which `RPKM_table.tsv` to work with. The view tabs (**Overview**, **Chord**, **Network**, **Graph**, **Krona**) show results for the active dataset.
+
+1. Click a dataset. The app **processes it for visualization** (first time can take several minutes on large tables) and shows progress. When processing finishes, that dataset becomes active.
+2. Use **Overview**, **Chord**, **Network**, **Graph**, and **Krona** to explore the active dataset.
+3. **Refresh** rescans the mount for new or moved `RPKM_table.tsv` files.
 
 Processed results are written next to your data under `vis/` (for example `vis/runs/mouse1_run__outputs__final_results/`). The app reuses them on later visits unless the source `RPKM_table.tsv` changed.
 
