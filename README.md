@@ -154,10 +154,6 @@ For [refreshing reference data](#refreshing-reference-data) or exploratory noteb
 cd analytics && uv sync --all-groups   # adds Jupyter, jupysql
 ```
 
-- **Development** — steps 1–3 above, then [Development](#development) (includes `build_reference.py`)
-- **Container build** — steps 1–2 and Docker; the Dockerfile runs `build_reference.py`
-- **Refresh reference** — steps 1–3 with `--all-groups`; see [Refreshing reference data](#refreshing-reference-data)
-
 ### Development
 
 Product stack: **FastAPI + dbt** (**Data** tab, mounted `RPKM_table.tsv` on disk).
@@ -224,7 +220,7 @@ Pipeline and dbt details: [analytics/transform/README.md](analytics/transform/RE
 
 ### Building the container image
 
-Routine step when **releasing application code**. Assumes [Prerequisites](#prerequisites) §1–2 (clone + LFS) and Docker. Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
+Routine step when **releasing application code**. Assumes [Prerequisites](#prerequisites) and Docker. Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
 
 The Dockerfile runs `build_reference.py` during the build — you do not run it on the host first.
 
