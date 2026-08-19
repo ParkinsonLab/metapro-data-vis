@@ -106,7 +106,7 @@ Sections below share a common [Prerequisites](#prerequisites) setup. Typical day
 
 | Tool | Version | Used for |
 | --- | --- | --- |
-| [Git](https://git-scm.com/) | recent | clone, worktrees |
+| [Git](https://git-scm.com/) | recent | clone |
 | [Git LFS](https://git-lfs.com/) | recent | raw reference Parquet, test fixtures |
 | [Node.js](https://nodejs.org/) | see [`.nvmrc`](.nvmrc) | frontend, Express legacy, `npm` scripts |
 | [Python](https://www.python.org/) | see [`.python-version`](.python-version) | FastAPI, dbt, pytest, reference scripts |
@@ -158,6 +158,8 @@ For [refreshing reference data](#refreshing-reference-data) or exploratory noteb
 ```bash
 cd analytics && uv sync --all-groups   # adds Jupyter, jupysql
 ```
+
+Continue to [Development](#development) to start the app, or [Building the container image](#building-the-container-image) to build and run Docker.
 
 ### Development
 
