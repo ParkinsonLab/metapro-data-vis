@@ -261,34 +261,39 @@ Assumes [Prerequisites](#prerequisites).
 
 #### Reference data
 
-Shared taxonomy and pathway tables used by every dataset. They are **not** part of your MetaPro mount and are what this section describes how to refresh.
+When a user provides sample data (`RPKM_table.tsv` on the mount), the pipeline **joins it with reference tables** to produce an enriched `sample.duckdb` for visualization. Reference data is shared across all datasets; sample data is per-user and per-run.
 
-**Sample data** (each `RPKM_table.tsv` on the mount and the processed `sample.duckdb` under `{DATA_ROOT}/vis/runs/`) is separate — user-provided, per-run output, not reference data.
+This section covers **refreshing reference data only** — not sample mounts or processed `vis/runs/` output.
 
 ```mermaid
 flowchart LR
-  subgraph source["1. Source"]
+  subgraph source["1. Source (reference)"]
     NB["notebooks<br/>resources/scripts/"]
     TDB[("taxonomy.db<br/>gitignored")]
     NB --> TDB
   end
 
-  subgraph raw["2. Raw dumps (Git LFS)"]
+  subgraph raw["2. Raw dumps (reference, Git LFS)"]
   TDB -->|"export_parquet.py"| RAW["resources/db/parquet/<br/>7 table dumps"]
   end
 
-  subgraph derived["3. Derived (local build)"]
+  subgraph derived["3. Derived (reference, local build)"]
   RAW -->|"build_reference.py"| BR["transform/reference/parquet/<br/>bridge_*.parquet"]
+  end
+
+  subgraph sample["4. Sample (user mount)"]
+  RPKM["RPKM_table.tsv"] -->|"run_pipeline / dbt"| DUCK[("sample.duckdb<br/>vis/runs/...")]
+  BR --> DUCK
   end
 ```
 
-At runtime, processing a sample joins mount `RPKM_table.tsv` with bridge Parquet to write `sample.duckdb` — that artifact is sample data, not covered by the refresh workflow below.
-
-| Layer | Description | Location | Committed? |
-| --- | --- | --- | --- |
-| `taxonomy.db` | SQLite built from notebooks; source of truth | `resources/db/` | No |
-| Raw Parquet | Table dumps from taxonomy DB | `resources/db/parquet/` | Yes (Git LFS) |
-| Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | No |
+| Kind | Layer | Description | Location | Committed? |
+| --- | --- | --- | --- | --- |
+| Reference | `taxonomy.db` | SQLite built from notebooks; source of truth | `resources/db/` | No |
+| Reference | Raw Parquet | Table dumps from taxonomy DB | `resources/db/parquet/` | Yes (Git LFS) |
+| Reference | Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | No |
+| Sample | `RPKM_table.tsv` | User MetaPro output on the mount | `{DATA_ROOT}/…` | No (user data) |
+| Sample | `sample.duckdb` | Enriched mart (sample + reference bridges) | `{DATA_ROOT}/vis/runs/{id}/` | No (processed output) |
 
 #### Workflow
 
