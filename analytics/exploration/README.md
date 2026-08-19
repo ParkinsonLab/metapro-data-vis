@@ -11,7 +11,7 @@ SQL-first validation of MetaPro RPKM sample data against taxonomy/pathway refere
 
 ## Setup
 
-Prerequisites include Git LFS — see the root [README.md](../../README.md#git-lfs) for one-time install, clone, and pull commands.
+Prerequisites include Git LFS — see the root [Contributing prerequisites](../../README.md#contributing-prerequisites) for clone, LFS install, and pull commands.
 
 ```bash
 cd analytics

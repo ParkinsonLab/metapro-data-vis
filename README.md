@@ -99,65 +99,60 @@ For **contributors** working on the app locally. The product stack is **FastAPI 
 
 The legacy Express + browser-upload stack is kept for comparison and migration only — see [docs/legacy-express-upload-development.md](docs/legacy-express-upload-development.md).
 
-### Prerequisites
+### Contributing prerequisites
+
+For **contributors and maintainers** — not required to run a published container image against your MetaPro output ([Usage](#usage)).
+
+Shared by [local setup](#local-setup-fastapi--dbt), [building the container image](#building-the-container-image), and [refreshing reference data](#refreshing-reference-data):
+
+**Clone** (once per machine or worktree):
+
+```bash
+git clone git@github.com:ParkinsonLab/metapro-data-vis.git
+cd metapro-data-vis
+git lfs pull
+```
+
+**Git LFS** — one-time per machine, then after pulls when LFS-tracked files change:
+
+```bash
+brew install git-lfs   # or your package manager
+git lfs install
+```
+
+```bash
+git pull
+git lfs pull
+```
+
+LFS-tracked paths (see `.gitattributes`):
+
+- `resources/db/parquet/*.parquet` — raw reference table dumps
+- `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs for tests
+
+`taxonomy.db` is **not** in LFS or git. Normal dev uses committed raw Parquet plus a local `build_reference.py` run.
+
+**Dependencies** (local dev and reference refresh — not needed to build the container image):
 
 ```bash
 npm install                 # Node 22, see .nvmrc
-cd analytics && uv sync     # Python 3.14, for FastAPI and pytest
+cd analytics && uv sync     # Python 3.14, for FastAPI, pytest, and reference scripts
 ```
 
-- Install [Git LFS](#git-lfs) once per machine.
-- After clone or pull, run `git lfs pull` when LFS-tracked files change.
-
-### Reference data
-
-Viz needs reference taxonomy and pathway tables that are **not** part of your MetaPro mount. The FastAPI + dbt stack also writes per-sample DuckDB on the mount when you process a dataset:
-
-```mermaid
-flowchart LR
-  subgraph source["1. Source"]
-    NB["notebooks<br/>resources/scripts/"]
-    TDB[("taxonomy.db<br/>gitignored")]
-    NB --> TDB
-  end
-
-  subgraph raw["2. Raw dumps (Git LFS)"]
-  TDB -->|"export_parquet.py"| RAW["resources/db/parquet/<br/>7 table dumps"]
-  end
-
-  subgraph derived["3. Derived (local build)"]
-  RAW -->|"build_reference.py"| BR["transform/reference/parquet/<br/>bridge_*.parquet"]
-  end
-
-  subgraph sample["Per-sample"]
-  RPKM["RPKM_table.tsv<br/>on mount"] -->|"run_pipeline / dbt"| DUCK[("vis/runs/.../sample.duckdb")]
-  BR --> DUCK
-  end
-```
-
-| Layer | Description | Location | Role in dev |
+| Prerequisite | Local dev | Container build | Refresh reference |
 | --- | --- | --- | --- |
-| Raw Parquet | Table dumps from taxonomy DB | `resources/db/parquet/` (Git LFS) | Checked out with repo; input to bridge build and Network layout |
-| Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | Built locally; **not** committed |
-| Per-sample DuckDB | Enriched mart from RPKM + bridges | `{DATA_ROOT}/vis/runs/{id}/` | Created when you process a dataset |
-
-*`{DATA_ROOT}`* defaults to `local-data/` in dev (`dev:fastapi` sets it relative to `analytics/`).
-
-Refreshing committed reference data (raw Parquet) is a separate, infrequent maintainer workflow — see [Refreshing reference data](#refreshing-reference-data).
+| Clone + `git lfs pull` | ✓ | ✓ | ✓ |
+| `npm install` | ✓ | — | — |
+| `uv sync` | ✓ | — | ✓ |
+| Docker | — | ✓ | — |
+| `build_reference.py` | ✓ (once per clone; see [local setup](#local-setup-fastapi--dbt)) | automatic in Dockerfile | ✓ (after export; see [workflow](#workflow)) |
+| `taxonomy.db` | — | — | ✓ (to export; see [workflow](#workflow)) |
 
 ### Local setup (FastAPI + dbt)
 
-1. **Clone and fetch LFS reference Parquet**
+Assumes [Contributing prerequisites](#contributing-prerequisites).
 
-   ```bash
-   git clone git@github.com:ParkinsonLab/metapro-data-vis.git
-   cd metapro-data-vis
-   git lfs pull
-   ```
-
-2. **Install dependencies** (see [Prerequisites](#prerequisites))
-
-3. **Build bridge Parquet** (once per clone, or after raw Parquet refresh)
+1. **Build bridge Parquet** (once per clone, or after raw Parquet refresh)
 
    ```bash
    cd analytics && uv run python transform/scripts/build_reference.py
@@ -165,7 +160,7 @@ Refreshing committed reference data (raw Parquet) is a separate, infrequent main
 
    Writes `analytics/transform/reference/parquet/bridge_ec_pathway.parquet` and `bridge_tax_lineage.parquet`. FastAPI fails at startup if these are missing.
 
-4. **Start the app**
+2. **Start the app**
 
    ```bash
    npm run dev          # FastAPI (:8080) + Vite (:5173)
@@ -180,7 +175,7 @@ Refreshing committed reference data (raw Parquet) is a separate, infrequent main
    VITE_DATA_MODE=mounted npm run dev:web           # Vite only (:5173)
    ```
 
-5. **Provide sample data** — pick one:
+3. **Provide sample data** — pick one:
 
    - **Quick fixture** (synthetic):
 
@@ -201,6 +196,8 @@ Refreshing committed reference data (raw Parquet) is a separate, infrequent main
 
 Dataset discovery and processing follow the same rules as [Mount your MetaPro output](#mount-your-metapro-output).
 
+*`{DATA_ROOT}`* defaults to `local-data/` in dev (`dev:fastapi` sets it relative to `analytics/`).
+
 ### Tests
 
 ```bash
@@ -209,42 +206,13 @@ cd analytics && uv run pytest
 
 Pipeline and dbt details: [analytics/transform/README.md](analytics/transform/README.md).
 
-### Git LFS
-
-Large data files are tracked with [Git LFS](https://git-lfs.com/) (see `.gitattributes`):
-
-- `resources/db/parquet/*.parquet` — raw reference table dumps
-- `resources/example_data/test_rpkm_*.tsv` — sample RPKM inputs for tests
-
-`taxonomy.db` is **not** in LFS. Normal dev uses committed raw Parquet plus a local `build_reference.py` run.
-
-**One-time setup** (per machine):
-
-```bash
-brew install git-lfs   # or your package manager
-git lfs install
-```
-
-**After pulling LFS-tracked changes:**
-
-```bash
-git pull
-git lfs pull
-```
-
 ## Building the container image
 
-Routine step when **releasing application code**. Assumes committed reference Parquet is already present in the repo (see [Refreshing reference data](#refreshing-reference-data) when that is not true).
+Routine step when **releasing application code**. Assumes [Contributing prerequisites](#contributing-prerequisites) (clone + LFS) and Docker installed. Raw reference Parquet must already be committed (see [Refreshing reference data](#refreshing-reference-data) when it is not).
 
-**Prerequisites:**
-
-- Clone with `git lfs pull` so `resources/db/parquet/` contains real files — see [Git LFS](#git-lfs)
-- The Dockerfile runs `build_reference.py` during the build; you do not run it on the host first
+The Dockerfile runs `build_reference.py` during the build — you do not run it on the host first.
 
 ```bash
-git clone git@github.com:ParkinsonLab/metapro-data-vis.git
-cd metapro-data-vis
-git lfs pull
 docker build -t metapro-viz .
 ```
 
@@ -293,13 +261,48 @@ docker run --platform linux/amd64 -p 8080:8080 \
 
 Infrequent maintainer workflow — **not** part of routine app development or container releases. Reference tables come from external providers (NCBI taxonomy, pathway databases, etc.) that can change schema, coverage, or semantics without notice.
 
+Assumes [Contributing prerequisites](#contributing-prerequisites).
+
+### Reference data
+
+Viz needs reference taxonomy and pathway tables that are **not** part of your MetaPro mount. The FastAPI + dbt stack also writes per-sample DuckDB on the mount when you process a dataset:
+
+```mermaid
+flowchart LR
+  subgraph source["1. Source"]
+    NB["notebooks<br/>resources/scripts/"]
+    TDB[("taxonomy.db<br/>gitignored")]
+    NB --> TDB
+  end
+
+  subgraph raw["2. Raw dumps (Git LFS)"]
+  TDB -->|"export_parquet.py"| RAW["resources/db/parquet/<br/>7 table dumps"]
+  end
+
+  subgraph derived["3. Derived (local build)"]
+  RAW -->|"build_reference.py"| BR["transform/reference/parquet/<br/>bridge_*.parquet"]
+  end
+
+  subgraph sample["Per-sample"]
+  RPKM["RPKM_table.tsv<br/>on mount"] -->|"run_pipeline / dbt"| DUCK[("vis/runs/.../sample.duckdb")]
+  BR --> DUCK
+  end
+```
+
+| Layer | Description | Location | Committed? | Used by |
+| --- | --- | --- | --- | --- |
+| `taxonomy.db` | SQLite built from notebooks; source of truth | `resources/db/` | No | Export only |
+| Raw Parquet | Table dumps from taxonomy DB | `resources/db/parquet/` | Yes (Git LFS) | Bridge build; Network layout (`pathway_*`) |
+| Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | No | dbt pipeline; baked into container |
+| Per-sample DuckDB | Enriched mart from RPKM + bridges | `{DATA_ROOT}/vis/runs/{id}/` | No | Viz queries at runtime |
+
+### Workflow
+
 **Before committing updated Parquet:**
 
 - Re-run exploratory analysis and validate assumptions — [analytics/exploration/README.md](analytics/exploration/README.md)
 - Review [analytics/exploration/docs/data-model.md](analytics/exploration/docs/data-model.md) regression targets
 - Run `cd analytics && uv run pytest` after rebuilding bridges locally
-
-**Workflow:**
 
 1. Rebuild `resources/db/taxonomy.db` from notebooks under `resources/scripts/` (when upstream data changes)
 2. Export raw Parquet:
@@ -318,5 +321,3 @@ Infrequent maintainer workflow — **not** part of routine app development or co
    ```
 
 6. When ready to ship reference data with a release, [build the container image](#building-the-container-image)
-
-Layer overview: [Reference data](#reference-data) (Development section).

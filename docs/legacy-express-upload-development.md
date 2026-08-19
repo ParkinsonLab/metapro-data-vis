@@ -6,10 +6,8 @@ This stack does **not** match mounted-data processing, dbt, or `sample.duckdb` a
 
 ## Prerequisites
 
-Same as the main [Development](../README.md#development) section:
+Same as the main [Contributing prerequisites](../README.md#contributing-prerequisites), plus:
 
-- Node 22 (`npm install`)
-- Python 3.14 (`cd analytics && uv sync`) — only if you run analytics tests alongside legacy work
 - `resources/db/taxonomy.db` — **required**; not in git (see below)
 
 ## Build `taxonomy.db`
