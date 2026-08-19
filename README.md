@@ -261,7 +261,9 @@ Assumes [Prerequisites](#prerequisites).
 
 #### Reference data
 
-Viz needs reference taxonomy and pathway tables that are **not** part of your MetaPro mount. The FastAPI + dbt stack also writes per-sample DuckDB on the mount when you process a dataset:
+Shared taxonomy and pathway tables used by every dataset. They are **not** part of your MetaPro mount and are what this section describes how to refresh.
+
+**Sample data** (each `RPKM_table.tsv` on the mount and the processed `sample.duckdb` under `{DATA_ROOT}/vis/runs/`) is separate — user-provided, per-run output, not reference data.
 
 ```mermaid
 flowchart LR
@@ -278,19 +280,15 @@ flowchart LR
   subgraph derived["3. Derived (local build)"]
   RAW -->|"build_reference.py"| BR["transform/reference/parquet/<br/>bridge_*.parquet"]
   end
-
-  subgraph sample["Per-sample"]
-  RPKM["RPKM_table.tsv<br/>on mount"] -->|"run_pipeline / dbt"| DUCK[("vis/runs/.../sample.duckdb")]
-  BR --> DUCK
-  end
 ```
 
-| Layer | Description | Location | Committed? | Used by |
-| --- | --- | --- | --- | --- |
-| `taxonomy.db` | SQLite built from notebooks; source of truth | `resources/db/` | No | Export only |
-| Raw Parquet | Table dumps from taxonomy DB | `resources/db/parquet/` | Yes (Git LFS) | Bridge build; Network layout (`pathway_*`) |
-| Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | No | dbt pipeline; baked into container |
-| Per-sample DuckDB | Enriched mart from RPKM + bridges | `{DATA_ROOT}/vis/runs/{id}/` | No | Viz queries at runtime |
+At runtime, processing a sample joins mount `RPKM_table.tsv` with bridge Parquet to write `sample.duckdb` — that artifact is sample data, not covered by the refresh workflow below.
+
+| Layer | Description | Location | Committed? |
+| --- | --- | --- | --- |
+| `taxonomy.db` | SQLite built from notebooks; source of truth | `resources/db/` | No |
+| Raw Parquet | Table dumps from taxonomy DB | `resources/db/parquet/` | Yes (Git LFS) |
+| Bridge Parquet | Denormalized joins for dbt | `analytics/transform/reference/parquet/` | No |
 
 #### Workflow
 
